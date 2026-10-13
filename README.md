@@ -6,4 +6,4 @@ tournament's penalty CSV for the head judge, and cleans the channels up afterwar
 day's tournaments and staff from
 [play-pokemon-attendance-web](https://github.com/Towerism/play-pokemon-attendance-web).
 
-Design (proposed, under review): [`docs/architecture/`](docs/architecture/README.md).
+Design (accepted 2026-10-13): [`docs/architecture/`](docs/architecture/README.md).
