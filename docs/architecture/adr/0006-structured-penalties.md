@@ -1,6 +1,6 @@
 # ADR-0006: Penalties as structured records through `/penalty`, with the catalog as data
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

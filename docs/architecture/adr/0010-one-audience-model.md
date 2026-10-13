@@ -1,6 +1,6 @@
 # ADR-0010: One audience model for Discord and the website
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

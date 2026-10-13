@@ -1,6 +1,6 @@
 # ADR-0009: One Docker container on Unraid, beside attendance
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

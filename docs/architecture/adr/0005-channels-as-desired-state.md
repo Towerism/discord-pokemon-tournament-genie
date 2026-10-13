@@ -1,6 +1,6 @@
 # ADR-0005: Fresh channels per day, provisioned as desired state with member overwrites
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

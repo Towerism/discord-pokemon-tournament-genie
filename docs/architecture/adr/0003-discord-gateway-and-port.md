@@ -1,6 +1,6 @@
 # ADR-0003: Discord through discord.js over the gateway, behind a `DiscordGateway` port
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0001: Modular monolith on Nuxt 4, with the Discord bot in the same process
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

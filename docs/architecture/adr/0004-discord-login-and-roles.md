@@ -1,6 +1,6 @@
 # ADR-0004: Website login with Discord OAuth; access from guild roles and day roles
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

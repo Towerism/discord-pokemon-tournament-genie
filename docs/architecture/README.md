@@ -1,6 +1,6 @@
 # Tournament Genie — System Architecture
 
-Status: **Proposed** (awaiting the owner's review) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
+Status: **Accepted** (by the owner, 2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
 
 ## 1. Context
 
@@ -909,13 +909,13 @@ Answered by the owner on 2026-10-13:
 
 | ADR | Title | Status |
 | --- | ----- | ------ |
-| [0001](adr/0001-modular-monolith-nuxt-with-bot.md) | Modular monolith on Nuxt 4 with the Discord bot in-process | Proposed |
-| [0002](adr/0002-sqlite-drizzle.md) | SQLite (WAL) + Drizzle, exports on disk | Proposed |
-| [0003](adr/0003-discord-gateway-and-port.md) | Discord through discord.js over the gateway, behind a `DiscordGateway` port | Proposed |
-| [0004](adr/0004-discord-login-and-roles.md) | Website login with Discord OAuth; access from guild roles and day roles | Proposed |
-| [0005](adr/0005-channels-as-desired-state.md) | Fresh channels per day, provisioned as desired state with member overwrites | Proposed |
-| [0006](adr/0006-structured-penalties.md) | Penalties as structured records through `/penalty`, catalog as data | Proposed |
-| [0007](adr/0007-close-out-export-then-delete.md) | Close-out: lock, export, then delete after a grace period | Proposed |
-| [0008](adr/0008-attendance-integration.md) | Pull a day snapshot from attendance through a read-only token API | Proposed |
-| [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Proposed |
-| [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Proposed |
+| [0001](adr/0001-modular-monolith-nuxt-with-bot.md) | Modular monolith on Nuxt 4 with the Discord bot in-process | Accepted |
+| [0002](adr/0002-sqlite-drizzle.md) | SQLite (WAL) + Drizzle, exports on disk | Accepted |
+| [0003](adr/0003-discord-gateway-and-port.md) | Discord through discord.js over the gateway, behind a `DiscordGateway` port | Accepted |
+| [0004](adr/0004-discord-login-and-roles.md) | Website login with Discord OAuth; access from guild roles and day roles | Accepted |
+| [0005](adr/0005-channels-as-desired-state.md) | Fresh channels per day, provisioned as desired state with member overwrites | Accepted |
+| [0006](adr/0006-structured-penalties.md) | Penalties as structured records through `/penalty`, catalog as data | Accepted |
+| [0007](adr/0007-close-out-export-then-delete.md) | Close-out: lock, export, then delete after a grace period | Accepted |
+| [0008](adr/0008-attendance-integration.md) | Pull a day snapshot from attendance through a read-only token API | Accepted |
+| [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Accepted |
+| [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |

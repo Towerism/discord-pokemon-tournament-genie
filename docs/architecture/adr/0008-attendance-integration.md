@@ -1,6 +1,6 @@
 # ADR-0008: Pull a day snapshot from attendance through a read-only token API
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 - Companion: needs a matching ADR, issue and spec in
   [play-pokemon-attendance-web](https://github.com/Towerism/play-pokemon-attendance-web) for the endpoint and its token.

@@ -1,6 +1,6 @@
 # ADR-0007: Close-out: lock, export, then delete after a grace period
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

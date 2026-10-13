@@ -1,6 +1,6 @@
 # ADR-0002: SQLite (WAL) + Drizzle, with exports as files on disk
 
-- Status: Proposed
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context
