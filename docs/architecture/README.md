@@ -287,7 +287,9 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
 
 - **Pull, read-only, on demand.** Genie calls one new attendance endpoint,
   `GET /api/integrations/v1/days/{date}`, with a bearer token minted in attendance's Settings. Attendance
-  answers with that date's tournaments and the staff assigned to each:
+  answers with the date's tournaments of **every professor connected to attendance** (up to 10, its
+  ADR-0008), each read as its organizer (its ADR-0009), and the staff assigned to each. A tournament that
+  two professors list appears once:
 
   ```json
   {
@@ -300,23 +302,40 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
         "displayId": "25-10-000123",
         "startsAt": "2026-10-18T16:00:00Z",
         "game": "tcg",
+        "organizer": { "playerId": "2223334", "name": "Prof. Oak" },
         "staff": [
           { "playerId": "1234567", "name": "Ash K.", "role": "headjudge" },
           { "playerId": "7654321", "name": "Misty W.", "role": "judge" }
         ]
       }
     ],
-    "unread": []
+    "professors": [
+      { "playerId": "2223334", "name": "Prof. Oak", "status": "read" },
+      { "playerId": "5556667", "name": "Prof. Elm", "status": "unread", "reason": "needs_reconnect" }
+    ]
   }
   ```
 
-  `game` is attendance's product for the tournament when known, otherwise `null`; `unread` names
-  professors attendance couldn't read (its ADR-0009). Staff come from attendance's desired assignments
+  `game` is attendance's product for the tournament when known, otherwise `null`. `organizer` is the
+  connected professor the tournament was read as. `professors` names every connected professor with
+  `status` `read` or `unread`, and for an unread one a `reason` (`needs_reconnect`, `read_failed`). Staff come from attendance's desired assignments
   (`staff_assignment`, live rows), so staff the organizer picked but hasn't applied in play-tools yet
   still come across.
-- **A snapshot, not a live link.** Importing copies the data into Genie's day plan, marked
-  `source = attendance` with the upstream ids. The organizer can edit freely afterwards. **Refresh from
-  attendance** re-pulls and shows a diff (added / removed / role changed) to accept, never a silent overwrite.
+- **A snapshot, not a live link.** One import brings in **all** the returned tournaments as events in
+  Genie's day plan, marked `source = attendance` with the upstream ids, and records each event's
+  attendance organizer (`attendance_organizer_player_id`, `attendance_organizer_name`). The day plan shows
+  each event's organizer. The organizer can edit freely afterwards, including removing events they don't
+  want. **Refresh from attendance** re-pulls and shows a diff (added / removed / role changed) to accept,
+  never a silent overwrite.
+- **Unreadable organizers never cost data.** An import or refresh with any `unread` professor still
+  imports everyone else's tournaments, and shows a warning naming each unread professor and the reason.
+  The refresh diff, a pure function in `attendance-import`, **never proposes removing an event, or any of
+  its staff, whose organizer is unread** in that refresh. Those events show as "not refreshed: Prof. Elm
+  couldn't be read". Removal is proposed only for an event whose organizer was read and whose tournament
+  is gone from the response. This matters because removals revoke channel access at once (§6.3). A
+  professor who was unread at the first import and is read later simply shows up as additions.
+- **No connected organizers, no import.** If `professors` is empty, the import is refused
+  (`422 no_connected_organizers`) and the day plan doesn't change.
 - **Same timezone or no import.** If the response's `timezone` differs from Genie's `TZ`, the import is
   refused with both timezones shown (`422 timezone_mismatch`), because start times and the day's date
   would otherwise shift.
@@ -327,7 +346,8 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
 - **Player ID → Discord user** is Genie's job (§5.3). Imported staff without a linked Discord member show
   as "not linked" and are not given channel access until linked.
 - **Companion change in attendance.** The endpoint, its token and its ADR live in the attendance repo and
-  need their own issue and spec there. Genie's adapter is built against a recorded contract fixture and
+  need their own issue and spec there. The endpoint aggregates across every connected professor, as
+  attendance's own day view already does (its ADR-0009, #75). Genie's adapter is built against a recorded contract fixture and
   an in-process fake, so the two can be built in parallel.
 
 ## 5. Domain model and data
@@ -372,7 +392,7 @@ erDiagram
 | `blueprint`, `blueprint_channel` | channel `key`, `scope` (`day`/`per_event`), `kind` (`text`/`voice`), `name_pattern` (e.g. `{event}-penalties`), `audience` (`all_staff`/`event_staff`/`head_judges`), `purpose` (`general`/`floor`/`penalties`), `topic`, `position` | Pure data; `shared/blueprints` turns it into the desired channel set. A default blueprint is seeded (§6.2). |
 | `day_template`, `day_template_event` | template: `id`, `name` (unique), `blueprint_id`; event: `template_id`, `name`, `game`, `start_time`, `position` | Pre-fills a new day's events ("Saturday: TCG LC + VGC"). |
 | `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `grace_until?`, `source` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
-| `event` | `id`, `day_id`, `name`, `slug`, `game` (`tcg`/`vgc`/`go`/`other`), `game_confirmed`, `starts_at`, `attendance_tournament_id?`, `tournament_id?` | `slug` is unique within the day and drives channel names. `game_confirmed` is false only when attendance sent `game: null`, and opening the day requires it. `tournament_id` is the play-tools display ID (`25-12-001050`), the CSV's *Tournament ID*: imported from attendance or typed in, and required before the event's CSV can be exported. |
+| `event` | `id`, `day_id`, `name`, `slug`, `game` (`tcg`/`vgc`/`go`/`other`), `game_confirmed`, `starts_at`, `attendance_tournament_id?`, `attendance_organizer_player_id?`, `attendance_organizer_name?`, `tournament_id?` | `slug` is unique within the day and drives channel names. `game_confirmed` is false only when attendance sent `game: null`, and opening the day requires it. The attendance organizer fields record which connected professor the tournament came from, for display and for the refresh rule (§4.2). `tournament_id` is the play-tools display ID (`25-12-001050`), the CSV's *Tournament ID*: imported from attendance or typed in, and required before the event's CSV can be exported. |
 | `day_staff` | `day_id`, `staff_member_id`, `is_day_lead` | Who has access to the day's channels at all. |
 | `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`) | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
@@ -429,8 +449,9 @@ The default blueprint (editable, more can be saved):
 the bot). Blueprints can't widen a per-event channel's audience; day-wide channels are for all of the
 day's staff or its head judges.
 
-The organizer creates a day (date, title, blueprint), then either **imports from attendance** or adds
-events and staff by hand. A **day template** can pre-fill typical events (e.g. "Saturday: TCG LC + VGC").
+The organizer creates a day (date, title, blueprint), then either **imports from attendance** (every
+connected organizer's tournaments for the date, each shown with its organizer, §4.2) or adds events and
+staff by hand. A **day template** can pre-fill typical events (e.g. "Saturday: TCG LC + VGC").
 The page shows a live **preview** of the exact channels and who can see each, computed by the same pure
 function that provisioning uses.
 
@@ -675,7 +696,7 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST/PATCH/DELETE /api/days/{id}/events[/{eventId}]` | organizer | Events |
 | `PUT /api/days/{id}/staff` | organizer | Day and event staff (full replace, returns the diff) |
 | `GET /api/days/{id}/preview` | organizer, day head judges | Desired channels and audiences |
-| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns a diff to accept (`422 timezone_mismatch` when the timezones differ, §4.2) |
+| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ diff, unreadProfessors }` to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, §4.2) |
 | `POST /api/days/{id}/import/accept` | organizer | Apply an import diff (removals queue a sync, §6.3) |
 | `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id) |
 | `GET /api/jobs/{id}`, `GET /api/jobs/{id}/events` (SSE) | as the day | Progress |
@@ -798,11 +819,13 @@ A case may only be added or changed together with a real-guild observation.
 | Foreign guild / public bot | Unit (router) + integration (wizard) | A foreign-guild or DM interaction is dropped. `botPublic = true` blocks setup |
 | Job timer | Unit with a fake clock | A due item runs exactly once. A due time persisted before a restart runs at boot. The grace period ends on the fake clock |
 | Attendance adapter | Contract, against a recorded fixture | Diff of a refresh; attendance down; a timezone mismatch is refused with both zones named; `game: null` → unconfirmed `other` |
+| Multi-organizer import | Contract, against a recorded fixture with two read professors and one unread | Every read professor's tournaments become events with their organizer. A tournament two professors list appears once. The warning names the unread professor. No connected professors → `422 no_connected_organizers` and an unchanged plan |
+| Refresh diff across organizers | Unit, property-based over random snapshot pairs and read/unread professor sets | Never proposes removing an event or its staff whose organizer is unread; proposes removal only for a read organizer's absent tournament |
 | E2E (Playwright) | E2E | Only the critical journeys: first-run setup (including the owner login inside the wizard) against a fake Discord; plan → open → close a day |
 
 - **Coverage targets, set by risk** (branch coverage):
   - 95% for the permission resolver, `lockedOverwrites()`, `canSee()`, the privacy audit and the purge gate;
-  - 90% for penalties and the CSV writer;
+  - 90% for penalties, the CSV writer and the attendance import diff;
   - 85% for the jobs module;
   - 60% for UI pages.
 - **Flake hazards, and how each is made deterministic:**
@@ -867,7 +890,7 @@ A case may only be added or changed together with a real-guild observation.
 | M0 | Spikes S1–S4 (S3 delivers the recorded permission cases) |
 | M1 Skeleton | Nuxt app, DB, vault, secret bootstrap, setup wizard (owner bound in the wizard, Public Bot check, setup lock-out), Discord login, login audit, organizer allowlist, bot online (bound guild only), jobs module and timer, image + CI + Unraid template |
 | M2 Days and channels | Directory, blueprints, day templates, day plan, preview, `canSee()` (ADR-0010), open/sync jobs, auto-sync on removal, privacy audit, the fake's permission model and S3 contract suite |
-| M3 Attendance import | Adapter + fake, import/refresh diff, timezone check, unconfirmed games, linking by player ID (needs the companion attendance issue) |
+| M3 Attendance import | Adapter + fake, import of every connected organizer's tournaments, refresh diff that never removes an unread organizer's events, timezone check, unconfirmed games, linking by player ID (needs the companion attendance issue) |
 | M4 Penalties | Catalog (by game and season), `/penalty` with idempotency keys, cards, edit/void, website page, CSV |
 | M5 Close-out | Lock with explicit denies, transcripts including threads, high-water marks, attachment resolution and skip/retry/discard, safe serving, exports page, grace + purge, organizer post-close corrections with re-export, retention sweep |
 
