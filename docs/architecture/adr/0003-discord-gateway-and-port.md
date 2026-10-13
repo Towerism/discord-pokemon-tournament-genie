@@ -32,11 +32,29 @@ Option 1.
 - **The port.** All Discord calls go through `DiscordGateway` (architecture §4.1). Only
   `server/modules/discord/adapters/discordjs/` imports discord.js, enforced by ESLint. Inbound
   interactions are converted to plain `InboundInteraction` values before they reach `server/bot/`.
-- **The fake.** An in-memory fake of the port, kept in step with the adapter by a shared contract test
-  suite, models guilds, members, roles, channels, overwrites and effective View permission. Privacy
-  tests run against it.
+- **The fake.** An in-memory fake of the port models guilds, members, roles, channels, threads and
+  overwrites. It computes effective permissions in Discord's documented order:
+  1. guild base permissions of `@everyone` and the member's roles, where Administrator grants everything;
+  2. the channel's `@everyone` overwrite;
+  3. its role overwrites;
+  4. the member overwrite.
+
+  It models View Channel, Read Message History, Send Messages, Send Messages in Threads, Create
+  Public/Private Threads and Add Reactions, not View alone. Privacy and lock tests run against it.
+- **The fake's oracle is recorded reality.** Spike S3 delivers a set of **recorded permission cases**:
+  JSON fixtures of a guild, roles, overwrites, member and channel, each with the effective permissions
+  observed on a real test guild. One table-driven contract suite runs those cases:
+  - against the fake, in CI;
+  - against the discord.js adapter, on the test guild before each release and whenever the cases change.
+
+  A case may only be added or changed together with a real-guild observation. That way the fake can't
+  quietly encode the same wrong assumption as the design.
 - **Commands** are guild-scoped and registered on every boot from a single definition list.
-- **Every handler authorizes from Genie's data**, not from Discord command permissions alone.
+- **Bound guild only.** Setup refuses to finish while the application's "Public Bot" flag is on
+  (`getApplication().botPublic`). The interaction router drops, and logs, any interaction from another
+  guild and any DM. Finding itself in an extra guild is a page-header warning, not a boot failure.
+- **Every handler authorizes from Genie's data** through `canSee()` (ADR-0010), not from Discord
+  command permissions alone.
 - **Interaction replies** are deferred whenever work may exceed Discord's 3-second window.
 
 ## Consequences
@@ -44,7 +62,8 @@ Option 1.
 - (+) No public endpoint, no signature handling; works on a LAN install.
 - (+) Rate limits, reconnects and gateway resumes are handled by a maintained library.
 - (+) Channel-privacy logic is tested deterministically against the fake.
-- (−) The fake can drift from real Discord behaviour. Mitigated by the contract suite (run against the
-  adapter manually on a test guild before releases) and spike S3.
+- (−) The fake can drift from real Discord behaviour. Mitigated by building its cases from S3's
+  real-guild observations and running the same suite against the adapter before each release and on every
+  case change. Recording a case still needs a person and a test guild.
 - (−) Needs two privileged intents (GuildMembers, MessageContent); fine under 100 guilds, checked at setup.
 - (−) A long-lived WebSocket ties Genie to a long-running host (already true by ADR-0001).

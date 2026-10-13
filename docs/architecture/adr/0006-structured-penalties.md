@@ -50,28 +50,41 @@ Option 1.
   penalty:<autocomplete>`, offering the clipboard sheet's options (prize penalties only for TCG), opens a modal with **Competitor's Player ID** and **Notes**. The judge's
   player ID comes from the directory; a judge without one is told to `/link` first. Run in an event's
   penalty channel, the event is implied; elsewhere in the day, an `event:` option is required.
-- **Stored as data**, one row per future CSV line. No competitor name is collected.
+- **Stored as data**, one row per future CSV line. No competitor name is collected. Each row has a
+  unique `idempotency_key`: the interaction ID for `/penalty`, or a UUID the website form generates.
+  A repeated submission returns the existing penalty instead of recording a second one.
 - **Edits and voids** are revisions (`penalty_revision`), never in-place loss:
   - The recording judge may edit for 15 minutes.
-  - The event's head judges and the organizer may edit or void until the day is closed.
-  - The bot edits the card to match.
+  - The event's head judges and organizers may edit or void until the day is closed. "The event's head
+    judges" is decided by `canSee()` (ADR-0010): holding the head-judge Discord role gives no reach into
+    another event.
+  - After close (`closed` or `purged`), and until retention deletes the penalty, **only organizers** may
+    edit or void, on the website. Each such change re-exports the event's CSV and voided CSV as new
+    `export_file` rows with new hashes, and the previous rows are kept and marked `superseded_by`. The day
+    never reopens.
+  - The bot edits the card to match, but only while its channel still exists.
 - **The card is a view.** Deleting the message doesn't delete the penalty; "Repost card" restores it.
-- **Catalog as data** (`penalty_category`, `penalty_type`, scoped by game and season), seeded with the
+- **Catalog as data** (`penalty_category`, `penalty_type`, scoped by game and season; a day's `season`
+  is copied from Settings' current season when the day is created), seeded with the
   clipboard sheet's labels (architecture §6.7) and editable in Settings. The CSV writes the same labels
   judges pick. A guideline change is an edit, not a release.
-- **CSV writer** is pure (`shared/penalties/csv.ts`) and guarded by a golden file built from the sample:
+- **CSV writer** is pure (`shared/penalties/csv.ts`) and guarded by a golden file. The golden file follows
+  the sample's structure but uses the clipboard labels Genie writes, so it is not a byte-for-byte copy of
+  the sample:
   - the sample's columns and order;
   - quoting only when needed, LF line endings;
   - labels and notes verbatim (no formula prefixing).
 
   It refuses to export while an event lacks a Tournament ID.
 - **Not collected:** the competitor's name and age division (on the clipboard sheet, not in the CSV).
-- **Website parity:** head judges can view, add, edit and void on the website too.
+- **Website parity:** an event's head judges can view, add, edit and void that event's penalties on the
+  website too.
 
 ## Consequences
 
 - (+) The CSV is exact by construction; no end-of-day cleanup.
 - (+) Fewer minors' data stored than free text would hold (no names).
-- (+) Audit trail of every change.
+- (+) Audit trail of every change, including organizer corrections after close.
+- (+) A mistake found while submitting can still be fixed, and the CSV is regenerated with a new hash.
 - (−) Judges must learn one command, and must link a player ID once.
 - (−) Discussion about a penalty still happens in free text; it lands in the transcript, not the CSV.

@@ -44,7 +44,14 @@ Option 1.
   scope. Genie keeps it in its vault and sends it as `Authorization: Bearer`. Revocable in attendance.
 - **Snapshot semantics:** importing copies the data into Genie's day plan with `source = attendance` and
   upstream IDs. **Refresh** re-pulls and shows a diff to accept. Genie never silently overwrites
-  edits, and every field can be entered by hand if attendance is down.
+  edits, and every field can be entered by hand if attendance is down. Accepting a diff that removes
+  staff queues a sync at once (ADR-0005).
+- **Same timezone or no import.** If the response's `timezone` differs from Genie's `TZ`, Genie refuses
+  the import (`422 timezone_mismatch`) and shows both zones, because start times and the day's date would
+  otherwise shift.
+- **Unknown game.** `game: null` is imported as `game = 'other'` with `game_confirmed = false`. The
+  organizer sets the game before the day can be opened, because the game decides which penalties are
+  offered.
 - **Identity mapping** is Genie's (architecture §5.3). Staff link a player ID to their Discord account
   (organizer-linked, or self-claimed and organizer-confirmed). Unlinked imported staff get no channel
   access until linked. Imported names only seed new directory rows.
