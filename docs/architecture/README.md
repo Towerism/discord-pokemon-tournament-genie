@@ -388,8 +388,9 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
   access away on an open day, or undo a hand edit, start unchecked.
 - **Only what an import brought is taken back.** Roles and day-staff rows an import creates are flagged
   `imported`; a refresh proposes removing only those, never staff added by hand (removing a whole event is
-  the one exception, and the diff names the hand-added staff it would end). An imported day staffer whose
-  last role a refresh ends leaves the day.
+  the one exception, and the diff names the hand-added staff it would end). A role the organizer changes by
+  hand loses its flag: from then on it is theirs. An imported day staffer whose last role a refresh ends
+  leaves the day.
 - **Removing an event from an open day retires it.** On a `draft` day an accepted removal deletes the event.
   On an `open` day it removes every role on it (so the removal sync revokes access at once) and clears its
   attendance link (so later refreshes ignore it); the event and its channels stay for close-out's export.
@@ -799,7 +800,7 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST/PATCH/DELETE /api/days/{id}/events[/{eventId}]` | organizer | Events |
 | `PUT /api/days/{id}/staff` | organizer | Day and event staff (full replace, returns the diff) |
 | `GET /api/days/{id}/preview` | organizer, day head judges | Desired channels and audiences |
-| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ snapshotId, planRevision, fetchedAt, diff }` (the diff holds the unread professors) to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, `409 import_in_progress`, `5xx attendance_*` when attendance can't be used, §4.2) |
+| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ snapshotId, planRevision, dayState, fetchedAt, diff }` (the diff holds the unread professors) to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, `409 import_in_progress`, `5xx attendance_*` when attendance can't be used, §4.2) |
 | `POST /api/days/{id}/import/accept` | organizer | Body `{ snapshotId, planRevision, keys }`: apply the chosen items of the latest pull in one transaction (removals queue a sync, §6.3; `409 plan_changed`, `409 snapshot_stale`, `422 unknown_items`) |
 | `GET/PUT/DELETE /api/settings/attendance` | organizer | The attendance connection: base URL and a token hint, never the token. `PUT` needs an allowed origin (ADR-0013) and the token again for a new base URL (`422 token_required`) |
 | `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id) |
