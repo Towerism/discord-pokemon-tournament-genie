@@ -90,6 +90,29 @@ describe('enqueue and runDue', () => {
   });
 });
 
+describe('enqueueUnlessQueued', () => {
+  it('returns the queued sync or provision of the day instead of a second job', async () => {
+    const release = gate();
+    jobs.register('sync', async () => release.opened);
+    jobs.register('provision', async () => {});
+    const first = jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 });
+    expect(first.coalesced).toBe(false);
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 })).toEqual({ jobId: first.jobId, coalesced: true });
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 2 }).coalesced).toBe(false);
+
+    const provision = jobs.enqueueUnlessQueued({ kind: 'provision', dayId: 3 });
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 3 })).toEqual({ jobId: provision.jobId, coalesced: true });
+
+    // A running job reads the plan as it was, so a change after it starts needs a new one.
+    const running = jobs.runDue();
+    const second = jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 });
+    expect(second.coalesced).toBe(false);
+    expect(second.jobId).not.toBe(first.jobId);
+    release.open();
+    await running;
+  });
+});
+
 describe('the per-day lease', () => {
   it('runs at most one job per day at a time, while other days run alongside', async () => {
     const held = gate();

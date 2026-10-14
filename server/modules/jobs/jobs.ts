@@ -16,6 +16,8 @@ export type JobHandler = (ctx: JobContext) => Promise<void>;
 export interface Jobs {
   register(kind: JobKind, handler: JobHandler, opts?: { retryOnBoot?: boolean }): void;
   enqueue(job: { kind: JobKind; dayId?: number; payload?: unknown; dueAt?: number }): number;
+  /** A sync or provision for the day, unless one is already queued: then that one (FR-35). Atomic. */
+  enqueueUnlessQueued(job: { kind: 'provision' | 'sync'; dayId: number }): { jobId: number; coalesced: boolean };
   /** Claims every due job the per-day lease allows and resolves when they have all finished. */
   runDue(): Promise<void>;
   /** At boot, before the first `runDue`: running jobs become interrupted; retry-on-boot kinds are queued again. */
@@ -135,6 +137,17 @@ export function createJobs(opts: {
       });
       kick();
       return id;
+    },
+    enqueueUnlessQueued(job) {
+      if (!handlers.has(job.kind)) throw new UnknownJobKindError(`No handler is registered for job kind ${job.kind}.`);
+      const result = store.transaction(() => {
+        const queued = store.findQueued(['provision', 'sync'], job.dayId);
+        if (queued !== null) return { jobId: queued, coalesced: true };
+        const jobId = store.insert({ kind: job.kind, dayId: job.dayId, payload: null, dueAt: null, createdAt: clock.now() });
+        return { jobId, coalesced: false };
+      });
+      if (!result.coalesced) kick();
+      return result;
     },
     runDue,
     recover() {

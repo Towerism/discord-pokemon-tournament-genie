@@ -37,6 +37,8 @@ export interface JobStore {
   /** Queued jobs due at `now` (or with no due time), oldest first. */
   listDue(now: number): JobView[];
   listByState(state: JobState): JobView[];
+  /** The oldest queued job of one of `kinds` for the day, or `null`. */
+  findQueued(kinds: readonly JobKind[], dayId: number): number | null;
   /** Days that have a running job: the per-day lease. */
   leasedDays(): Set<number>;
   /** `queued` → `running`, counting the attempt. False when the job wasn't queued any more. */

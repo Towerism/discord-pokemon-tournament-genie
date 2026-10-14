@@ -36,6 +36,15 @@ export function createSqliteJobStore(db: Db): JobStore {
     listByState(state) {
       return db.select().from(job).where(eq(job.state, state)).orderBy(asc(job.id)).all().map(view);
     },
+    findQueued(kinds, dayId) {
+      const row = db
+        .select({ id: job.id })
+        .from(job)
+        .where(and(eq(job.state, 'queued'), eq(job.dayId, dayId), inArray(job.kind, [...kinds])))
+        .orderBy(asc(job.id))
+        .get();
+      return row?.id ?? null;
+    },
     leasedDays() {
       const rows = db
         .selectDistinct({ dayId: job.dayId })
