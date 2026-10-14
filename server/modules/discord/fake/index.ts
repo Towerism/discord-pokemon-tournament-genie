@@ -25,6 +25,8 @@ import {
 
 export interface FakeApplication extends ApplicationInfo {
   botUserId: string;
+  /** What the OAuth token exchange accepts (the HTTP fake). */
+  clientSecret?: string;
 }
 
 export interface FakeGuild {
@@ -150,8 +152,8 @@ export function createFakeDiscord(): FakeDiscord {
       };
       const gateway: DiscordGateway = {
         async getApplication() {
-          const { botUserId: _bot, ...info } = appOf();
-          return { ...info };
+          const { id, botPublic, flags } = appOf();
+          return { id, botPublic, flags };
         },
         async listGuilds() {
           const app = appOf();

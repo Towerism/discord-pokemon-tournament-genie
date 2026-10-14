@@ -25,7 +25,7 @@ export const ALL_PERMISSIONS = INVITE_PERMISSIONS.reduce((sum, name) => sum | PE
  */
 export function storeWorld() {
   const discord = createFakeDiscord();
-  discord.addApplication({ id: IDS.app, token: BOT_TOKEN });
+  discord.addApplication({ id: IDS.app, token: BOT_TOKEN, clientSecret: CLIENT_SECRET });
   discord.addGuild({ id: IDS.guild, name: 'Pallet Town Games' });
   discord.addRole(IDS.guild, { id: IDS.organizerRole, name: 'Organizer', position: 2 });
   discord.addRole(IDS.guild, { id: IDS.headJudgeRole, name: 'Head judge', position: 1 });

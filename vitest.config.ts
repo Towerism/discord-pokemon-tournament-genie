@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
-      include: ['shared/**/*.ts', 'server/**/*.ts'],
+      // The unit project's reach. Routes, plugins and server/utils run in the built app (server project).
+      include: ['shared/**/*.ts', 'server/modules/**/*.ts', 'server/bot/**/*.ts', 'server/bootstrap/env.ts'],
       exclude: ['**/*.test.ts', 'server/db/migrations/**', 'server/modules/discord/adapters/**'],
       // Set by risk (architecture §11): the access decision gates every login and route.
       thresholds: {

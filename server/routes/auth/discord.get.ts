@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const { discord } = useRuntimeConfig(event);
   const log = useLogger('login');
-  return defineOAuthDiscordEventHandler({
+  const login = defineOAuthDiscordEventHandler({
     config: {
       clientId: client.clientId,
       clientSecret: client.clientSecret,
@@ -40,5 +40,13 @@ export default defineEventHandler(async (event) => {
       log.warn('Discord login failed.', { err: error });
       return sendRedirect(event, '/login?error=login_failed');
     },
-  })(event);
+  });
+  try {
+    return await login(event);
+  } catch (err) {
+    // nuxt-auth-utils passes only a 401 from the token exchange to onError; Discord answers a bad or reused code
+    // with 400, which it throws.
+    log.warn('Discord login failed.', { err });
+    return sendRedirect(event, '/login?error=login_failed');
+  }
 });
