@@ -95,21 +95,23 @@ export function computeChecks(input: CheckInput): Checks {
     else add('permissions_present', true);
   }
 
-  // The owner.
+  // The owner. Membership can only be read once the bot sees the chosen guild.
+  const live = guild !== null && guild !== 'unavailable' ? guild : null;
   if (input.ownerId === null) {
     pending('owner_bound', NOT_YET);
     pending('owner_in_guild', NOT_YET);
   } else {
     add('owner_bound', true);
     const member = input.ownerMember;
-    if (member === 'unavailable') pending('owner_in_guild', UNAVAILABLE);
+    if (guildPending) pending('owner_in_guild', guildPending);
+    else if (!live) pending('owner_in_guild', NOT_YET);
+    else if (member === 'unavailable') pending('owner_in_guild', UNAVAILABLE);
     else if (member === null) add('owner_in_guild', false, 'owner_not_in_guild');
     else add('owner_in_guild', true);
   }
 
   // The mapped roles.
   const mapped = [input.organizerRoleId, input.headJudgeRoleId];
-  const live = guild !== null && guild !== 'unavailable' ? guild : null;
   if (guildPending) {
     pending('roles_mapped', guildPending);
     pending('bot_role_above_mapped_roles', guildPending);

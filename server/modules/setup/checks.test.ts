@@ -149,6 +149,12 @@ describe('computeChecks', () => {
     expect(check(ready({ ownerMember: 'unavailable' }), 'owner_in_guild')?.detail).toBe('discord_unavailable');
   });
 
+  it('cannot tell whether the owner is a member until the bot sees the chosen guild', () => {
+    expect(check(ready({ guild: null, ownerMember: null }), 'owner_in_guild')?.detail).toBe('not_yet');
+    expect(check(ready({ guildId: null, guild: null }), 'owner_in_guild')?.detail).toBe('not_yet');
+    expect(check(ready({ guild: 'unavailable' }), 'owner_in_guild')?.detail).toBe('discord_unavailable');
+  });
+
   it('fails roles_mapped until both roles are mapped, and names a mapped role that no longer exists', () => {
     expect(check(ready({ headJudgeRoleId: null }), 'roles_mapped')?.detail).toBe('not_yet');
     const gone = ready({ guild: guild({ roles: guild().roles.filter((r) => r.id !== HJ_ROLE) }) });
