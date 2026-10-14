@@ -1,6 +1,6 @@
 # ADR-0014: `/penalty` takes category, severity and penalty as selects in the modal
 
-- Status: Proposed (M0 finding, awaiting owner acceptance)
+- Status: Accepted (2026-10-14, M0 finding)
 - Amends [ADR-0006](0006-structured-penalties.md) and architecture §6.4 and §12
 - Date: 2026-10-14
 
@@ -27,7 +27,7 @@ S2 ([findings](../../spikes/s2-penalty-form.md)), iPhone 17 Pro Max, 5 successfu
 
 ## Decision
 
-Option 1 (recommended; awaiting the owner).
+Option 1 (accepted by the owner, 2026-10-14).
 
 - `/penalty` keeps `round` (and `event` where §6.4 needs it) as command options.
 - Its modal has five `Label` components: three string selects (category, severity, penalty) and two text

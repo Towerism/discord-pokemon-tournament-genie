@@ -1,8 +1,8 @@
 # ADR-0006: Penalties as structured records through `/penalty`, with the catalog as data
 
 - Status: Accepted (2026-10-13)
-- Amendment by [ADR-0014](0014-penalty-form-selects-in-modal.md): Proposed (M0 finding, awaiting
-  owner acceptance). Category, severity and penalty would move into the modal as selects (S2).
+- Amended by [ADR-0014](0014-penalty-form-selects-in-modal.md) (accepted 2026-10-14). Category, severity
+  and penalty are selects in the modal (S2).
 - Date: 2026-10-13
 
 ## Context

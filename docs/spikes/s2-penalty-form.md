@@ -70,6 +70,6 @@ How it fits the 5-components-per-modal limit (architecture §12):
 - A string select holds at most 25 options; the clipboard sheet's lists are well under that.
 
 This contradicts §6.4, §12 and ADR-0006, which fix Variant A (options plus a 2-field modal). The
-amendment is proposed in [ADR-0014](../architecture/adr/0014-penalty-form-selects-in-modal.md), Proposed
-(M0 finding, awaiting owner acceptance). If the owner prefers to keep A, the cost is about 7.5 s per
-penalty at the median on this evidence; nothing else in the architecture depends on the choice.
+amendment is [ADR-0014](../architecture/adr/0014-penalty-form-selects-in-modal.md), accepted by the
+owner on 2026-10-14: Variant B. Keeping A would have cost about 7.5 s per penalty at the median on this
+evidence; nothing else in the architecture depends on the choice.

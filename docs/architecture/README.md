@@ -257,14 +257,13 @@ invited to the store's server. The setup wizard walks through it (§6.1).
 - **Intents.** `Guilds`, `GuildMembers` (privileged: the staff picker and resolving members), and
   `MessageContent` (privileged: transcripts of human messages). Both privileged intents are a toggle in
   the portal for a bot in fewer than 100 servers; the wizard checks them.
-- **Permissions** (the invite URL requests exactly these): View Channels, Manage Channels, Manage Roles
+- **Permissions** (the invite URL requests exactly these 13): View Channels, Manage Channels, Manage Roles
   (needed to write permission overwrites), Manage Threads (needed to list and read private threads for
-  transcripts), Send Messages, Embed Links, Attach Files, Read Message History, Use Application Commands.
-  Not Administrator.
-  - **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
-    acceptance): also Send Messages in Threads, Create Public Threads, Create Private Threads and Add
-    Reactions, 13 in all. Without Administrator, Discord lets the bot allow or deny only permissions it
-    holds itself (spike S3), and the lock (§6.5) denies these four.
+  transcripts), Send Messages, Embed Links, Attach Files, Read Message History, Use Application Commands,
+  plus Send Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions. Not
+  Administrator. The last four are there because, without Administrator, Discord lets the bot allow or
+  deny only permissions it holds itself (spike S3), and the lock (§6.5) denies them
+  ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)).
 - **How Discord resolves permissions, and why it matters here.** A member's permissions in a channel are
   computed in this order, each step overriding the last:
   1. **guild base permissions**: the `@everyone` role's permissions combined with those of the member's
@@ -277,11 +276,11 @@ invited to the store's server. The setup wizard walks through it (§6.1).
   (most guilds give `@everyone` Send Messages). Every overwrite Genie writes is designed against this
   order, and anything that must be off is an explicit **deny** (§6.5).
 
-  **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
-  acceptance): after these steps, a member without View Channels has **no** other permission in the
+  After these steps, a member without View Channels has **no** other permission in the
   channel, whatever the computed bits say. Spike S3 observed this in every such case, while discord.js's
   `permissionsFor()` still reported the underlying bits. The privacy audit and the fake gateway apply the
-  rule, so any check of another permission requires View first.
+  rule, so any check of another permission requires View first
+  ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)).
 - **Public bot off.** The application must have "Public Bot" turned off, so nobody else can invite it.
   The setup wizard reads the flag (`getApplication().botPublic`) and won't finish while it is on.
 - **Interactions over the gateway** ([ADR-0003](adr/0003-discord-gateway-and-port.md)). Slash commands,
@@ -538,15 +537,14 @@ sequenceDiagram
 ```
 
 - **Overwrites are computed, not edited.** For each channel: `@everyone` deny View; the bot allow
-  View/Send/Manage; the organizer role allow View; one **member overwrite per staffer** in the channel's
+  View/Send/Manage Channels; the organizer role allow View; one **member overwrite per staffer** in the channel's
   audience, allowing View/Send/Read History/Attach. `setOverwrites` replaces the whole list, so applying
   twice is a no-op, and anything a human changed by hand is put back on the next sync. Audiences come
   from `desiredChannels()`, the same plan `canSee()` reads ([ADR-0010](adr/0010-one-audience-model.md)).
-  - **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
-    acceptance): the bot's own overwrite, on the category and every channel, allows View, Send and Manage
-    Channels, and **not** Manage Roles. Without Administrator, Discord refuses a channel overwrite in
-    which the bot grants itself Manage Roles (spike S3). The bot's guild role keeps Manage Roles, which is
-    what lets it write overwrites.
+  - The bot's own overwrite, on the category and every channel, allows View, Send and Manage Channels,
+    and **not** Manage Roles. Without Administrator, Discord refuses a channel overwrite in which the bot
+    grants itself Manage Roles (spike S3). The bot's guild role keeps Manage Roles, which is what lets it
+    write overwrites ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)).
 - **Privacy audit.** After applying, the job re-reads every channel and computes each guild member's
   effective View using the resolution order in §4.1. Members with Administrator and members of the
   organizer role are left out of the comparison and reported in the job log ("also visible to:
@@ -593,15 +591,14 @@ sequenceDiagram
 
 - **Event from the channel.** Run in an event's penalty channel, the event is implied. Run in a day-wide
   channel, the command asks for the event (autocomplete over the day's events).
-- **Options mirror the clipboard sheet.** `round` (integer), `category` (Game Play, Deck/Team, Pace of
-  Play, Procedural, Unsporting, Cheating), `severity` (Minor / Major / Severe) and `penalty` (Warning,
-  DPC, QPC, GL, DQ, limited to those valid for the event's game: no prize penalties outside TCG). The modal
-  takes only the free-text fields: the competitor's player ID (validated as digits) and the notes. The
-  judge's player ID comes from the directory, so a judge without one is told to `/link` first.
-  **Proposed** ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md), M0 finding, awaiting owner
-  acceptance): `category`, `severity` and `penalty` move into the modal as string selects, next to the
-  player ID and notes; `round` (and `event` in a day-wide channel) stay command options. S2 timed this
-  form at a 35.8 s median on a phone against 43.3 s for the options + 2-field modal.
+- **Fields mirror the clipboard sheet.** `round` (integer, and `event` in a day-wide channel) are command
+  options. The modal holds `category` (Game Play, Deck/Team, Pace of Play, Procedural, Unsporting,
+  Cheating), `severity` (Minor / Major / Severe) and `penalty` (Warning, DPC, QPC, GL, DQ, limited to those
+  valid for the event's game: no prize penalties outside TCG) as string selects, next to the free-text
+  fields: the competitor's player ID (validated as digits) and the notes. S2 timed this form at a 35.8 s
+  median on a phone against 43.3 s for command options plus a 2-field modal
+  ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md)). The judge's player ID comes from the directory,
+  so a judge without one is told to `/link` first.
 - **Recorded once.** Each penalty carries an `idempotency_key`: the interaction ID for `/penalty`, or a
   UUID the website form generates. A repeated submission (a double tap, a replay) returns the existing
   penalty instead of creating a second one.
@@ -638,10 +635,9 @@ sequenceDiagram
    - on every member overwrite.
 
    View Channel and Read Message History stay allowed for each channel's audience, and the bot's own
-   overwrite is unchanged. Those channel-level denies also cover every thread. **Proposed**
-   ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner acceptance):
-   members can still click reactions that already exist (spike S3); reactions aren't messages, so the
-   purge's high-water check is unaffected. Penalties become read-only
+   overwrite is unchanged. Those channel-level denies also cover every thread. Members can still click
+   reactions that already exist (spike S3, [ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md));
+   reactions aren't messages, so the purge's high-water check is unaffected. Penalties become read-only
    for everyone except organizers (§6.4). The lock job checkpoints per channel like provisioning; the
    export does not start until every channel is locked.
 3. **Export:** an `export` job writes:
@@ -654,7 +650,7 @@ sequenceDiagram
      message was deleted is recorded as `skipped` with a reason (`export_attachment`).
 
    Each file is recorded with its SHA-256. If a thread can't be read, the export fails, and the purge
-   stays blocked. **Proposed** (M0 finding, awaiting owner acceptance): before listing threads, the export
+   stays blocked. Before listing threads, the export
    checks that the bot holds Manage Threads and Read Message History in each channel, and fails otherwise.
    Without Manage Threads, Discord's active-thread listing silently omits private threads the bot isn't
    in, so they would never be exported, yet nothing would count as unreadable (spike S4).
@@ -943,7 +939,7 @@ A case may only be added or changed together with a real-guild observation.
 | The website widens access past Discord | One `canSee()` for both ([ADR-0010](adr/0010-one-audience-model.md)) |
 | A removed staffer keeps access | Removals queue a sync at once; a failure raises an alarm and is retried at boot (§6.3) |
 | Bot role below a staffer's role can't manage overwrites in some setups | Setup and every job check the bot's position and permissions first and fail with a clear fix |
-| Discord limits: 500 channels per guild, 50 per category, 5 inputs per modal | Day size checked against limits before opening; the penalty form uses command options + a 2-field modal (S2); **Proposed** ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md)): three selects + two text inputs, all five modal components |
+| Discord limits: 500 channels per guild, 50 per category, 5 inputs per modal | Day size checked against limits before opening; the penalty modal uses three selects + two text inputs, all five modal components (S2, [ADR-0014](adr/0014-penalty-form-selects-in-modal.md)) |
 | Privileged intents revoked or not enabled | Checked at boot and setup; transcripts degrade to "bot messages only" with a warning rather than failing |
 | Attendance endpoint not ready | Manual entry path; import ships behind its own milestone |
 | Penalty guideline changes each season | Catalog is data with a `season`; seeded, editable |
@@ -1018,6 +1014,6 @@ Answered by the owner on 2026-10-13:
 | [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Accepted |
 | [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |
 | [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Accepted |
-| [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Proposed (M0 finding, awaiting owner acceptance) |
+| [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Accepted (2026-10-14) |
 | [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin, through Caddy | Accepted (2026-10-14) |
-| [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Proposed (M0 finding, awaiting owner acceptance) |
+| [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Accepted (2026-10-14) |

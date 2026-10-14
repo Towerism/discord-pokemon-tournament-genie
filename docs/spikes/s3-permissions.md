@@ -15,9 +15,9 @@ Discord guild, and what are the recorded cases the fake gateway must reproduce (
 - **Profile recorded:** the **candidate** profile, not the accepted one. `genie`'s own overwrite allows
   View, Send and Manage Channels, without Manage Roles, and its invite set is §4.1's nine permissions plus
   Send Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions (13 in all).
-  The amendment that would make this the architecture is
-  [ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), **Proposed** and awaiting
-  the owner.
+  The amendment that makes this the architecture is
+  [ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), accepted by the owner on
+  2026-10-14.
 
 ## Answers to the §13 questions
 
@@ -101,7 +101,7 @@ Manage Roles, which is what lets it write overwrites at all), and add the four p
 
 ## Observations that contradict the architecture
 
-| Observation | Contradicts | Proposed amendment |
+| Observation | Contradicts | Amendment (accepted) |
 | ----------- | ----------- | ------------------ |
 | `genie` can't allow itself Manage Roles in a channel overwrite | §6.3 ("the bot allow View/Send/Manage"), ADR-0005 | ADR-0012: `genie`'s overwrite allows View, Send, Manage Channels |
 | `genie` can't deny permissions it doesn't hold, and the lock denies four that §4.1 doesn't grant | §4.1's invite set, §6.5's lock | ADR-0012: invite set grows to 13 |

@@ -1,6 +1,6 @@
 # ADR-0012: Genie's channel overwrite without Manage Roles, and an invite set that covers the lock
 
-- Status: Proposed (M0 finding, awaiting owner acceptance)
+- Status: Accepted (2026-10-14, M0 finding)
 - Amends [ADR-0005](0005-channels-as-desired-state.md) and architecture §4.1, §6.3, §6.5
 - Date: 2026-10-14
 

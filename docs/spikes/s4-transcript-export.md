@@ -113,7 +113,7 @@ private thread that `listThreads` never returns isn't "unreadable"; it is invisi
 removed Manage Threads from Genie's role, the export would skip private threads Genie isn't in without
 any error, and the purge could delete them unexported.
 
-**Proposed amendment** (architecture §6.5, step 3): before listing threads, the export checks that Genie
+**Amendment** (architecture §6.5, step 3, accepted by the owner on 2026-10-14): before listing threads, the export checks that Genie
 holds Manage Threads and Read Message History in each channel, and fails (blocking the purge) if it
 doesn't. No ADR change is needed; ADR-0007 already says the purge is blocked unless the export is
 complete.
