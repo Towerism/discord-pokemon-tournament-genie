@@ -57,8 +57,12 @@ function emptyResult(c: EffectiveCase): CaseResult {
   };
 }
 
-/** Arrange → write → observe for one effective-permission case (FR-18). */
-export async function runCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunContext): Promise<CaseResult> {
+export type Prepared =
+  | { ok: true; result: CaseResult; targetId: string; threadId?: string; seededMessageId: string }
+  | { ok: false; result: CaseResult };
+
+/** Arrange and write (FR-18 steps 1–3). `s3 stage` stops here; the recorder goes on to observe. */
+export async function prepareCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunContext): Promise<Prepared> {
   const result = emptyResult(c);
   const ids = await arrangeMembers(c, ports, ctx);
 
@@ -79,19 +83,27 @@ export async function runCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunCont
   for (const [i, write] of (c.genieWrites ?? []).entries()) {
     const outcome = await ports.write.writeOverwrites(channelId, resolve(write, ids));
     if (!is2xx(outcome)) {
-      return { ...result, status: 'arrange_failed', failure: `genie write ${i + 1} refused (${describe(outcome)})` };
+      return { ok: false, result: { ...result, status: 'arrange_failed', failure: `genie write ${i + 1} refused (${describe(outcome)})` } };
     }
     lastWritten = write;
   }
   const stored = unresolve(await ports.write.readOverwrites(channelId), ids);
   result.channelOverwrites = sortOverwrites(stored);
   if (lastWritten && !sameOverwrites(stored, lastWritten)) {
-    return { ...result, status: 'arrange_failed', failure: 'read-back differs from the last genie write' };
+    return { ok: false, result: { ...result, status: 'arrange_failed', failure: 'read-back differs from the last genie write' } };
   }
 
   const targetId = threadId ?? channelId;
   const seededMessageId = await ports.arrange.seedMessage(targetId, EXISTING_EMOJI);
   if (threadId && c.thread === 'public-archived') await ports.arrange.archiveThread(threadId);
+  return { ok: true, result, targetId, seededMessageId, ...(threadId ? { threadId } : {}) };
+}
+
+/** Arrange → write → observe for one effective-permission case (FR-18). */
+export async function runCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunContext): Promise<CaseResult> {
+  const prepared = await prepareCase(c, ports, ctx);
+  if (!prepared.ok) return prepared.result;
+  const { result, targetId, threadId, seededMessageId } = prepared;
   result.computedByLibrary = await ports.write.libraryPermissions(targetId, ctx.members.subject);
 
   const raw: Partial<Record<Action, Observation>> = {};
