@@ -1,6 +1,7 @@
 # ADR-0004: Website login with Discord OAuth; access from guild roles and day roles
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
 - Date: 2026-10-13
 
 ## Context
@@ -57,7 +58,8 @@ Option 1.
   website login is written to `login_audit` with the grant that admitted it (`owner`, `organizer_role`,
   `allowlist`, `event_head_judge`). The allowlist is there for owners who don't trust everyone with
   Manage Roles.
-- Sealed session cookies, the JSON-only CSRF guard, rate limits and security headers are as in attendance.
+- Sealed session cookies; the JSON-only CSRF guard, rate limits and security headers come from
+  `@towerism/selfhost-kit`'s `jsonOnly`, `enforceRateLimit` and `securityHeadersPlugin` (ADR-0011).
 
 ## Consequences
 

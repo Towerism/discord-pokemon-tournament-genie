@@ -1,6 +1,7 @@
 # ADR-0005: Fresh channels per day, provisioned as desired state with member overwrites
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
 - Date: 2026-10-13
 
 ## Context
@@ -47,7 +48,7 @@ Option 1.
 
   `setOverwrites` replaces the full list, so applying twice changes nothing and manual edits are reverted.
   The same plan feeds `canSee()` (ADR-0010), so the website never shows more than these overwrites allow.
-- **The job** (`provision`, and `sync` for changes) runs on rails like attendance's submission jobs:
+- **The job** (`provision`, and `sync` for changes) runs in Genie's own `jobs` module:
   - a per-day lease;
   - an event log with SSE progress;
   - boot recovery;
