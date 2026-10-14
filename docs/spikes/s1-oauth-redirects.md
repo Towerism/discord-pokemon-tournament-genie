@@ -24,7 +24,14 @@ so the production redirect URI is `https://<caddy-host>/auth/discord`.
 | `http://<hostname>.local:3001` (mDNS) | yes | yes | `state_cookie_missing` | `state_cookie_missing` |
 | `http://<magicdns-name>:<port>` (Tailscale, plain HTTP) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
 | `https://<machine>.<tailnet>.ts.net` (Tailscale Serve) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
-| `https://<caddy-host>` (Caddy HTTPS reverse proxy, **the supported setup**) | not tested — no Caddy available on the test host; required before M1's login work | | | |
+| `https://<caddy-host>` (Caddy HTTPS reverse proxy, **the supported setup**) | yes | yes | **ok** | not applicable: Genie's cookies are always `Secure` |
+
+**The Caddy row** was recorded by the owner on 2026-10-14, after M1 ([#15](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/15)):
+- it tested Genie itself behind Caddy (the M1 image, not the spike harness), in Chrome (version not recorded);
+- the portal and the authorize step accepted `https://<caddy-host>/auth/discord`;
+- a "Log in with Discord" completed with Genie's `Secure`, `HttpOnly`, `SameSite=Lax` cookies;
+- the certificate is a publicly trusted ACME certificate chaining to GTS Root R4 (Google Trust Services); the
+  challenge type wasn't recorded.
 
 The plain-HTTP rows show why Genie isn't served directly: only `localhost` works, and that's for development
 and for the owner on the host itself (including over an SSH tunnel). The supported setup is the Caddy row.
@@ -65,8 +72,9 @@ The amendment is [ADR-0013](../architecture/adr/0013-https-origin-for-website-lo
 owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS reverse proxy through Caddy is
 the only supported setup, with `http://localhost` only for development and for the owner on the host itself
 (including over an SSH tunnel). Tailscale and other proxies are not supported, so their rows above stay `not
-tested`. The Caddy setup wasn't available here, so it must be tested before M1's login work: portal,
-authorize, and a full round trip with a `Secure` cookie at `https://<caddy-host>/auth/discord`.
+tested`. The Caddy setup wasn't available during the spike. The owner moved its test to before the first
+release (#11), and on 2026-10-14 confirmed the portal, the authorize step and a full round trip with a
+`Secure` cookie at `https://<caddy-host>/auth/discord` (the Caddy row above). ADR-0013 holds.
 
 ## Timebox
 

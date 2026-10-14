@@ -84,3 +84,6 @@ Option 1, with one supported setup (owner decision, 2026-10-14).
   unaffected; only the website login needs it.
 - (−) Owners who already use Tailscale Serve or another proxy must add Caddy.
 - (−) The Caddy setup wasn't tested in S1; that test is a precondition for M1's login work.
+  **Update 2026-10-14:** the owner moved the test to before the first release (#11) and confirmed it: the
+  portal, the authorize step and a full round trip with a `Secure` cookie, through Caddy, in Chrome (#15; the
+  Caddy row of [S1](../../spikes/s1-oauth-redirects.md)).
