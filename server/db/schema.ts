@@ -16,7 +16,7 @@ export const install = sqliteTable(
   (t) => [check('install_single_row', sql`${t.id} = 1`)],
 );
 
-export const SEALED_SECRET_NAMES = ['discord_bot_token', 'discord_client_secret'] as const;
+export const SEALED_SECRET_NAMES = ['discord_bot_token', 'discord_client_secret', 'attendance_token'] as const;
 export type SealedSecretName = (typeof SEALED_SECRET_NAMES)[number];
 
 /** Vault blobs (kit blob v1), each bound to its row with the AAD `sealed_secret:<name>`. */
@@ -27,7 +27,19 @@ export const sealedSecret = sqliteTable(
     ciphertext: blob('ciphertext', { mode: 'buffer' }).notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
-  (t) => [check('sealed_secret_name', sql`${t.name} in ('discord_bot_token', 'discord_client_secret')`)],
+  (t) => [check('sealed_secret_name', sql`${t.name} in ('discord_bot_token', 'discord_client_secret', 'attendance_token')`)],
+);
+
+/** Where attendance answers (§4.2): one row, id 1. The token itself is the sealed `attendance_token`. */
+export const attendanceConnection = sqliteTable(
+  'attendance_connection',
+  {
+    id: integer('id').primaryKey(),
+    baseUrl: text('base_url').notNull(),
+    tokenHint: text('token_hint').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [check('attendance_connection_single_row', sql`${t.id} = 1`)],
 );
 
 /** The one guild this install serves (§5.1). At most one row. */
@@ -116,6 +128,7 @@ export const PURPOSES = ['general', 'floor', 'penalties'] as const;
 export const GAMES = ['tcg', 'vgc', 'go', 'other'] as const;
 export const EVENT_ROLES = ['headjudge', 'judge', 'scorekeeper', 'administration', 'translator'] as const;
 export const DAY_STATES = ['draft', 'open', 'closing', 'closed', 'purged'] as const;
+export const DAY_SOURCES = ['manual', 'attendance'] as const;
 
 export const blueprint = sqliteTable(
   'blueprint',
@@ -203,6 +216,9 @@ export const eventDay = sqliteTable(
     revokePendingRevision: integer('revoke_pending_revision'),
     revokePendingAt: integer('revoke_pending_at'),
     openedAt: integer('opened_at'),
+    /** `attendance` once an import was accepted (§4.2). */
+    source: text('source', { enum: DAY_SOURCES }).notNull().default('manual'),
+    attendanceRefreshedAt: integer('attendance_refreshed_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
@@ -210,6 +226,7 @@ export const eventDay = sqliteTable(
     index('event_day_state').on(t.state),
     index('event_day_date').on(t.date),
     check('event_day_state', sql`${t.state} in ('draft', 'open', 'closing', 'closed', 'purged')`),
+    check('event_day_source', sql`${t.source} in ('manual', 'attendance')`),
   ],
 );
 
@@ -227,9 +244,14 @@ export const event = sqliteTable(
     startsAt: integer('starts_at').notNull(),
     tournamentId: text('tournament_id'),
     position: integer('position').notNull().default(0),
+    /** The tournament an import created it from; cleared when a refresh retires it (§4.2). */
+    attendanceTournamentId: text('attendance_tournament_id'),
+    attendanceOrganizerPlayerId: text('attendance_organizer_player_id'),
+    attendanceOrganizerName: text('attendance_organizer_name'),
   },
   (t) => [
     uniqueIndex('event_day_slug').on(t.dayId, t.slug),
+    uniqueIndex('event_day_tournament').on(t.dayId, t.attendanceTournamentId).where(sql`${t.attendanceTournamentId} is not null`),
     check('event_game', sql`${t.game} in ('tcg', 'vgc', 'go', 'other')`),
     check('event_game_confirmed', sql`${t.gameConfirmed} in (0, 1)`),
   ],
@@ -244,8 +266,10 @@ export const dayStaff = sqliteTable(
     staffMemberId: integer('staff_member_id')
       .notNull()
       .references(() => staffMember.id, { onDelete: 'restrict' }),
+    /** An import put them on the day: a refresh may take them off again, never someone added by hand. */
+    imported: integer('imported', { mode: 'boolean' }).notNull().default(false),
   },
-  (t) => [primaryKey({ columns: [t.dayId, t.staffMemberId] })],
+  (t) => [primaryKey({ columns: [t.dayId, t.staffMemberId] }), check('day_staff_imported', sql`${t.imported} in (0, 1)`)],
 );
 
 export const eventStaff = sqliteTable(
@@ -258,11 +282,31 @@ export const eventStaff = sqliteTable(
       .notNull()
       .references(() => staffMember.id, { onDelete: 'restrict' }),
     role: text('role', { enum: EVENT_ROLES }).notNull(),
+    /** An import created this role: only such roles are ever proposed for removal by a refresh. */
+    imported: integer('imported', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => [
     primaryKey({ columns: [t.eventId, t.staffMemberId] }),
     check('event_staff_role', sql`${t.role} in ('headjudge', 'judge', 'scorekeeper', 'administration', 'translator')`),
+    check('event_staff_imported', sql`${t.imported} in (0, 1)`),
   ],
+);
+
+/** The latest pull of a day from attendance, waiting to be accepted. Owned by `attendance-import`. */
+export const attendanceSnapshot = sqliteTable(
+  'attendance_snapshot',
+  {
+    dayId: integer('day_id')
+      .primaryKey()
+      .references(() => eventDay.id, { onDelete: 'cascade' }),
+    snapshotId: text('snapshot_id').notNull().unique(),
+    payload: text('payload').notNull(),
+    planRevision: integer('plan_revision').notNull(),
+    dayState: text('day_state', { enum: ['draft', 'open'] }).notNull(),
+    fetchedAt: integer('fetched_at').notNull(),
+    fetchedBy: text('fetched_by').notNull(),
+  },
+  (t) => [check('attendance_snapshot_day_state', sql`${t.dayState} in ('draft', 'open')`)],
 );
 
 export const PROVISIONED_STATES = ['present', 'missing', 'deleted'] as const;
