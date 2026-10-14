@@ -73,3 +73,30 @@ export const allowlistBody = z.object({
     .max(100)
     .refine((ids) => new Set(ids).size === ids.length, 'Each user can be listed once.'),
 });
+
+// ---- M3 (spec #19): the attendance connection and the import.
+
+/** An absolute http(s) address with no user, query or fragment: where attendance answers. */
+function isAttendanceUrl(raw: string): boolean {
+  if (raw.includes('?') || raw.includes('#')) return false;
+  try {
+    const url = new URL(raw);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
+}
+
+export const attendanceConnectionBody = z.strictObject({
+  baseUrl: z.string().trim().max(2048).refine(isAttendanceUrl, 'Expected an http:// or https:// address without a user, query or fragment.'),
+  token: z
+    .string()
+    .regex(/^ppa_int_[A-Za-z0-9_-]{43}$/, 'Expected an attendance integration token (ppa_int_…).')
+    .optional(),
+});
+
+export const importAcceptBody = z.strictObject({
+  snapshotId: z.uuid(),
+  planRevision: z.number().int().min(1),
+  keys: z.array(z.string().min(1).max(64)).max(2000),
+});

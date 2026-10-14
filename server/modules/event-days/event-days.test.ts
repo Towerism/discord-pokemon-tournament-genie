@@ -203,6 +203,30 @@ describe('edges', () => {
     expect(days.plan(day.id).events).toEqual([]);
   });
 
+  it('confirms an imported event’s game when the organizer sets it, even to the same game', () => {
+    const { day } = days.createDay({ date: '2026-10-17', title: 'T' });
+    const lc = days.addEvent(day.id, { name: 'LC', game: 'other', startTime: '10:00' });
+    database.sqlite.prepare('UPDATE event SET game_confirmed = 0 WHERE id = ?').run(lc.id);
+    const revision = dayRow(day.id).planRevision;
+
+    expect(days.patchEvent(day.id, lc.id, { game: 'other' })).toMatchObject({ game: 'other', gameConfirmed: true });
+    expect(dayRow(day.id).planRevision).toBe(revision + 1);
+  });
+
+  it('shows where a day and its events came from', () => {
+    const { day } = days.createDay({ date: '2026-10-17', title: 'T' });
+    const lc = days.addEvent(day.id, { name: 'LC', game: 'tcg', startTime: '10:00' });
+    expect(days.plan(day.id).day.attendance).toEqual({ source: 'manual', refreshedAt: null });
+    expect(days.plan(day.id).events[0]!.attendance).toBeNull();
+
+    database.sqlite
+      .prepare("UPDATE event SET attendance_tournament_id = 'g1', attendance_organizer_player_id = '2223334', attendance_organizer_name = 'Prof. Oak' WHERE id = ?")
+      .run(lc.id);
+    database.sqlite.prepare("UPDATE event_day SET source = 'attendance', attendance_refreshed_at = 5 WHERE id = ?").run(day.id);
+    expect(days.plan(day.id).day.attendance).toEqual({ source: 'attendance', refreshedAt: 5 });
+    expect(days.plan(day.id).events[0]!.attendance).toEqual({ tournamentId: 'g1', organizerPlayerId: '2223334', organizerName: 'Prof. Oak' });
+  });
+
   it('bumps a draft day but queues nothing when its staffer is relinked', () => {
     const a = directory.create({ displayName: 'A', discordUserId: U(1) });
     const { day } = days.createDay({ date: '2026-10-17', title: 'T' });
@@ -267,6 +291,39 @@ describe('staff and revisions', () => {
       eventRolesChanged: [{ staffMemberId: a.id, eventId: lc.id, role: 'headjudge', from: 'judge' }],
     });
     expect(dayRow(day.id).planRevision).toBe(before + 1);
+  });
+
+  it('keeps the imported flags of every unchanged role and day staffer a replace keeps; a role changed by hand is the organizer’s', () => {
+    const { a, b, c, day, lc, vgc } = staffedDay();
+    database.sqlite.prepare('UPDATE event_staff SET imported = 1').run();
+    database.sqlite.prepare('UPDATE day_staff SET imported = 1').run();
+    const flags = () => database.sqlite.prepare('SELECT event_id AS e, role, imported FROM event_staff ORDER BY event_id').all();
+
+    days.putStaff(day.id, [
+      { staffMemberId: a.id, events: [{ eventId: lc.id, role: 'judge' }, { eventId: vgc.id, role: 'judge' }] },
+      { staffMemberId: b.id, events: [] },
+      { staffMemberId: c.id, events: [] },
+    ]);
+    expect(flags()).toEqual([
+      { e: lc.id, role: 'judge', imported: 1 },
+      { e: vgc.id, role: 'judge', imported: 0 },
+    ]);
+
+    days.putStaff(day.id, [
+      { staffMemberId: a.id, events: [{ eventId: lc.id, role: 'headjudge' }, { eventId: vgc.id, role: 'judge' }] },
+      { staffMemberId: b.id, events: [] },
+      { staffMemberId: c.id, events: [] },
+    ]);
+    expect(flags()).toEqual([
+      { e: lc.id, role: 'headjudge', imported: 0 },
+      { e: vgc.id, role: 'judge', imported: 0 },
+    ]);
+    const dayFlags = database.sqlite.prepare('SELECT staff_member_id AS s, imported FROM day_staff ORDER BY staff_member_id').all();
+    expect(dayFlags).toEqual([
+      { s: a.id, imported: 1 },
+      { s: b.id, imported: 1 },
+      { s: c.id, imported: 0 },
+    ]);
   });
 
   it('refuses another day’s event or a staffer twice, changing nothing', () => {

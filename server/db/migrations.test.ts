@@ -90,3 +90,60 @@ describe('the M2 migration', () => {
     database.close();
   });
 });
+
+describe('the M3 migration', () => {
+  it('keeps the sealed bot token and client secret when it rebuilds sealed_secret, and accepts the attendance token', () => {
+    const database = openDatabase(':memory:');
+    migrateDatabase(database.db, migrationsUpTo(2));
+    database.sqlite.exec(`
+      INSERT INTO sealed_secret (name, ciphertext, updated_at) VALUES ('discord_bot_token', x'0102', 5), ('discord_client_secret', x'0304', 6);
+    `);
+
+    migrateDatabase(database.db, MIGRATIONS);
+
+    expect(database.sqlite.prepare('SELECT name, hex(ciphertext) AS c, updated_at FROM sealed_secret ORDER BY name').all()).toEqual([
+      { name: 'discord_bot_token', c: '0102', updated_at: 5 },
+      { name: 'discord_client_secret', c: '0304', updated_at: 6 },
+    ]);
+    expect(() => database.sqlite.exec(`INSERT INTO sealed_secret (name, ciphertext, updated_at) VALUES ('attendance_token', x'05', 7)`)).not.toThrow();
+    expect(() => database.sqlite.exec(`INSERT INTO sealed_secret (name, ciphertext, updated_at) VALUES ('other', x'05', 7)`)).toThrow(/CHECK/);
+    database.close();
+  });
+
+  it('keeps M2 days, events and staff, marking them hand-made', () => {
+    const database = openDatabase(':memory:');
+    migrateDatabase(database.db, migrationsUpTo(2));
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 1, 1);
+      INSERT INTO event (id, day_id, name, slug, game, starts_at) VALUES (1, 1, 'LC', 'lc', 'tcg', 1);
+      INSERT INTO staff_member (id, display_name, link_state, created_at, updated_at) VALUES (1, 'Ash', 'unlinked', 1, 1);
+      INSERT INTO day_staff (day_id, staff_member_id) VALUES (1, 1);
+      INSERT INTO event_staff (event_id, staff_member_id, role) VALUES (1, 1, 'judge');
+    `);
+
+    migrateDatabase(database.db, MIGRATIONS);
+
+    expect(database.sqlite.prepare('SELECT source, attendance_refreshed_at FROM event_day').get()).toEqual({ source: 'manual', attendance_refreshed_at: null });
+    expect(database.sqlite.prepare('SELECT attendance_tournament_id FROM event').get()).toEqual({ attendance_tournament_id: null });
+    expect(database.sqlite.prepare('SELECT imported FROM day_staff').get()).toEqual({ imported: 0 });
+    expect(database.sqlite.prepare('SELECT imported FROM event_staff').get()).toEqual({ imported: 0 });
+    expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
+    database.close();
+  });
+
+  it('links a tournament to at most one event per day, and drops a day’s snapshot with the day', () => {
+    const database = freshDb();
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 1, 1), (2, 'g', '2026-10-18', 'U', 1, 1, 1);
+      INSERT INTO event (day_id, name, slug, game, starts_at, attendance_tournament_id) VALUES (1, 'A', 'a', 'tcg', 1, 't1'), (1, 'B', 'b', 'tcg', 1, NULL), (1, 'C', 'c', 'tcg', 1, NULL), (2, 'A', 'a', 'tcg', 1, 't1');
+      INSERT INTO attendance_snapshot (day_id, snapshot_id, payload, plan_revision, day_state, fetched_at, fetched_by) VALUES (1, 's1', '{}', 1, 'draft', 1, 'u');
+    `);
+    expect(() => database.sqlite.exec(`INSERT INTO event (day_id, name, slug, game, starts_at, attendance_tournament_id) VALUES (1, 'D', 'd', 'tcg', 1, 't1')`)).toThrow(/UNIQUE/);
+    expect(() => database.sqlite.exec(`INSERT INTO event_day (guild_id, date, title, blueprint_id, source, created_at, updated_at) VALUES ('g', 'x', 'x', 1, 'other', 1, 1)`)).toThrow(/CHECK/);
+    expect(() => database.sqlite.exec(`INSERT INTO attendance_connection (id, base_url, token_hint, updated_at) VALUES (2, 'http://a', 'h', 1)`)).toThrow(/CHECK/);
+
+    database.sqlite.exec('DELETE FROM event_day WHERE id = 1');
+    expect(database.sqlite.prepare('SELECT count(*) AS n FROM attendance_snapshot').get()).toEqual({ n: 0 });
+    database.close();
+  });
+});

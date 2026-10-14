@@ -17,6 +17,9 @@ export default defineConfig({
         'server/modules/provisioning/**': { branches: 90 },
         'server/modules/directory/**': { branches: 85 },
         'server/modules/event-days/**': { branches: 85 },
+        // M3: a wrong removal in the import diff revokes channel access; the adapter maps attendance's failures.
+        'server/modules/attendance-import/**': { branches: 90 },
+        'server/modules/attendance/**': { branches: 85 },
         'server/modules/setup/**': { branches: 90 },
         'server/modules/jobs/**': { branches: 85 },
         'server/bot/**': { branches: 85 },

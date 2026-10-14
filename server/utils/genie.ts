@@ -10,6 +10,9 @@ import {
   systemClock,
 } from '@towerism/selfhost-kit';
 import { BOT_COMMANDS, createBotHandlers } from '../bot/handlers';
+import { createAttendanceHttp } from '../modules/attendance/adapters/http';
+import { createAttendanceImportService } from '../modules/attendance-import';
+import { createAttendanceConnectionService } from '../modules/setup/attendance-connection';
 import { createInteractionRouter } from '../bot/router';
 import { type DirectoryService, createDirectoryService } from '../modules/directory';
 import { type EventDaysService, createEventDaysService } from '../modules/event-days';
@@ -104,6 +107,28 @@ export const useEventDays = once((): EventDaysService =>
     guildId: () => useStore().binding()?.guildId ?? null,
     directory: useDirectory(),
     enqueueSync: (dayId) => useJobs().enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+  }),
+);
+
+export const useAttendanceConnection = once(() =>
+  createAttendanceConnectionService({ store: useStore(), vault: useVault(), clock: systemClock, logger: useLogger('attendance') }),
+);
+
+/** Attendance through the stored connection; the adapter is built per pull, so a saved connection applies at once. */
+export const useAttendanceImport = once(() =>
+  createAttendanceImportService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('attendance-import'),
+    timeZone: storeTimeZone(),
+    eventDays: useEventDays(),
+    directory: useDirectory(),
+    source: () => {
+      const connection = useAttendanceConnection().connection();
+      if (!connection) return null;
+      const { timeoutMs, maxBytes } = useRuntimeConfig().attendance;
+      return createAttendanceHttp({ ...connection, timeoutMs: Number(timeoutMs), maxBytes: Number(maxBytes) });
+    },
   }),
 );
 

@@ -1,10 +1,11 @@
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client';
-import { type SealedSecretName, guildBinding, install, loginAudit, organizerAllowlist, sealedSecret } from '../../db/schema';
+import { type SealedSecretName, attendanceConnection, guildBinding, install, loginAudit, organizerAllowlist, sealedSecret } from '../../db/schema';
 import type { Grant } from '../../../shared/access/access';
 
 export type Install = typeof install.$inferSelect;
 export type GuildBinding = typeof guildBinding.$inferSelect;
+export type AttendanceConnection = typeof attendanceConnection.$inferSelect;
 
 /** The install's own tables: the single install row, sealed secrets, the guild binding, the allowlist, the login audit. */
 export function createSetupStore(db: Db) {
@@ -28,6 +29,29 @@ export function createSetupStore(db: Db) {
         .values({ name, ciphertext, updatedAt: now })
         .onConflictDoUpdate({ target: sealedSecret.name, set: { ciphertext, updatedAt: now } })
         .run();
+    },
+
+    attendanceConnection(): AttendanceConnection | null {
+      return db.select().from(attendanceConnection).where(eq(attendanceConnection.id, 1)).get() ?? null;
+    },
+    /** The row and, when given, the sealed token, in one transaction. */
+    putAttendanceConnection(input: { baseUrl: string; tokenHint: string; ciphertext: Buffer | null }, now: number): void {
+      db.transaction((tx) => {
+        const row = { baseUrl: input.baseUrl, tokenHint: input.tokenHint, updatedAt: now };
+        tx.insert(attendanceConnection).values({ id: 1, ...row }).onConflictDoUpdate({ target: attendanceConnection.id, set: row }).run();
+        if (input.ciphertext) {
+          tx.insert(sealedSecret)
+            .values({ name: 'attendance_token', ciphertext: input.ciphertext, updatedAt: now })
+            .onConflictDoUpdate({ target: sealedSecret.name, set: { ciphertext: input.ciphertext, updatedAt: now } })
+            .run();
+        }
+      });
+    },
+    removeAttendanceConnection(): void {
+      db.transaction((tx) => {
+        tx.delete(attendanceConnection).run();
+        tx.delete(sealedSecret).where(eq(sealedSecret.name, 'attendance_token')).run();
+      });
     },
 
     binding(): GuildBinding | null {

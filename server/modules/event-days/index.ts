@@ -56,6 +56,8 @@ export interface EventView {
   startTime: string;
   startsAt: number;
   tournamentId: string | null;
+  /** The tournament an import created it from, and that tournament's organizer (§4.2). */
+  attendance: { tournamentId: string; organizerPlayerId: string | null; organizerName: string | null } | null;
 }
 
 export interface DayStaffView {
@@ -67,7 +69,11 @@ export interface DayStaffView {
 }
 
 export interface DayPlanCore {
-  day: DaySummary & { blueprintId: number; categoryId: string | null };
+  day: DaySummary & {
+    blueprintId: number;
+    categoryId: string | null;
+    attendance: { source: DayRow['source']; refreshedAt: number | null };
+  };
   events: EventView[];
   staff: DayStaffView[];
   sync: { inSync: boolean; planRevision: number; appliedRevision: number | null; revocationPending: boolean };
@@ -86,6 +92,47 @@ export interface StaffDiff {
   eventRolesAdded: RoleRef[];
   eventRolesRemoved: RoleRef[];
   eventRolesChanged: (RoleRef & { from: EventRole })[];
+}
+
+/** The day as an attendance import reads it (§4.2). */
+export interface ImportStateView {
+  dayState: DayRow['state'];
+  planRevision: number;
+  events: {
+    id: number;
+    name: string;
+    startsAt: number;
+    game: Game;
+    gameConfirmed: boolean;
+    tournamentId: string | null;
+    attendanceTournamentId: string | null;
+    organizerPlayerId: string | null;
+    organizerName: string | null;
+  }[];
+  staff: { staffMemberId: number; displayName: string; playerId: string | null; dayImported: boolean; roles: { eventId: number; role: EventRole; imported: boolean }[] }[];
+}
+
+/** What an accepted import changes, decided by `attendance-import`; applied here, where the tables live. */
+export interface ImportOps {
+  createEvents: {
+    name: string;
+    startsAt: number;
+    game: Game;
+    gameConfirmed: boolean;
+    tournamentId: string | null;
+    attendanceTournamentId: string;
+    organizer: { playerId: string; name: string };
+    staff: { staffMemberId: number; role: EventRole }[];
+  }[];
+  deleteEvents: number[];
+  /** Kept with their channels, every role ended and the attendance link cleared (an open day's removal). */
+  retireEvents: number[];
+  changeEvents: { eventId: number; name?: string; startsAt?: number; tournamentId?: string | null; game?: Game }[];
+  addRoles: { eventId: number; staffMemberId: number; role: EventRole }[];
+  removeRoles: { eventId: number; staffMemberId: number }[];
+  changeRoles: { eventId: number; staffMemberId: number; role: EventRole }[];
+  organizers: { eventId: number; playerId: string; name: string }[];
+  refreshedAt: number;
 }
 
 export interface Alarm {
@@ -183,6 +230,10 @@ export function createEventDaysService(opts: {
     startTime: localTimeOf(e.startsAt, timeZone),
     startsAt: e.startsAt,
     tournamentId: e.tournamentId,
+    attendance:
+      e.attendanceTournamentId === null
+        ? null
+        : { tournamentId: e.attendanceTournamentId, organizerPlayerId: e.attendanceOrganizerPlayerId, organizerName: e.attendanceOrganizerName },
   });
 
   const revocationPending = (d: DayRow) => d.revokePendingRevision !== null && (d.appliedRevision ?? 0) < d.revokePendingRevision;
@@ -192,7 +243,12 @@ export function createEventDaysService(opts: {
     const entries = staffEntries(dayId);
     const people = new Map(directory.byIds(entries.map((e) => e.staffMemberId)).map((s) => [s.id, s]));
     return {
-      day: { ...summary(day), blueprintId: day.blueprintId, categoryId: day.categoryId },
+      day: {
+        ...summary(day),
+        blueprintId: day.blueprintId,
+        categoryId: day.categoryId,
+        attendance: { source: day.source, refreshedAt: day.attendanceRefreshedAt },
+      },
       events: eventsOf(dayId).map(eventView),
       staff: entries
         .map((e) => {
@@ -424,7 +480,8 @@ export function createEventDaysService(opts: {
         }
         const changes: Partial<EventRow> = {};
         if (patch.name !== undefined) changes.name = patch.name.trim();
-        if (patch.game !== undefined) changes.game = patch.game;
+        // Setting the game confirms it, even unchanged: that is how an imported `other` is confirmed (§4.2).
+        if (patch.game !== undefined) Object.assign(changes, { game: patch.game, gameConfirmed: true });
         if (patch.slug !== undefined) changes.slug = patch.slug;
         if (patch.tournamentId !== undefined) changes.tournamentId = patch.tournamentId;
         if (patch.startTime !== undefined) changes.startsAt = zonedInstant(day.date, patch.startTime, timeZone);
@@ -460,17 +517,166 @@ export function createEventDaysService(opts: {
 
         const before = staffEntries(dayId);
         const desiredBefore = desiredFor(dayId);
+        // A full replace keeps the imported flags of what survives it unchanged: a refresh may only take back what it
+        // brought. A role the organizer changed by hand is theirs from then on.
+        const importedDay = new Set(
+          db.select().from(dayStaff).where(and(eq(dayStaff.dayId, dayId), eq(dayStaff.imported, true))).all().map((r) => r.staffMemberId),
+        );
+        const importedRoles = new Map(
+          db
+            .select({ eventId: eventStaff.eventId, staffMemberId: eventStaff.staffMemberId, role: eventStaff.role })
+            .from(eventStaff)
+            .where(and(inArray(eventStaff.eventId, [...eventIds, -1]), eq(eventStaff.imported, true)))
+            .all()
+            .map((r) => [`${r.eventId}:${r.staffMemberId}`, r.role]),
+        );
         db.delete(eventStaff).where(inArray(eventStaff.eventId, [...eventIds, -1])).run();
         db.delete(dayStaff).where(eq(dayStaff.dayId, dayId)).run();
         for (const s of staff) {
-          db.insert(dayStaff).values({ dayId, staffMemberId: s.staffMemberId }).run();
-          for (const e of s.events) db.insert(eventStaff).values({ eventId: e.eventId, staffMemberId: s.staffMemberId, role: e.role }).run();
+          db.insert(dayStaff).values({ dayId, staffMemberId: s.staffMemberId, imported: importedDay.has(s.staffMemberId) }).run();
+          for (const e of s.events) {
+            const imported = importedRoles.get(`${e.eventId}:${s.staffMemberId}`) === e.role;
+            db.insert(eventStaff).values({ eventId: e.eventId, staffMemberId: s.staffMemberId, role: e.role, imported }).run();
+          }
         }
 
         const diff = diffStaff(before, staff);
         const removal = revokesAccess(desiredBefore, desiredFor(dayId));
         const syncJobId = bump(dayId, removal);
         return { diff, syncJobId, plan: plan(dayId) };
+      });
+    },
+
+    // attendance import (§4.2)
+    importState(dayId: number): ImportStateView {
+      const day = dayRow(dayId);
+      const events = eventsOf(dayId);
+      const eventIds = [...events.map((e) => e.id), -1];
+      const members = db.select().from(dayStaff).where(eq(dayStaff.dayId, dayId)).all();
+      const roles = db.select().from(eventStaff).where(inArray(eventStaff.eventId, eventIds)).all();
+      const people = new Map(directory.byIds(members.map((m) => m.staffMemberId)).map((s) => [s.id, s]));
+      return {
+        dayState: day.state,
+        planRevision: day.planRevision,
+        events: events.map((e) => ({
+          id: e.id,
+          name: e.name,
+          startsAt: e.startsAt,
+          game: e.game,
+          gameConfirmed: e.gameConfirmed,
+          tournamentId: e.tournamentId,
+          attendanceTournamentId: e.attendanceTournamentId,
+          organizerPlayerId: e.attendanceOrganizerPlayerId,
+          organizerName: e.attendanceOrganizerName,
+        })),
+        staff: members
+          .map((m) => {
+            const person = people.get(m.staffMemberId)!;
+            return {
+              staffMemberId: m.staffMemberId,
+              displayName: person.displayName,
+              playerId: person.playerId,
+              dayImported: m.imported,
+              roles: roles
+                .filter((r) => r.staffMemberId === m.staffMemberId)
+                .map((r) => ({ eventId: r.eventId, role: r.role, imported: r.imported }))
+                .sort((a, b) => a.eventId - b.eventId),
+            };
+          })
+          .sort((a, b) => a.staffMemberId - b.staffMemberId),
+      };
+    },
+
+    /**
+     * Applies an accepted import in one transaction. Staff an import brings are flagged `imported`; an imported day
+     * staffer who held a role before and holds none after leaves the day. With any change the revision is bumped
+     * once, and a change that takes access away on an open day queues a sync at once (ADR-0005).
+     */
+    applyImport(dayId: number, ops: ImportOps): { syncJobId: number | null } {
+      return db.transaction(() => {
+        const day = dayRow(dayId);
+        if (day.state !== 'draft' && day.state !== 'open') throw new ServiceError(409, 'day_not_editable', 'Only a day that isn’t closing or closed can be imported into.');
+        const desiredBefore = desiredFor(dayId);
+        const rolesBefore = new Set(staffEntries(dayId).filter((s) => s.events.length > 0).map((s) => s.staffMemberId));
+        const onDay = new Set(db.select().from(dayStaff).where(eq(dayStaff.dayId, dayId)).all().map((r) => r.staffMemberId));
+        const changed =
+          ops.createEvents.length + ops.deleteEvents.length + ops.retireEvents.length + ops.changeEvents.length + ops.addRoles.length + ops.removeRoles.length + ops.changeRoles.length >
+          0;
+
+        const addRole = (eventId: number, staffMemberId: number, role: EventRole) => {
+          if (!onDay.has(staffMemberId)) {
+            db.insert(dayStaff).values({ dayId, staffMemberId, imported: true }).run();
+            onDay.add(staffMemberId);
+          }
+          db.insert(eventStaff).values({ eventId, staffMemberId, role, imported: true }).run();
+        };
+
+        for (const e of ops.createEvents) {
+          const taken = eventsOf(dayId).map((x) => x.slug);
+          const created = db
+            .insert(event)
+            .values({
+              dayId,
+              name: e.name,
+              slug: deriveSlug(e.name, taken),
+              game: e.game,
+              gameConfirmed: e.gameConfirmed,
+              startsAt: e.startsAt,
+              tournamentId: e.tournamentId,
+              position: taken.length,
+              attendanceTournamentId: e.attendanceTournamentId,
+              attendanceOrganizerPlayerId: e.organizer.playerId,
+              attendanceOrganizerName: e.organizer.name,
+            })
+            .returning()
+            .get();
+          for (const s of e.staff) addRole(created.id, s.staffMemberId, s.role);
+        }
+        for (const r of ops.addRoles) addRole(r.eventId, r.staffMemberId, r.role);
+        for (const r of ops.changeRoles) {
+          db.update(eventStaff).set({ role: r.role }).where(and(eq(eventStaff.eventId, r.eventId), eq(eventStaff.staffMemberId, r.staffMemberId))).run();
+        }
+        for (const r of ops.removeRoles) {
+          db.delete(eventStaff).where(and(eq(eventStaff.eventId, r.eventId), eq(eventStaff.staffMemberId, r.staffMemberId))).run();
+        }
+        for (const c of ops.changeEvents) {
+          const changes: Partial<EventRow> = {};
+          if (c.name !== undefined) changes.name = c.name;
+          if (c.startsAt !== undefined) changes.startsAt = c.startsAt;
+          if (c.tournamentId !== undefined) changes.tournamentId = c.tournamentId;
+          if (c.game !== undefined) Object.assign(changes, { game: c.game, gameConfirmed: true });
+          db.update(event).set(changes).where(and(eq(event.id, c.eventId), eq(event.dayId, dayId))).run();
+        }
+        for (const id of ops.retireEvents) {
+          db.delete(eventStaff).where(eq(eventStaff.eventId, id)).run();
+          db.update(event)
+            .set({ attendanceTournamentId: null, attendanceOrganizerPlayerId: null, attendanceOrganizerName: null })
+            .where(and(eq(event.id, id), eq(event.dayId, dayId)))
+            .run();
+        }
+        for (const id of ops.deleteEvents) db.delete(event).where(and(eq(event.id, id), eq(event.dayId, dayId))).run();
+        for (const o of ops.organizers) {
+          db.update(event)
+            .set({ attendanceOrganizerPlayerId: o.playerId, attendanceOrganizerName: o.name })
+            .where(and(eq(event.id, o.eventId), eq(event.dayId, dayId)))
+            .run();
+        }
+
+        // An imported day staffer whose last role this import ended leaves the day; one added by hand never does.
+        const holding = new Set(staffEntries(dayId).filter((s) => s.events.length > 0).map((s) => s.staffMemberId));
+        const leaving = db
+          .select()
+          .from(dayStaff)
+          .where(and(eq(dayStaff.dayId, dayId), eq(dayStaff.imported, true)))
+          .all()
+          .filter((r) => rolesBefore.has(r.staffMemberId) && !holding.has(r.staffMemberId))
+          .map((r) => r.staffMemberId);
+        if (leaving.length) db.delete(dayStaff).where(and(eq(dayStaff.dayId, dayId), inArray(dayStaff.staffMemberId, leaving))).run();
+
+        db.update(eventDay).set({ source: 'attendance', attendanceRefreshedAt: ops.refreshedAt, updatedAt: clock.now() }).where(eq(eventDay.id, dayId)).run();
+        if (!changed) return { syncJobId: null };
+        const removal = revokesAccess(desiredBefore, desiredFor(dayId));
+        return { syncJobId: bump(dayId, removal) };
       });
     },
 
