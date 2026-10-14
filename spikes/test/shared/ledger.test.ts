@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   canSnapshot,
+  openLedger,
   createLedger,
   createTracked,
   markRestored,
@@ -63,5 +64,23 @@ describe('ledger', () => {
 
   it('reads no ledgers from an empty directory', async () => {
     expect(await readLedgers(dir)).toEqual([]);
+  });
+
+  it('snapshots genie\'s role separately from @everyone', async () => {
+    const l = await createLedger(dir, { runId, guildId, kept: false });
+    await recordSnapshot(l, 'genieRole', '4096');
+    const [onDisk] = await readLedgers(dir);
+    expect(onDisk?.genieRoleSnapshot).toBe('4096');
+    expect(canSnapshot([onDisk!], 'genieRole')).toBe(false);
+  });
+
+  it('reads no ledgers when the output directory does not exist yet', async () => {
+    expect(await readLedgers(join(dir, 'missing'))).toEqual([]);
+  });
+
+  it('reopens a run\'s ledger by id, and finds nothing for an unknown run', async () => {
+    await createLedger(dir, { runId, guildId, kept: true });
+    expect((await openLedger(dir, runId))?.data.kept).toBe(true);
+    expect(await openLedger(dir, 'nope')).toBeUndefined();
   });
 });

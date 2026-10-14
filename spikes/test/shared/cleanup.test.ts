@@ -172,4 +172,23 @@ describe('applyCleanup', () => {
     await applyCleanup({ delete: [], restoreEveryone: '1024', restoreGenieRole: '4096' }, g.port);
     expect(g.restores).toEqual(['everyone:1024', 'genie:4096']);
   });
+
+  it('counts an already-deleted role (Unknown Role) as deleted', async () => {
+    const port: CleanupPort = {
+      deleteResource: async () => ({ status: 404, code: 10011 }),
+      restoreEveryone: async () => {},
+      restoreGenieRole: async () => {},
+    };
+    const result = await applyCleanup({ delete: [{ kind: 'role', id: '13', name: `spike-${r1}-r` }] }, port);
+    expect(result).toMatchObject({ ok: true, alreadyGone: ['13'] });
+  });
+
+  it('does not treat a 404 with another code as gone', async () => {
+    const port: CleanupPort = {
+      deleteResource: async () => ({ status: 404, code: 10004 }),
+      restoreEveryone: async () => {},
+      restoreGenieRole: async () => {},
+    };
+    expect((await applyCleanup({ delete: [{ kind: 'channel', id: '1', name: `spike-${r1}-c` }] }, port)).ok).toBe(false);
+  });
 });
