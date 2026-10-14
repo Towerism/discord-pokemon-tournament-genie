@@ -2,9 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
-- Amendment by [ADR-0013](0013-https-origin-for-website-login.md): Proposed (M0 finding, awaiting
-  owner acceptance). The website's URL would have to be an `https://` origin; plain-HTTP LAN logins
-  fail in Chrome (S1).
+- Amended by [ADR-0013](0013-https-origin-for-website-login.md) (accepted 2026-10-14). The website's URL
+  must be an `https://` origin served by Caddy; plain-HTTP LAN logins fail in Chrome (S1).
 - Date: 2026-10-13
 
 ## Context

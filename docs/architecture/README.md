@@ -832,9 +832,9 @@ logged (§4.1).
   entered in Settings.
 - **Discord login redirect:** `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, registered in the Discord
   application (spike S1 confirms which URLs Discord accepts).
-  **Proposed** ([ADR-0013](adr/0013-https-origin-for-website-login.md), M0 finding, awaiting owner
-  acceptance): `NUXT_PUBLIC_SITE_URL` must be an `https://` origin (Tailscale Serve or an HTTPS reverse
-  proxy), with `http://localhost` for development only. S1 found that Chrome completes the login only on
+  Per [ADR-0013](adr/0013-https-origin-for-website-login.md) (accepted 2026-10-14): `NUXT_PUBLIC_SITE_URL`
+  must be an `https://` origin served by Caddy as a reverse proxy, the only supported setup, with
+  `http://localhost` for development only. S1 found that Chrome completes the login only on
   `localhost` over plain HTTP; on a LAN IP or `.local` name the state cookie is withheld on the redirect
   back from Discord.
 - **Bot lifecycle:** the bot plugin logs in at boot and logs out on shutdown; jobs left running are marked
@@ -1017,5 +1017,5 @@ Answered by the owner on 2026-10-13:
 | [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |
 | [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Accepted |
 | [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Proposed (M0 finding, awaiting owner acceptance) |
-| [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin | Proposed (M0 finding, awaiting owner acceptance) |
+| [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin, through Caddy | Accepted (2026-10-14) |
 | [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Proposed (M0 finding, awaiting owner acceptance) |

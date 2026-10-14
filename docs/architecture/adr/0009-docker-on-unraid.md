@@ -2,9 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
-- Amendment by [ADR-0013](0013-https-origin-for-website-login.md): Proposed (M0 finding, awaiting
-  owner acceptance). Website login would need Tailscale Serve or an HTTPS reverse proxy, even on the
-  LAN (S1).
+- Amended by [ADR-0013](0013-https-origin-for-website-login.md) (accepted 2026-10-14). Website login
+  needs Caddy as an HTTPS reverse proxy, even on the LAN (S1); it's the only supported setup.
 - Date: 2026-10-13
 
 ## Context
@@ -41,6 +40,7 @@ credentials go in the template; they are entered in `/setup` and Settings and ke
 - (+) Same install, update and backup routine the owner already knows.
 - (+) Data stays on the owner's hardware.
 - (−) Remote use (a head judge downloading the CSV from home) needs the owner's existing remote access:
-  Tailscale or an HTTPS reverse proxy. Documented in the deploy guide.
+  Caddy as an HTTPS reverse proxy, the only supported setup ([ADR-0013](0013-https-origin-for-website-login.md)).
+  Documented in the deploy guide.
 - (−) The backup holds `secrets/` with `app.db` and `exports/`, so it can open the vault; keep it private
   (Genie's deploy guide says so).

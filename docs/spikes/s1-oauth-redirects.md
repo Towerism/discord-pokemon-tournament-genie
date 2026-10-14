@@ -55,10 +55,11 @@ treats plain-HTTP LAN use as the baseline and asks for Tailscale or an HTTPS rev
 use. On Chrome, a plain-HTTP LAN address (IP or `.local`) can't complete that login, so the baseline
 doesn't hold for the website.
 
-The amendment is [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), **Proposed (M0
-finding, awaiting owner acceptance)**: the website login needs an HTTPS origin (Tailscale Serve or an
-HTTPS reverse proxy), with `http://localhost` only for development on the host itself. The HTTPS setups
-weren't available here, so they stay `not tested` and must be checked before M1's login work.
+The amendment is [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), **accepted by the
+owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS reverse proxy through Caddy
+is the only supported setup, with `http://localhost` only for development on the host itself. Tailscale
+Serve and other proxies are not supported, so their rows above stay `not tested`. The Caddy setup wasn't
+available here, so it must be tested before M1's login work.
 
 ## Timebox
 
