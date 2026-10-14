@@ -59,7 +59,7 @@ export async function requireSetupUnlocked(event: H3Event) {
   return session;
 }
 
-export function rateLimit(event: H3Event, route: 'login' | 'setup'): void {
+export function rateLimit(event: H3Event, route: 'login' | 'callback' | 'setup'): void {
   enforceRateLimit(event, { limiter: useAuthLimiters()[route], trusted: useTrustedProxies() });
 }
 

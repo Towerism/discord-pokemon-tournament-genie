@@ -1,4 +1,4 @@
-import { getQuery } from 'h3';
+import { getCookie, getQuery } from 'h3';
 
 /**
  * Website login with Discord OAuth (ADR-0004), on an allowed origin only (ADR-0013). The client ID and secret
@@ -8,13 +8,26 @@ import { getQuery } from 'h3';
 export default defineEventHandler(async (event) => {
   const origin = requireAllowedOrigin(event);
   const query = getQuery(event);
-  if (query.code === undefined && query.error === undefined) rateLimit(event, 'login');
+  const callback = query.code !== undefined || query.error !== undefined;
+  // Starting a login and completing one are limited separately, so a login costs one hit of each.
+  rateLimit(event, callback ? 'callback' : 'login');
+
+  const log = useLogger('login');
+  // nuxt-auth-utils compares `state` with its cookie and treats a missing state and a missing cookie as equal
+  // (undefined === undefined). A callback without either would let anyone hand a victim a code minted for
+  // their own account: a login CSRF that, during setup, binds the attacker as owner. Refuse it here.
+  if (query.code !== undefined) {
+    const state = typeof query.state === 'string' ? query.state : '';
+    if (!state || !getCookie(event, 'nuxt-auth-state')) {
+      log.warn('Discord login callback without its state; refused.');
+      return sendRedirect(event, '/login?error=login_failed');
+    }
+  }
 
   const client = await handled(() => useSetup().oauthClient());
   if (!client) return sendRedirect(event, '/setup');
 
   const { discord } = useRuntimeConfig(event);
-  const log = useLogger('login');
   const login = defineOAuthDiscordEventHandler({
     config: {
       clientId: client.clientId,
@@ -25,15 +38,17 @@ export default defineEventHandler(async (event) => {
       tokenURL: discord.tokenUrl,
     },
     async onSuccess(event, { user }) {
-      const session = await getUserSession(event);
+      const previous = await getUserSession(event);
+      // The wizard unlock survives a login only while setup is still open, in this process.
+      const setup = previous.setup?.bootId === bootId && !useSetup().isComplete() ? { setup: previous.setup } : {};
       const outcome = await useLogin().complete({
         user: { id: user.id, username: user.username, globalName: user.global_name ?? null, avatar: user.avatar ?? null },
-        unlocked: session.setup?.bootId === bootId,
+        unlocked: 'setup' in setup,
       });
-      if (outcome.session) {
-        const { user: sessionUser, grant, checkedAt } = outcome.session;
-        await setUserSession(event, { user: sessionUser, grant, checkedAt });
-      }
+      // Replace, never merge: nothing of an earlier user's session may carry over to this one.
+      if (outcome.session) await replaceUserSession(event, { ...outcome.session, ...setup });
+      else if ('setup' in setup) await replaceUserSession(event, setup);
+      else await clearUserSession(event);
       return sendRedirect(event, outcome.redirect);
     },
     onError(event, error) {

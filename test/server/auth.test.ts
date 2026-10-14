@@ -62,6 +62,23 @@ describe('logging in', () => {
     expect((await auditRows()).length).toBe(before);
   });
 
+  it('replaces the session on each login, and signs a browser out when a later login is refused', async () => {
+    const b = await signedIn(IDS.organizer);
+    expect((await b.get('/api/me')).json()).toMatchObject({ user: { id: IDS.organizer } });
+    expect((await loginThroughDiscord(b, discord, IDS.owner)).location).toBe('/');
+    expect((await b.get('/api/me')).json()).toMatchObject({ user: { id: IDS.owner, globalName: 'User 0001' }, grant: 'owner', isOwner: true });
+    expect((await loginThroughDiscord(b, discord, IDS.member)).location).toBe('/login?error=no_access');
+    expect((await b.get('/api/me')).status).toBe(401);
+  });
+
+  it('refuses a callback without its state even after setup (login CSRF)', async () => {
+    const victim = await signedIn(IDS.owner);
+    const { mintCodeOutsideGenie } = await import('../support/flows');
+    const code = await mintCodeOutsideGenie(discord, genie, IDS.member);
+    expect((await victim.get(`/auth/discord?code=${code}`)).location).toBe('/login?error=login_failed');
+    expect((await victim.get('/api/me')).json()).toMatchObject({ user: { id: IDS.owner } });
+  });
+
   it('starts the flow with a fixed redirect URL for the localhost origin and for the site behind Caddy', async () => {
     const local = await browser(genie.url).get('/auth/discord');
     const authorize = new URL(local.location!);

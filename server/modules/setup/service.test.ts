@@ -214,3 +214,33 @@ describe('the stored credentials', () => {
     expect(() => other.oauthClient()).toThrow(expect.objectContaining({ status: 503, code: 'secrets_unreadable' }));
   });
 });
+
+describe('overlapping setup steps', () => {
+  it('runs them one at a time, so a guild change cannot slip in while finish is checking', async () => {
+    await readyToFinish();
+    discord.addGuild({ id: IDS.otherGuild, name: 'Elsewhere' });
+    discord.inviteBot(IDS.app, IDS.otherGuild);
+    let release!: () => void;
+    discord.readGate = new Promise<void>((resolve) => (release = resolve));
+
+    const finishing = setup.finish();
+    const switching = setup.chooseGuild(IDS.otherGuild);
+    release();
+    discord.readGate = null;
+
+    await finishing;
+    await expect(switching).rejects.toMatchObject({ status: 410, code: 'setup_complete' });
+    expect(setup.progress()).toMatchObject({
+      complete: true,
+      guild: { id: IDS.guild },
+      ownerId: IDS.owner,
+      organizerRoleId: IDS.organizerRole,
+    });
+  });
+
+  it('keeps going after a step fails', async () => {
+    await expectSetupError(setup.chooseGuild(IDS.guild), 409, 'discord_not_configured');
+    await setup.saveDiscord(credentials);
+    expect((await setup.chooseGuild(IDS.guild)).checks.find((c) => c.id === 'bot_in_guild')?.ok).toBe(true);
+  });
+});

@@ -94,7 +94,8 @@ export const useTrustedProxies = once(() => parseTrustedProxies(String(useRuntim
 
 export const useAuthLimiters = once(() => {
   const { login, setup } = useRuntimeConfig().authRateLimit;
-  return { login: createFixedWindowLimiter(login), setup: createFixedWindowLimiter(setup) };
+  // A login is one start and one callback: each has its own bucket with the login limits.
+  return { login: createFixedWindowLimiter(login), callback: createFixedWindowLimiter(login), setup: createFixedWindowLimiter(setup) };
 });
 
 /** Prints the one-time setup code while setup is incomplete (architecture §6.1). */

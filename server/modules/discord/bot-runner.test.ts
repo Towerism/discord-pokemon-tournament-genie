@@ -148,3 +148,27 @@ function fakeScheduler(): BotScheduler & { delays: number[]; fire(): Promise<voi
     pending: () => queue.filter((e) => !e.cancelled).length,
   };
 }
+
+describe('a retry that fires after stop', () => {
+  it('leaves the bot stopped', async () => {
+    const discord = createFakeDiscord();
+    discord.addApplication({ id: APP, token: TOKEN });
+    discord.connectFailure = 'unavailable';
+    const fired: Array<() => Promise<void>> = [];
+    const runner = createBotRunner({
+      createDiscord: discord.create,
+      loadToken: () => TOKEN,
+      guildId: () => GUILD,
+      commands: [],
+      onInteraction: async () => {},
+      // A timer that can't be cancelled: it has already fired when stop runs.
+      scheduler: { after: (_ms, fn) => (fired.push(fn), () => {}) },
+      logger: recordingLogger(),
+    });
+    await runner.start();
+    await runner.stop();
+    await fired[0]!();
+    expect((await runner.status()).state).toBe('stopped');
+    expect(discord.connectAttempts).toBe(1);
+  });
+});

@@ -301,3 +301,48 @@ function fakeScheduler(): Scheduler & {
     active: () => fn !== undefined,
   };
 }
+
+describe('failures outside a handler', () => {
+  it('logs a store failure during an automatic run instead of leaving an unhandled rejection', async () => {
+    const store = createSqliteJobStore(database.db);
+    let failNext = false;
+    const flaky = {
+      ...store,
+      listDue(now: number) {
+        if (failNext) {
+          failNext = false;
+          throw new Error('SQLITE_BUSY: database is locked');
+        }
+        return store.listDue(now);
+      },
+    };
+    const { recordingLogger } = await import('../../../test/support/logger');
+    const logger = recordingLogger();
+    const auto = createJobs({ store: flaky, clock, logger, redactor: createRedactor(), autoRun: true });
+    auto.register('sync', async () => {});
+    failNext = true;
+    auto.enqueue({ kind: 'sync', dayId: 1 });
+    await auto.idle();
+    expect(logger.records.find((r) => r.level === 'error')?.msg).toBe('A job run failed outside its handler.');
+  });
+
+  it('logs a job it could not mark failed, and leaves it for boot recovery', async () => {
+    const store = createSqliteJobStore(database.db);
+    const broken = {
+      ...store,
+      finish() {
+        throw new Error('disk I/O error');
+      },
+    };
+    const { recordingLogger } = await import('../../../test/support/logger');
+    const logger = recordingLogger();
+    const flaky = createJobs({ store: broken, clock, logger, redactor: createRedactor() });
+    flaky.register('sync', async () => {
+      throw new Error('boom');
+    });
+    const id = flaky.enqueue({ kind: 'sync', dayId: 1 });
+    await flaky.runDue();
+    expect(flaky.get(id)?.state).toBe('running');
+    expect(logger.records.map((r) => r.msg)).toContain(`Job ${id} could not be marked failed.`);
+  });
+});

@@ -1,5 +1,6 @@
 import type { Clock, Logger } from '@towerism/selfhost-kit';
 import type { CreateDiscord, GuildInfo } from '../discord/port';
+import { SetupError } from './errors';
 import type { SetupService } from './service';
 import type { SetupStore } from './store';
 
@@ -30,7 +31,7 @@ export function createSettingsService(opts: {
     async settings(): Promise<Settings> {
       const binding = store.binding();
       const ownerId = store.install()?.ownerDiscordUserId;
-      if (!binding || !ownerId) throw new Error('Setup is not complete.');
+      if (!binding || !ownerId || !setup.isComplete()) throw new SetupError(409, 'setup_incomplete', 'Finish setup first.');
       let guild: GuildInfo | null = null;
       try {
         guild = await createDiscord(setup.botToken()).gateway.getGuild(binding.guildId);

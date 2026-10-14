@@ -55,9 +55,12 @@ export function createJobs(opts: {
   const event = (jobId: number, level: EventLevel, message: string, data?: unknown) =>
     store.appendEvent({ jobId, at: clock.now(), level, message, ...(data === undefined ? {} : { data: redactor.redact(data) }) });
 
+  /** Keeps a run in `inflight` until it settles. A failure is logged here: nothing else awaits an automatic run. */
   const track = (promise: Promise<void>) => {
-    inflight.add(promise);
-    void promise.finally(() => inflight.delete(promise));
+    const settled = promise
+      .catch((err: unknown) => logger.error('A job run failed outside its handler.', { err }))
+      .finally(() => inflight.delete(settled));
+    inflight.add(settled);
   };
 
   const kick = () => {
@@ -85,9 +88,14 @@ export function createJobs(opts: {
       event(job.id, 'info', 'succeeded');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      store.finish(job.id, { state: 'failed', error: message }, clock.now());
-      event(job.id, 'error', `failed: ${message}`);
       logger.error(`Job ${job.id} (${job.kind}) failed: ${message}`, { jobId: job.id, kind: job.kind, dayId: job.dayId, err });
+      try {
+        store.finish(job.id, { state: 'failed', error: message }, clock.now());
+        event(job.id, 'error', `failed: ${message}`);
+      } catch (storeErr) {
+        // The job stays `running` until boot recovery interrupts it.
+        logger.error(`Job ${job.id} could not be marked failed.`, { jobId: job.id, err: storeErr });
+      }
     } finally {
       kick();
     }

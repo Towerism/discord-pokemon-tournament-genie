@@ -47,6 +47,15 @@ export function createSetupService(opts: {
   const { store, vault, createDiscord, clock, logger, onComplete } = opts;
   let lastChecks: Checks | null = null;
 
+  // Setup steps run one at a time. A step reads Discord live before it writes, so two overlapping steps (a second
+  // tab changing the guild while finish checks) could otherwise complete setup with a configuration nobody checked.
+  let queue: Promise<unknown> = Promise.resolve();
+  const serialized = <T>(step: () => Promise<T>): Promise<T> => {
+    const run = queue.then(step, step);
+    queue = run.catch(() => undefined);
+    return run;
+  };
+
   const isComplete = () => store.install()?.setupCompletedAt != null;
   const assertIncomplete = () => {
     if (isComplete()) throw new SetupError(410, 'setup_complete', 'Setup is already complete.');
@@ -131,27 +140,29 @@ export function createSetupService(opts: {
       };
     },
 
-    async saveDiscord(input: { botToken: string; clientId: string; clientSecret: string }): Promise<Checks & { inviteUrl: string }> {
-      assertIncomplete();
-      let app: ApplicationInfo;
-      try {
-        app = await createDiscord(input.botToken).gateway.getApplication();
-      } catch (err) {
-        if (err instanceof DiscordAuthError) throw new SetupError(422, 'invalid_bot_token', 'Discord refused that bot token.');
-        throw asSetupError(err);
-      }
-      if (app.id !== input.clientId) {
-        throw new SetupError(422, 'client_id_mismatch', 'That bot token belongs to a different application than the client ID.');
-      }
-      const now = clock.now();
-      store.transaction(() => {
-        store.ensureInstall(now);
-        store.putSealed('discord_bot_token', vault.encrypt(input.botToken, aadFor('discord_bot_token')), now);
-        store.putSealed('discord_client_secret', vault.encrypt(input.clientSecret, aadFor('discord_client_secret')), now);
-        store.updateInstall({ discordClientId: input.clientId });
+    saveDiscord(input: { botToken: string; clientId: string; clientSecret: string }): Promise<Checks & { inviteUrl: string }> {
+      return serialized(async () => {
+        assertIncomplete();
+        let app: ApplicationInfo;
+        try {
+          app = await createDiscord(input.botToken).gateway.getApplication();
+        } catch (err) {
+          if (err instanceof DiscordAuthError) throw new SetupError(422, 'invalid_bot_token', 'Discord refused that bot token.');
+          throw asSetupError(err);
+        }
+        if (app.id !== input.clientId) {
+          throw new SetupError(422, 'client_id_mismatch', 'That bot token belongs to a different application than the client ID.');
+        }
+        const now = clock.now();
+        store.transaction(() => {
+          store.ensureInstall(now);
+          store.putSealed('discord_bot_token', vault.encrypt(input.botToken, aadFor('discord_bot_token')), now);
+          store.putSealed('discord_client_secret', vault.encrypt(input.clientSecret, aadFor('discord_client_secret')), now);
+          store.updateInstall({ discordClientId: input.clientId });
+        });
+        logger.info('Discord application stored.', { clientId: input.clientId });
+        return { ...(await gatherChecks()), inviteUrl: inviteUrl(input.clientId) };
       });
-      logger.info('Discord application stored.', { clientId: input.clientId });
-      return { ...(await gatherChecks()), inviteUrl: inviteUrl(input.clientId) };
     },
 
     async guilds(): Promise<{ id: string; name: string }[]> {
@@ -163,21 +174,23 @@ export function createSetupService(opts: {
       }
     },
 
-    async chooseGuild(guildId: string): Promise<Checks> {
-      assertIncomplete();
-      const guild = await liveGuild(guildId);
-      if (!guild) throw new SetupError(422, 'bot_not_in_guild', 'The bot is not in that server yet. Invite it first.');
-      const ownerId = store.install()?.ownerDiscordUserId ?? null;
-      const ownerStays = ownerId !== null && (await gateway().getMember(guildId, ownerId).catch(() => null)) !== null;
-      const now = clock.now();
-      store.transaction(() => {
-        store.ensureInstall(now);
-        const current = store.binding();
-        if (current?.guildId !== guildId) store.bindGuild(guildId, guild.name, now);
-        else store.updateBinding({ name: guild.name });
-        if (!ownerStays) store.updateInstall({ ownerDiscordUserId: null });
+    chooseGuild(guildId: string): Promise<Checks> {
+      return serialized(async () => {
+        assertIncomplete();
+        const guild = await liveGuild(guildId);
+        if (!guild) throw new SetupError(422, 'bot_not_in_guild', 'The bot is not in that server yet. Invite it first.');
+        const ownerId = store.install()?.ownerDiscordUserId ?? null;
+        const ownerStays = ownerId !== null && (await gateway().getMember(guildId, ownerId).catch(() => null)) !== null;
+        const now = clock.now();
+        store.transaction(() => {
+          store.ensureInstall(now);
+          const current = store.binding();
+          if (current?.guildId !== guildId) store.bindGuild(guildId, guild.name, now);
+          else store.updateBinding({ name: guild.name });
+          if (!ownerStays) store.updateInstall({ ownerDiscordUserId: null });
+        });
+        return gatherChecks();
       });
-      return gatherChecks();
     },
 
     async roles(): Promise<{ id: string; name: string; position: number }[]> {
@@ -192,34 +205,38 @@ export function createSetupService(opts: {
         .map(({ id, name, position }) => ({ id, name, position }));
     },
 
-    async mapRoles(sessionUserId: string | null, input: { organizerRoleId: string; headJudgeRoleId: string }): Promise<Checks> {
-      assertIncomplete();
-      const ownerId = store.install()?.ownerDiscordUserId ?? null;
-      if (ownerId === null || sessionUserId !== ownerId) {
-        throw new SetupError(403, 'owner_required', 'Log in with Discord as the owner first.');
-      }
-      const binding = store.binding();
-      if (!binding) throw new SetupError(409, 'guild_not_chosen', 'Choose the server first.');
-      const guild = await liveGuild(binding.guildId);
-      const known = new Set(guild?.roles.filter((r) => r.id !== guild.id).map((r) => r.id));
-      const unknown = [input.organizerRoleId, input.headJudgeRoleId].filter((id) => !known.has(id));
-      if (unknown.length) throw new SetupError(422, 'unknown_role', 'Pick roles from the server.', { roleIds: unknown });
-      store.updateBinding({ organizerRoleId: input.organizerRoleId, headJudgeRoleId: input.headJudgeRoleId });
-      return gatherChecks();
+    mapRoles(sessionUserId: string | null, input: { organizerRoleId: string; headJudgeRoleId: string }): Promise<Checks> {
+      return serialized(async () => {
+        assertIncomplete();
+        const ownerId = store.install()?.ownerDiscordUserId ?? null;
+        if (ownerId === null || sessionUserId !== ownerId) {
+          throw new SetupError(403, 'owner_required', 'Log in with Discord as the owner first.');
+        }
+        const binding = store.binding();
+        if (!binding) throw new SetupError(409, 'guild_not_chosen', 'Choose the server first.');
+        const guild = await liveGuild(binding.guildId);
+        const known = new Set(guild?.roles.filter((r) => r.id !== guild.id).map((r) => r.id));
+        const unknown = [input.organizerRoleId, input.headJudgeRoleId].filter((id) => !known.has(id));
+        if (unknown.length) throw new SetupError(422, 'unknown_role', 'Pick roles from the server.', { roleIds: unknown });
+        store.updateBinding({ organizerRoleId: input.organizerRoleId, headJudgeRoleId: input.headJudgeRoleId });
+        return gatherChecks();
+      });
     },
 
     /** Binds the install owner after a Discord login inside the unlocked wizard session (ADR-0004). */
-    async bindOwner(userId: string): Promise<BindOwnerOutcome> {
-      if (isComplete()) return 'setup_complete';
-      const binding = store.binding();
-      if (!binding) return 'choose_guild_first';
-      const member = await gateway().getMember(binding.guildId, userId).catch((err: unknown) => {
-        throw asSetupError(err);
+    bindOwner(userId: string): Promise<BindOwnerOutcome> {
+      return serialized(async () => {
+        if (isComplete()) return 'setup_complete';
+        const binding = store.binding();
+        if (!binding) return 'choose_guild_first';
+        const member = await gateway().getMember(binding.guildId, userId).catch((err: unknown) => {
+          throw asSetupError(err);
+        });
+        if (!member) return 'owner_not_in_guild';
+        store.updateInstall({ ownerDiscordUserId: userId });
+        logger.info('Install owner bound in the setup wizard.', { userId });
+        return 'bound';
       });
-      if (!member) return 'owner_not_in_guild';
-      store.updateInstall({ ownerDiscordUserId: userId });
-      logger.info('Install owner bound in the setup wizard.', { userId });
-      return 'bound';
     },
 
     async check(): Promise<Checks> {
@@ -227,18 +244,20 @@ export function createSetupService(opts: {
       return gatherChecks();
     },
 
-    async finish(): Promise<void> {
-      assertIncomplete();
-      const checks = await gatherChecks();
-      if (!allPassed(checks)) {
-        throw new SetupError(422, 'setup_checks_failed', 'Some checks are failing.', { checks: checks.checks, warnings: checks.warnings });
-      }
-      store.transaction(() => {
+    finish(): Promise<void> {
+      return serialized(async () => {
         assertIncomplete();
-        store.updateInstall({ setupCompletedAt: clock.now() });
+        const checks = await gatherChecks();
+        if (!allPassed(checks)) {
+          throw new SetupError(422, 'setup_checks_failed', 'Some checks are failing.', { checks: checks.checks, warnings: checks.warnings });
+        }
+        store.transaction(() => {
+          assertIncomplete();
+          store.updateInstall({ setupCompletedAt: clock.now() });
+        });
+        logger.info('Setup is complete.');
+        onComplete?.();
       });
-      logger.info('Setup is complete.');
-      onComplete?.();
     },
 
     oauthClient(): { clientId: string; clientSecret: string } | null {

@@ -60,6 +60,7 @@ export function createBotRunner(opts: {
   let generation = 0;
 
   async function attempt(gen: number): Promise<void> {
+    if (gen !== generation) return; // a retry that fired after stop or restart
     cancelRetry = null;
     state = 'connecting';
     error = undefined;

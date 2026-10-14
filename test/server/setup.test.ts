@@ -5,7 +5,7 @@ import { type FakeDiscordHttp, startFakeDiscordHttp } from '../support/fake-disc
 import { IDS, storeWorld } from '../support/discord-world';
 import { type Genie, startGenie } from '../support/genie-process';
 import { browser } from '../support/http-client';
-import { completeSetup, credentials, expectNoSecrets, loginThroughDiscord, replyTexts, unlock } from '../support/flows';
+import { completeSetup, credentials, expectNoSecrets, loginThroughDiscord, mintCodeOutsideGenie, replyTexts, unlock } from '../support/flows';
 
 let fake: ReturnType<typeof createFakeDiscord>;
 let discord: FakeDiscordHttp;
@@ -143,6 +143,19 @@ describe('the guild, owner and roles steps', () => {
     expect((await loginThroughDiscord(b, discord, IDS.outsider)).location).toBe('/setup?error=owner_not_in_guild');
     expect((await loginThroughDiscord(b, discord, IDS.owner)).location).toBe('/setup');
     expect((await b.get('/api/setup')).json()).toMatchObject({ ownerId: IDS.owner });
+  });
+
+  it.each([
+    ['no state at all', (code: string) => `/auth/discord?code=${code}`],
+    ['an empty state', (code: string) => `/auth/discord?code=${code}&state=`],
+  ])('never binds an attacker as owner through a callback with %s (login CSRF)', async (_name, link) => {
+    const victim = browser(genie.url);
+    await unlock(victim, genie);
+    const ownerBefore = (await victim.get('/api/setup')).json<{ ownerId: string | null }>().ownerId;
+    const code = await mintCodeOutsideGenie(discord, genie, IDS.member);
+    const res = await victim.get(link(code));
+    expect(res.location).toBe('/login?error=login_failed');
+    expect((await victim.get('/api/setup')).json()).toMatchObject({ ownerId: ownerBefore });
   });
 
   it('maps roles for the owner only', async () => {

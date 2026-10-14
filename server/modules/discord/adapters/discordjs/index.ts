@@ -39,10 +39,33 @@ const UNKNOWN_GUILD = 10004;
 const UNKNOWN_MEMBER = 10007;
 const MISSING_ACCESS = 50001;
 
+/** Distinct tokens kept (the stored one, plus a few the setup wizard tried). */
+const MAX_CLIENTS = 4;
+
 export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): CreateDiscord {
   const { apiUrl, logger } = opts;
-  return (token) => {
+  // One REST client per token: each holds Discord's rate-limit buckets and two sweeper timers, so building one
+  // per call would ignore the buckets across calls and leak the timers.
+  const clients = new Map<string, REST>();
+  const restFor = (token: string): REST => {
+    const cached = clients.get(token);
+    if (cached) {
+      clients.delete(token);
+      clients.set(token, cached);
+      return cached;
+    }
     const rest = new REST({ version: '10', api: apiUrl, timeout: 15_000, retries: 2 }).setToken(token);
+    clients.set(token, rest);
+    if (clients.size > MAX_CLIENTS) {
+      const [oldest, evicted] = clients.entries().next().value as [string, REST];
+      clients.delete(oldest);
+      evicted.clearHashSweeper();
+      evicted.clearHandlerSweeper();
+    }
+    return rest;
+  };
+  return (token) => {
+    const rest = restFor(token);
     let botUserId: string | null = null;
 
     const call = async <T>(fn: () => Promise<unknown>): Promise<T> => {
@@ -52,9 +75,10 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
         throw translate(err);
       }
     };
-    const orNull = async <T>(fn: () => Promise<T>, codes: number[]): Promise<T | null> => {
+    /** A raw REST call whose "not there" answers (`codes`, or a 404) mean `null`; anything else is translated. */
+    const orNull = async <T>(fn: () => Promise<unknown>, codes: number[]): Promise<T | null> => {
       try {
-        return await fn();
+        return (await fn()) as T;
       } catch (err) {
         if (err instanceof DiscordAPIError && typeof err.code === 'number' && codes.includes(err.code)) return null;
         if (err instanceof DiscordAPIError && err.status === 404) return null;
@@ -73,17 +97,15 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
         return guilds.map((g) => ({ id: g.id, name: g.name }));
       },
       async getGuild(guildId) {
-        const guild = await orNull(() => call<APIGuild>(() => rest.get(Routes.guild(guildId))), [UNKNOWN_GUILD, MISSING_ACCESS]);
+        const guild = await orNull<APIGuild>(() => rest.get(Routes.guild(guildId)), [UNKNOWN_GUILD, MISSING_ACCESS]);
         if (!guild) return null;
-        const self = await orNull(
-          async () => call<APIGuildMember>(async () => rest.get(Routes.guildMember(guildId, await botId()))),
-          [UNKNOWN_MEMBER, MISSING_ACCESS],
-        );
+        const bot = await botId();
+        const self = await orNull<APIGuildMember>(() => rest.get(Routes.guildMember(guildId, bot)), [UNKNOWN_MEMBER, MISSING_ACCESS]);
         if (!self) return null;
         return guildInfo(guild, self.roles);
       },
       async getMember(guildId, userId): Promise<Member | null> {
-        const member = await orNull(() => call<APIGuildMember>(() => rest.get(Routes.guildMember(guildId, userId))), [UNKNOWN_MEMBER]);
+        const member = await orNull<APIGuildMember>(() => rest.get(Routes.guildMember(guildId, userId)), [UNKNOWN_MEMBER]);
         return member ? { userId, roleIds: [...member.roles] } : null;
       },
     };
@@ -199,6 +221,7 @@ function base(interaction: Interaction, kind: InboundInteraction['kind'], name: 
 function translate(err: unknown): Error {
   if (err instanceof DiscordAPIError && err.status === 401) return new DiscordAuthError('Discord refused the bot token.');
   if (err instanceof DiscordjsError && err.code === DiscordjsErrorCodes.TokenInvalid) return new DiscordAuthError('Discord refused the bot token.');
-  if (err instanceof DiscordAPIError && err.status < 500) return err;
+  // Any other refusal (403 Missing Access when the bot lost the guild, say) means Discord can't answer this for us.
+  if (err instanceof DiscordAPIError && err.status < 500 && err.status !== 403) return err;
   return new DiscordUnavailableError(`Discord could not be reached: ${err instanceof Error ? err.message : String(err)}`);
 }

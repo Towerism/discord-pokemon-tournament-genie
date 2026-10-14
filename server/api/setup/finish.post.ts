@@ -2,8 +2,11 @@
 export default defineEventHandler(async (event) => {
   requireSetupIncomplete();
   requireAllowedOrigin(event);
-  await requireSetupUnlocked(event);
+  const session = await requireSetupUnlocked(event);
   await handled(() => useSetup().finish());
-  await setUserSession(event, { setup: undefined });
+  // The owner stays signed in; the wizard unlock is dropped with the rest of the setup state.
+  const { user, grant, checkedAt } = session;
+  if (user && grant && checkedAt !== undefined) await replaceUserSession(event, { user, grant, checkedAt });
+  else await clearUserSession(event);
   return { complete: true };
 });

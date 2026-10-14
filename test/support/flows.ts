@@ -42,3 +42,12 @@ export function expectNoSecrets(texts: string[]): void {
 }
 
 export const replyTexts = (browser: Browser) => browser.replies.map((r) => `${JSON.stringify(r.headers)}\n${r.text}`);
+
+/** A code an attacker gets from Discord directly, without Genie's state (login CSRF). */
+export async function mintCodeOutsideGenie(discord: FakeDiscordHttp, genie: Genie, userId: string): Promise<string> {
+  discord.loginAs(userId);
+  const redirect = encodeURIComponent(`http://localhost:${genie.port}/auth/discord`);
+  const consent = await (await fetch(`${discord.url}/oauth2/authorize?client_id=${IDS.app}&redirect_uri=${redirect}`)).text();
+  const href = /id="authorize" href="([^"]+)"/.exec(consent)![1]!.replace(/&amp;/g, '&');
+  return new URL(href).searchParams.get('code')!;
+}

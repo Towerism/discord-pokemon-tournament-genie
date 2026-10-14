@@ -49,6 +49,8 @@ export interface FakeDiscord {
   readonly commands: Map<string, readonly CommandDefinition[]>;
   /** Every REST read fails as if Discord were down. */
   unavailable: boolean;
+  /** While set, every REST read waits for it: lets a test hold a request mid-flight. */
+  readGate: Promise<void> | null;
   /** The next gateway logins fail this way (`null`: they succeed). */
   connectFailure: ConnectFailure | null;
   connectAttempts: number;
@@ -81,6 +83,7 @@ export function createFakeDiscord(): FakeDiscord {
     guilds,
     commands,
     unavailable: false,
+    readGate: null,
     connectFailure: null,
     connectAttempts: 0,
     connected: false,
@@ -152,20 +155,24 @@ export function createFakeDiscord(): FakeDiscord {
       };
       const gateway: DiscordGateway = {
         async getApplication() {
+          await fake.readGate;
           const { id, botPublic, flags } = appOf();
           return { id, botPublic, flags };
         },
         async listGuilds() {
+          await fake.readGate;
           const app = appOf();
           return [...guilds.values()].filter((g) => g.members.has(app.botUserId)).map((g) => ({ id: g.id, name: g.name }));
         },
         async getGuild(guildId) {
+          await fake.readGate;
           const app = appOf();
           const guild = guilds.get(guildId);
           if (!guild?.members.has(app.botUserId)) return null;
           return guildInfo(guild, app.botUserId);
         },
         async getMember(guildId, userId): Promise<Member | null> {
+          await fake.readGate;
           const app = appOf();
           const guild = guilds.get(guildId);
           if (!guild?.members.has(app.botUserId)) throw new DiscordUnavailableError('The bot is not in the guild (fake).');
