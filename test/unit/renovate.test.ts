@@ -31,6 +31,7 @@ interface PackageRule {
   [key: string]: unknown;
 }
 interface RenovateConfig {
+  extends?: string[];
   automerge?: boolean;
   ignorePaths?: string[];
   vulnerabilityAlerts?: Record<string, unknown>;
@@ -70,6 +71,9 @@ describe('Renovate', () => {
   it("automerges only the kit's patch and minor updates, never a major", () => {
     const config = renovate();
     expect(config.automerge).not.toBe(true);
+    // Presets such as :automergeMinor and the alert rules can turn automerge on too.
+    expect((config.extends ?? []).filter((preset) => /automerge/i.test(preset))).toEqual([]);
+    expect(config.vulnerabilityAlerts?.automerge).not.toBe(true);
     const automerging = (config.packageRules ?? []).filter((r) => r.automerge === true);
 
     expect(automerging).toHaveLength(1);
@@ -88,8 +92,9 @@ describe('Renovate', () => {
   });
 
   it("tracks the Dockerfile's pnpm and keeps it equal to package.json's packageManager", () => {
+    // Only Renovate's /regex/ form of managerFilePatterns is read here; a glob pattern is skipped.
     const managers = (renovate().customManagers ?? []).filter((m) =>
-      m.managerFilePatterns.some((p) => new RegExp(p.replace(/^\/|\/$/g, '')).test('Dockerfile')),
+      m.managerFilePatterns.some((p) => /^\/.*\/$/.test(p) && new RegExp(p.slice(1, -1)).test('Dockerfile')),
     );
     expect(managers).toHaveLength(1);
     const dockerfile = readFileSync('Dockerfile', 'utf8');

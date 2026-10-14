@@ -201,7 +201,8 @@ Genie patch once releases are on (section 7). Everything else waits for you:
 - `spikes/` is never touched.
 
 pnpm itself refuses packages newer than a day, so `pnpm-workspace.yaml` exempts the kit by name. What makes
-that safe is the kit's npm trusted publishing with provenance from its own CI. Other packages aren't exempt: a
+that safe is the kit's npm trusted publishing with provenance from its own CI. The same trust covers the kit's
+workflow SHAs, whose `image` job is one of the checks that gates the kit's own PR. Other packages aren't exempt: a
 security fix released that same day fails its lockfile update until it is a day old, then succeeds on a later
 run.
 
@@ -215,7 +216,7 @@ an automerge from landing red. Apply it the first time, or re-apply it after edi
 
 ```sh
 repo=Towerism/discord-pokemon-tournament-genie
-id=$(gh api "repos/$repo/rulesets" -q '.[] | select(.name == "main") | .id')
+id=$(gh api "repos/$repo/rulesets?includes_parents=false" -q '.[] | select(.name == "main") | .id')
 if [ -z "$id" ]; then gh api -X POST "repos/$repo/rulesets" --input .github/rulesets/main.json
 else gh api -X PUT "repos/$repo/rulesets/$id" --input .github/rulesets/main.json; fi
 ```
@@ -224,6 +225,7 @@ It needs the repository settings *Allow auto-merge* and Dependabot alerts on (Re
 from GitHub):
 
 ```sh
+repo=Towerism/discord-pokemon-tournament-genie
 gh api -X PATCH "repos/$repo" -F allow_auto_merge=true
 gh api -X PUT "repos/$repo/vulnerability-alerts"
 ```
@@ -242,6 +244,8 @@ Renovate GitHub App access to the repository. Without the ruleset, an automerge 
 - **Merging past broken CI in an emergency:** there is no bypass. Turn the ruleset off, merge, and turn it back on:
 
   ```sh
+  repo=Towerism/discord-pokemon-tournament-genie
+  id=$(gh api "repos/$repo/rulesets?includes_parents=false" -q '.[] | select(.name == "main") | .id')
   gh api -X PUT "repos/$repo/rulesets/$id" -f enforcement=disabled   # then -f enforcement=active
   ```
 - **A bad dependency update reached `main`:** revert its commit (a `fix(deps)` revert releases a new patch), and
