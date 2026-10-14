@@ -59,6 +59,8 @@ const roleName = (r: { id: string; name: string | null } | null) => (r ? (r.name
       description="Anyone in the server with Manage Roles can give someone the organizer role, and with it every day channel and full access to this site. Every login is recorded. The owner can limit organizers with the allowlist below."
     />
 
+    <AttendanceCard />
+
     <form v-if="isOwner" class="space-y-2" @submit.prevent="saveAllowlist">
       <h2 class="font-semibold">Organizer allowlist</h2>
       <label class="flex items-center gap-2 text-sm">

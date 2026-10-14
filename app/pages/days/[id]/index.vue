@@ -5,8 +5,10 @@ interface EventView {
   name: string;
   slug: string;
   game: 'tcg' | 'vgc' | 'go' | 'other';
+  gameConfirmed: boolean;
   startTime: string;
   tournamentId: string | null;
+  attendance: { tournamentId: string; organizerPlayerId: string | null; organizerName: string | null } | null;
 }
 interface JobView {
   id: number;
@@ -20,7 +22,15 @@ interface JobEvent {
   message: string;
 }
 interface DayPlan {
-  day: { id: number; date: string; title: string; state: string; blueprintId: number; categoryId: string | null };
+  day: {
+    id: number;
+    date: string;
+    title: string;
+    state: string;
+    blueprintId: number;
+    categoryId: string | null;
+    attendance: { source: 'manual' | 'attendance'; refreshedAt: number | null };
+  };
   events: EventView[];
   staff: { staffMemberId: number; displayName: string; linkState: string; events: { eventId: number; role: Role }[] }[];
   sync: { inSync: boolean; revocationPending: boolean };
@@ -107,6 +117,10 @@ const addEvent = () =>
     newEvent.tournamentId = '';
   });
 const removeEvent = (eventId: number) => act(() => apiFetch(`/api/days/${dayId}/events/${eventId}`, { method: 'DELETE' }));
+/** Setting the game confirms it: an imported tournament whose game attendance didn't know. */
+const setGame = (eventId: number, game: string) => act(() => apiFetch(`/api/days/${dayId}/events/${eventId}`, { method: 'PATCH', body: { game } }));
+const importable = computed(() => plan.value?.can.edit === true && (plan.value.day.state === 'draft' || plan.value.day.state === 'open'));
+const imported = () => Promise.all([refreshPlan(), refreshPreview()]);
 
 // ---- staff and roles: edited locally, saved whole (PUT replaces).
 const roster = ref<{ staffMemberId: number; displayName: string; roles: Record<number, Role | ''> }[]>([]);
@@ -177,17 +191,41 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
 
     <section aria-labelledby="events-heading" class="space-y-2">
       <h2 id="events-heading" class="font-semibold">Events</h2>
+      <AttendanceImport
+        v-if="importable"
+        :day-id="dayId"
+        :day-state="plan.day.state"
+        :source="plan.day.attendance.source"
+        :refreshed-at="plan.day.attendance.refreshedAt"
+        :event-name="(id: number) => eventName(id)"
+        @applied="imported"
+      />
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-left"><th>Event</th><th>Channels</th><th>Game</th><th>Starts</th><th>Tournament ID</th><th /></tr>
+          <tr class="text-left"><th>Event</th><th>Channels</th><th>Game</th><th>Starts</th><th>Tournament ID</th><th>Organizer</th><th /></tr>
         </thead>
         <tbody>
           <tr v-for="e in plan.events" :key="e.id">
             <td>{{ e.name }}</td>
             <td>{{ e.slug }}</td>
-            <td>{{ e.game.toUpperCase() }}</td>
+            <td>
+              <template v-if="e.gameConfirmed">{{ e.game.toUpperCase() }}</template>
+              <span v-else class="flex items-center gap-1">
+                <UBadge color="warning" variant="soft">game not confirmed</UBadge>
+                <select
+                  v-if="plan.can.edit"
+                  :aria-label="`Game of ${e.name}`"
+                  class="border border-accented rounded p-1"
+                  @change="setGame(e.id, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Set the game…</option>
+                  <option value="tcg">TCG</option><option value="vgc">VGC</option><option value="go">GO</option><option value="other">Other</option>
+                </select>
+              </span>
+            </td>
             <td>{{ e.startTime }}</td>
             <td>{{ e.tournamentId ?? '—' }}</td>
+            <td>{{ e.attendance?.organizerName ?? (e.attendance ? e.attendance.organizerPlayerId : '—') }}</td>
             <td><UButton v-if="plan.can.edit && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
           </tr>
         </tbody>
