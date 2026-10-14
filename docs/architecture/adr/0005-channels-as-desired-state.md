@@ -2,6 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
+- Amended by [ADR-0012](0012-genie-overwrite-without-manage-roles.md) (accepted 2026-10-14). The bot's own
+  overwrite allows View, Send and Manage Channels, not Manage Roles.
 - Date: 2026-10-13
 
 ## Context
@@ -42,7 +44,7 @@ Option 1.
   is therefore not denied, so anything that must be off is an explicit deny (the lock in ADR-0007).
 - **Overwrites are computed and replaced whole:**
   - `@everyone` deny View, set on the category *and* every channel, so nothing relies on category sync;
-  - the bot allowed View, Send and Manage;
+  - the bot allowed View, Send and Manage (amended by ADR-0012: Manage Channels, not Manage Roles);
   - the organizer role allowed View;
   - one member overwrite per staffer in the channel's audience.
 
@@ -70,7 +72,8 @@ Option 1.
 - **Drift:** a channel missing from Discord is recreated, and one in the category that Genie didn't
   record is reported, never deleted automatically.
 - **Preconditions** are checked before opening: every day staffer has a linked Discord member, every
-  event's game is confirmed, the bot has its permissions and role position, and the guild channel limits
+  event's game is confirmed, the bot has its permissions and role position (S3: position doesn't limit
+  overwrites), and the guild channel limits
   leave room.
 
 ## Consequences

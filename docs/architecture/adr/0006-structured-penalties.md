@@ -1,6 +1,8 @@
 # ADR-0006: Penalties as structured records through `/penalty`, with the catalog as data
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0014](0014-penalty-form-selects-in-modal.md) (accepted 2026-10-14). Category, severity
+  and penalty are selects in the modal (S2).
 - Date: 2026-10-13
 
 ## Context
@@ -46,7 +48,8 @@ Discord modals take at most 5 inputs, and slash-command options can have autocom
 
 Option 1.
 
-- **Command shape:** `/penalty round:<int> category:<autocomplete> severity:<Minor|Major|Severe>
+- **Command shape** (superseded by [ADR-0014](0014-penalty-form-selects-in-modal.md)):
+  `/penalty round:<int> category:<autocomplete> severity:<Minor|Major|Severe>
   penalty:<autocomplete>`, offering the clipboard sheet's options (prize penalties only for TCG), opens a modal with **Competitor's Player ID** and **Notes**. The judge's
   player ID comes from the directory; a judge without one is told to `/link` first. Run in an event's
   penalty channel, the event is implied; elsewhere in the day, an `event:` option is required.
