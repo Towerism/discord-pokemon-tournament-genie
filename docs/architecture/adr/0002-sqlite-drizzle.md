@@ -26,8 +26,8 @@ the purge step checks (ADR-0007). Discord snowflakes and player IDs are TEXT.
 
 ## Consequences
 
-- (+) Zero ops; the same tooling as attendance, and the same backup story: Appdata Backup, plus optional
-  Litestream with its config from `@towerism/selfhost-kit` (ADR-0011).
+- (+) Zero ops; tooling the owner already runs for attendance, and one backup story for both: Appdata
+  Backup, plus optional Litestream with its config from `@towerism/selfhost-kit` (ADR-0011).
 - (+) Hash records make a missing or altered export detectable before channels are deleted.
 - (−) Litestream covers the DB, not `exports/`; the Appdata Backup of the whole folder covers both.
 - (−) Single writer; acceptable at this scale.
