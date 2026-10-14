@@ -5,16 +5,21 @@
 
 ## Context
 
-Genie's architecture, as first accepted, planned to copy attendance's infrastructure. Its ADR-0001, tech
-stack and ADR-0009 said:
+Genie's architecture, as first accepted, planned to copy attendance's infrastructure. ADR-0001's
+consequences said:
 
 > Attendance's launcher, secret bootstrap, entrypoint, CI and release flow carry over almost as-is.
->
-> Same pattern as attendance's token vault.
->
-> Option 1, reusing attendance's pieces.
 
-An adversarial review of Genie's architecture (Warning #5, recorded in
+The tech stack's Crypto row said:
+
+> Same pattern as attendance's token vault.
+
+ADR-0009's decision began:
+
+> Option 1, reusing attendance's pieces:
+
+An adversarial review of Genie's architecture (its Warning #5, in the kit study's numbering, not the W5 of
+Genie #1; recorded in
 [selfhost-kit ADR-0001](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/adr/0001-share-as-a-package.md)
 and its architecture §1) found that copying would leave two versions of security-sensitive code: the
 vault, the secret bootstrap and log redaction. A fix in one would never reach the other.
@@ -45,10 +50,11 @@ Option 3.
 
 - the AES-256-GCM vault and string helper (`createVault`, `stringVault`);
 - the secret specs and their resolution, the runtime env and the launcher (`sessionPassword()`,
-  `aes256Key`, `prepareRuntimeEnv`, `runLauncher`);
+  `aes256Key`, `resolveSecret`, `prepareRuntimeEnv`, `runLauncher`);
 - the setup code (`generateSetupCode`, `setupCodeMatches`);
-- the logger, redaction and request ids;
-- the request-log plugin;
+- the logger, the `Logger` port, redaction and request ids;
+- the `Clock` port;
+- the request-log and error-log plugin;
 - the CSP and security-headers builder and plugin;
 - the fixed-window limiter, client address, trusted proxies and `enforceRateLimit`;
 - the JSON-only and body-size middleware, and the JSON error handler;
@@ -58,15 +64,16 @@ Option 3.
 
 **These stay in Genie:**
 
-- the secret specs list and the AAD strings;
-- the extra redaction keys;
+- the secret specs list, extra config checks and the server entry URL;
+- which values are sealed, their AAD strings and key names;
+- the extra redaction keys, `useLogger` and the async-context lookup, and which request paths are quiet;
 - extra CSP sources and per-route policies (the transcript view's sandbox CSP);
 - which routes are rate-limited, their limits and their tuning env names;
 - exempt paths and the body size limit;
-- when the setup code is printed and when it stops working (when the wizard finishes);
+- when the setup code is printed, what it unlocks and when it stops working (when the wizard finishes);
 - the Dockerfile: its stages, paths, `HEALTHCHECK`, env defaults, `exports/` and port 3001;
 - the `check` and `e2e` CI jobs, the smoke scripts and the image name;
-- the Unraid template, checked by the kit's `checkUnraidTemplate`;
+- the Unraid template and its icon, checked by the kit's `checkUnraidTemplate`;
 - `/healthz` and `/readyz`;
 - the `jobs` module, written so it can move into the kit later (selfhost-kit ADR-0002);
 - the DB, auth and all domain code.

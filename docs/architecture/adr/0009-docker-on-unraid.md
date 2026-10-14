@@ -26,11 +26,12 @@ Option 1, with the shared pieces from `@towerism/selfhost-kit` (ADR-0011):
 - the kit's Docker assets (the entrypoint with PUID/PGID, gosu, UMASK and optional Litestream;
   `litestream.yml`; the Litestream pin), copied into the build with `selfhost-kit docker-assets`;
 - the kit's reusable `app-image.yml` and `app-release.yml` workflows, pinned by SHA, with its shareable
-  semantic-release config and PR images.
+  semantic-release config and PR images;
+- Genie's own Dockerfile, which adds `exports/` and port **3001** (the default), so it sits beside
+  attendance's 3000.
 
-Genie's own Dockerfile adds `exports/` and port **3001** (the default), so it sits beside attendance's 3000. Persistent data is `/data/app.db`,
-`/data/secrets/` and `/data/exports/`. No Discord or attendance credentials go in the template; they are
-entered in `/setup` and Settings and kept in the vault.
+Persistent data is `/data/app.db`, `/data/secrets/` and `/data/exports/`. No Discord or attendance
+credentials go in the template; they are entered in `/setup` and Settings and kept in the vault.
 
 ## Consequences
 

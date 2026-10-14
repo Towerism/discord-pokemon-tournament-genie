@@ -102,7 +102,7 @@ flowchart LR
       JOBS["jobs<br/>(runner, leases, timer)"]
     end
     ACC["shared/access<br/>canSee() (ADR-0010)"]
-    WIRE["server/utils, bootstrap, middleware<br/>(kit wiring + Genie config)"]
+    WIRE["server/utils + middleware<br/>(kit wiring + Genie config)"]
     subgraph Ports
       DG[["DiscordGateway"]]
       AS[["AttendanceSource"]]
@@ -139,6 +139,7 @@ flowchart LR
   API --> WIRE
   BOT --> WIRE
   WIRE --> KIT
+  WIRE -- "injects Logger, Vault, Clock" --> Modules
   Modules -. "Logger, Vault, Clock types only" .-> KIT
 ```
 
@@ -938,7 +939,7 @@ A case may only be added or changed together with a real-guild observation.
 | Milestone | Scope |
 | --------- | ----- |
 | M0 | Spikes S1–S4 (S3 delivers the recorded permission cases) |
-| M1 Skeleton | Nuxt app, DB, setup wizard (owner bound in the wizard, Public Bot check, setup lock-out), Discord login, login audit, organizer allowlist, bot online (bound guild only), jobs module and timer, CI `check` job, Unraid template. **From the kit:** the vault, secret bootstrap, launcher, logging, middleware, setup code and Docker assets |
+| M1 Skeleton | Nuxt app, DB, setup wizard (owner bound in the wizard, Public Bot check, setup lock-out), Discord login, login audit, organizer allowlist, bot online (bound guild only), jobs module and timer, CI `check` job, Unraid template. **From the kit:** the vault, secret bootstrap, launcher, logging, middleware and setup code |
 | M1 Image and release | The image and release jobs through the kit's reusable `app-image.yml` and `app-release.yml` workflows, plus the kit's Docker assets copied with `selfhost-kit docker-assets`. A separate M1 issue |
 | M2 Days and channels | Directory, blueprints, day templates, day plan, preview, `canSee()` (ADR-0010), open/sync jobs, auto-sync on removal, privacy audit, the fake's permission model and S3 contract suite |
 | M3 Attendance import | Adapter + fake, import of every connected organizer's tournaments, refresh diff that never removes an unread organizer's events, timezone check, unconfirmed games, linking by player ID (needs the companion attendance issue) |
@@ -951,6 +952,9 @@ A case may only be added or changed together with a real-guild observation.
   and K2 ([#16](https://github.com/Towerism/selfhost-kit/issues/16)) publish 0.x, pinned exactly.
 - **M1 Image and release** waits for kit K3 ([#18](https://github.com/Towerism/selfhost-kit/issues/18)).
   M1's skeleton is done without it, and Genie never ships an image built from copied workflows.
+- **The Unraid template's contract test** (`checkUnraidTemplate`) waits for kit
+  [#19](https://github.com/Towerism/selfhost-kit/issues/19), which no kit milestone names yet. The template
+  itself doesn't wait.
 - **Work that doesn't wait for the kit:** the M0 spikes, the `DiscordGateway` port and its fake, blueprints
   (`desiredChannels()`) and `canSee()`, all as pure code. These go first if the kit is late.
 

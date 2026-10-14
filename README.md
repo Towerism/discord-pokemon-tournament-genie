@@ -7,5 +7,6 @@ day's tournaments and staff from
 [play-pokemon-attendance-web](https://github.com/Towerism/play-pokemon-attendance-web).
 
 Design (accepted 2026-10-13): [`docs/architecture/`](docs/architecture/README.md).
-Its platform infrastructure (vault, secret bootstrap, logging, security middleware, Docker assets, CI)
-comes from the shared [`@towerism/selfhost-kit`](https://github.com/Towerism/selfhost-kit).
+Its platform infrastructure (vault, secret bootstrap, logging, security middleware, Docker assets, image
+and release workflows) is to come from the shared
+[`@towerism/selfhost-kit`](https://github.com/Towerism/selfhost-kit) (proposed in ADR-0011).
