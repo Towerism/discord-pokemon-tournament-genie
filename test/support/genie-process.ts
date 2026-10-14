@@ -22,9 +22,9 @@ export interface Genie {
  * The built app, started through the production launcher (`.output/launcher.mjs`) with a throwaway data dir,
  * pointed at a fake Discord. Waits for `/readyz` with a deadline, never a fixed sleep.
  */
-export async function startGenie(opts: { discordUrl: string; env?: Record<string, string> }): Promise<Genie> {
+export async function startGenie(opts: { discordUrl: string; port?: number; env?: Record<string, string> }): Promise<Genie> {
   const dataDir = tempSecretsDir();
-  const port = await freePort();
+  const port = opts.port ?? (await freePort());
   let output = '';
   let child: ChildProcess | undefined;
 

@@ -43,6 +43,12 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
     state.requests.push(`${req.method} ${path}`);
     const auth = req.headers.authorization ?? '';
 
+    // Test control (Playwright runs in another process than the fake).
+    if (req.method === 'POST' && path === '/_test/login-as') {
+      nextUser = (JSON.parse(await body(req)) as { userId: string }).userId;
+      return send(res, 204, null);
+    }
+
     // OAuth consent: the page a browser sees at Discord.
     if (req.method === 'GET' && path === '/oauth2/authorize') {
       const redirectUri = url.searchParams.get('redirect_uri') ?? '';
@@ -124,7 +130,7 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
 
 function send(res: ServerResponse, status: number, json: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(json));
+  res.end(status === 204 ? undefined : JSON.stringify(json));
 }
 
 function body(req: IncomingMessage): Promise<string> {

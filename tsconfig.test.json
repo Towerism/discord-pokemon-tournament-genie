@@ -1,0 +1,18 @@
+{
+  // Tests, test support and tool configs, which the Nuxt app/server projects don't include.
+  "extends": "./.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "test/**/*.ts",
+    "server/**/*.test.ts",
+    "shared/**/*.test.ts",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "drizzle.config.ts",
+    ".nuxt/nuxt.d.ts",
+    "shared/types/*.d.ts"
+  ]
+}

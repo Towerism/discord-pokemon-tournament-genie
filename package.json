@@ -12,7 +12,7 @@
     "start": "node .output/launcher.mjs",
     "postinstall": "nuxt prepare",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "nuxt typecheck",
+    "typecheck": "nuxt typecheck && vue-tsc -p tsconfig.test.json",
     "test": "vitest run --project unit --coverage && vitest run --project server",
     "test:unit": "vitest run --project unit",
     "test:server": "vitest run --project server",
