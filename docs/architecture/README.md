@@ -382,13 +382,31 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
   each event's organizer. The organizer can edit freely afterwards, including removing events they don't
   want. **Refresh from attendance** re-pulls and shows a diff (added / removed / role changed) to accept,
   never a silent overwrite.
+- **Accepting, item by item** (M3, #19). A pull is stored as the day's snapshot. The organizer accepts any
+  subset of its items, in one transaction, only while the plan revision and the day's state are still the
+  ones the pull saw (`409 plan_changed`), and within 60 minutes (`409 snapshot_stale`). Items that may take
+  access away on an open day, or undo a hand edit, start unchecked.
+- **Only what an import brought is taken back.** Roles and day-staff rows an import creates are flagged
+  `imported`; a refresh proposes removing only those, never staff added by hand (removing a whole event is
+  the one exception, and the diff names the hand-added staff it would end). An imported day staffer whose
+  last role a refresh ends leaves the day.
+- **Removing an event from an open day retires it.** On a `draft` day an accepted removal deletes the event.
+  On an `open` day it removes every role on it (so the removal sync revokes access at once) and clears its
+  attendance link (so later refreshes ignore it); the event and its channels stay for close-out's export.
+  This closes M2's open question about removing an event of an open day; removing one by hand is still
+  refused.
+- **The connection.** Settings holds attendance's base URL and the token, sealed in the vault. A new base URL
+  needs the token typed again, so the stored token can't be pointed at another host. The adapter never
+  follows a redirect, caps the answer's size, and times out (60 s by default: attendance reads play-tools live).
 - **Unreadable organizers never cost data.** An import or refresh with any `unread` professor still
   imports everyone else's tournaments, and shows a warning naming each unread professor and the reason.
   The refresh diff, a pure function in `attendance-import`, **never proposes removing an event, or any of
   its staff, whose organizer is unread** in that refresh. Those events show as "not refreshed: Prof. Elm
   couldn't be read". Removal is proposed only for an event whose organizer was read and whose tournament
   is gone from the response. This matters because removals revoke channel access at once (§6.3). A
-  professor who was unread at the first import and is read later simply shows up as additions.
+  professor who was unread at the first import and is read later simply shows up as additions. An organizer
+  missing from `professors` altogether (disconnected in attendance) counts as unread (`not_connected`), and
+  while any professor is unread a proposed removal is marked uncertain: the tournament may have moved to them.
 - **No connected organizers, no import.** If `professors` is empty, the import is refused
   (`422 no_connected_organizers`) and the day plan doesn't change.
 - **Same timezone or no import.** If the response's `timezone` differs from Genie's `TZ`, the import is
@@ -446,10 +464,12 @@ erDiagram
 | `staff_member` | `id`, `discord_user_id?` (unique), `player_id?` (unique), `display_name`, `link_state` (`linked`/`claimed`/`unlinked`) | The directory: one person, at most one Discord account and one player ID. A judge needs a player ID to record penalties (it is the CSV's *Judge Player ID*). |
 | `blueprint`, `blueprint_channel` | channel `key`, `scope` (`day`/`per_event`), `kind` (`text`/`voice`), `name_pattern` (e.g. `{event}-penalties`), `audience` (`all_staff`/`event_staff`/`head_judges`), `purpose` (`general`/`floor`/`penalties`), `topic`, `position` | Pure data; `shared/blueprints` turns it into the desired channel set. A default blueprint is seeded (§6.2). |
 | `day_template`, `day_template_event` | template: `id`, `name` (unique), `blueprint_id`; event: `template_id`, `name`, `game`, `start_time`, `position` | Pre-fills a new day's events ("Saturday: TCG LC + VGC"). |
-| `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `grace_until?`, `source` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
+| `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `grace_until?`, `source` (`manual`/`attendance`), `attendance_refreshed_at?` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
 | `event` | `id`, `day_id`, `name`, `slug`, `game` (`tcg`/`vgc`/`go`/`other`), `game_confirmed`, `starts_at`, `attendance_tournament_id?`, `attendance_organizer_player_id?`, `attendance_organizer_name?`, `tournament_id?` | `slug` is unique within the day and drives channel names. `game_confirmed` is false only when attendance sent `game: null`, and opening the day requires it. The attendance organizer fields record which connected professor the tournament came from, for display and for the refresh rule (§4.2). `tournament_id` is the play-tools display ID (`25-12-001050`), the CSV's *Tournament ID*: imported from attendance or typed in, and required before the event's CSV can be exported. |
-| `day_staff` | `day_id`, `staff_member_id`, `is_day_lead` | Who has access to the day's channels at all. |
-| `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`) | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. |
+| `day_staff` | `day_id`, `staff_member_id`, `is_day_lead`, `imported` | Who has access to the day's channels at all. `imported`: an attendance import put them on the day, so a refresh may take them off again (§4.2). |
+| `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`), `imported` | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. Only `imported` roles are ever proposed for removal by a refresh (§4.2). |
+| `attendance_connection` | `id` (= 1), `base_url`, `token_hint`, `updated_at` | Where attendance answers; the token itself is the sealed `attendance_token` (owner: `setup`). |
+| `attendance_snapshot` | `day_id` (PK), `snapshot_id`, `payload`, `plan_revision`, `day_state`, `fetched_at`, `fetched_by` | The day's latest pull, waiting to be accepted (owner: `attendance-import`, §4.2). |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
 | `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by Genie's own `jobs` module (§3): lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
 | `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7), editable in Settings. The CSV writes `label` as is. A guideline change is an edit, not a release. |
@@ -496,7 +516,8 @@ localhost path. On any other origin the wizard refuses to accept secrets; it doe
 3. Still inside the wizard, the organizer **logs in with Discord**. That account becomes the install
    owner. Ownership is only ever granted within this setup-code-gated session, never by a later login.
    They map Discord roles to Genie's *organizer* and *head judge* permissions (§9).
-4. Optional: paste attendance's base URL and integration token; Genie checks it with a test call.
+4. Attendance is connected later, in Settings (M3, #19): its base URL and integration token. There is no
+   test call, because every read reaches play-tools live in attendance; the first import is the test.
 5. Finishing the wizard invalidates the setup code. From then on every `/api/setup/*` route answers
    `410 Gone` (`setup_complete`). Rotating the bot token or secret is done in Settings, by the owner.
 
@@ -778,8 +799,9 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST/PATCH/DELETE /api/days/{id}/events[/{eventId}]` | organizer | Events |
 | `PUT /api/days/{id}/staff` | organizer | Day and event staff (full replace, returns the diff) |
 | `GET /api/days/{id}/preview` | organizer, day head judges | Desired channels and audiences |
-| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ diff, unreadProfessors }` to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, §4.2) |
-| `POST /api/days/{id}/import/accept` | organizer | Apply an import diff (removals queue a sync, §6.3) |
+| `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ snapshotId, planRevision, fetchedAt, diff }` (the diff holds the unread professors) to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, `409 import_in_progress`, `5xx attendance_*` when attendance can't be used, §4.2) |
+| `POST /api/days/{id}/import/accept` | organizer | Body `{ snapshotId, planRevision, keys }`: apply the chosen items of the latest pull in one transaction (removals queue a sync, §6.3; `409 plan_changed`, `409 snapshot_stale`, `422 unknown_items`) |
+| `GET/PUT/DELETE /api/settings/attendance` | organizer | The attendance connection: base URL and a token hint, never the token. `PUT` needs an allowed origin (ADR-0013) and the token again for a new base URL (`422 token_required`) |
 | `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id) |
 | `GET /api/jobs/{id}`, `GET /api/jobs/{id}/events` (SSE) | as the day | Progress |
 | `GET /api/days/{id}/penalties`, `POST`, `PATCH /{pid}`, `POST /{pid}/void`, `POST /{pid}/repost` | head judges of the event (that event's penalties only, until close), organizer | Penalties. `POST` with an already-used `idempotencyKey` returns `200` and the existing row. After close, `PATCH`/`void` are organizer-only (`403 closed_organizer_only`) and answer `{ penalty, exportFileId }` for the re-exported CSV |
