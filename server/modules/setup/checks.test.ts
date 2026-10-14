@@ -28,6 +28,9 @@ const guild = (over: Partial<GuildInfo> = {}): GuildInfo => ({
   botRoleIds: ['bot-role'],
   botHighestRolePosition: 5,
   botPermissions: ALL,
+  botUserId: '300000000000000009',
+  ownerId: '100000000000000001',
+  channelCount: 0,
   ...over,
 });
 
