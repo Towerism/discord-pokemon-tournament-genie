@@ -1,0 +1,6311 @@
+{
+  "cases": [
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W0-default-createcategory",
+      "kind": "write",
+      "path": "create",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W0-default-create",
+      "kind": "write",
+      "path": "create",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W0-nosend-createcategory",
+      "kind": "write",
+      "path": "create",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W0-nosend-create",
+      "kind": "write",
+      "path": "create",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "id": "W1-default-sync",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W1-default-fallback",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "id": "W1-nosend-sync",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W1-nosend-fallback",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads",
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "id": "W2-default-lock",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads",
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads",
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "id": "W2-nosend-lock",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads",
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [
+            "AddReactions",
+            "CreatePrivateThreads",
+            "CreatePublicThreads",
+            "SendMessages",
+            "SendMessagesInThreads"
+          ],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:high"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          }
+        ]
+      },
+      "id": "W3-default-edit",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:high"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          }
+        ]
+      },
+      "id": "W4-default-edit",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "MentionEveryone"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "code": 50013,
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          }
+        ]
+      },
+      "id": "W5-default-edit",
+      "kind": "write",
+      "path": "edit",
+      "result": "refused"
+    },
+    {
+      "attempted": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W6-default-control",
+      "kind": "write",
+      "path": "create",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        }
+      ]
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [
+            "ManageRoles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        }
+      ],
+      "code": 50013,
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W6-default-mrself",
+      "kind": "write",
+      "path": "create",
+      "result": "refused"
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [
+            "MentionEveryone"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "code": 50013,
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W6-default-lacksallow",
+      "kind": "write",
+      "path": "create",
+      "result": "refused"
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [
+            "MentionEveryone"
+          ],
+          "target": "member:other"
+        }
+      ],
+      "code": 50013,
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W6-default-lacksdeny",
+      "kind": "write",
+      "path": "create",
+      "result": "refused"
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels",
+            "ManageRoles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "code": 50013,
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": []
+      },
+      "id": "W6-default-original",
+      "kind": "write",
+      "path": "create",
+      "result": "refused"
+    },
+    {
+      "attempted": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels",
+            "ManageRoles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        }
+      ],
+      "context": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "genieRole": [
+          "AddReactions",
+          "AttachFiles",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "EmbedLinks",
+          "ManageChannels",
+          "ManageRoles",
+          "ManageThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "UseApplicationCommands",
+          "ViewChannel"
+        ],
+        "overwritesBefore": [
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels",
+              "ManageRoles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          }
+        ]
+      },
+      "id": "W7-default-originalmr",
+      "kind": "write",
+      "path": "edit",
+      "result": "ok",
+      "stored": [
+        {
+          "allow": [],
+          "allowOther": [],
+          "deny": [
+            "ViewChannel"
+          ],
+          "denyOther": [],
+          "target": "everyone"
+        },
+        {
+          "allow": [
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "ManageChannels",
+            "ManageRoles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:genie"
+        },
+        {
+          "allow": [
+            "ReadMessageHistory",
+            "SendMessages",
+            "ViewChannel"
+          ],
+          "allowOther": [
+            "AttachFiles"
+          ],
+          "deny": [],
+          "denyOther": [],
+          "target": "member:other"
+        },
+        {
+          "allow": [
+            "ViewChannel"
+          ],
+          "allowOther": [],
+          "deny": [],
+          "denyOther": [],
+          "target": "role:organizer"
+        }
+      ]
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R1-default-open-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R1-default-locked-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R1-nosend-open-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R1-nosend-locked-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R2-default-open-staffer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R2-nosend-open-staffer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R3-default-open-organizer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:organizer"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R4-default-locked-staffer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R4-nosend-locked-staffer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R5-default-locked-organizer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:organizer"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R6-default-open-admin",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R6-default-locked-admin",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R6-nosend-open-admin",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R6-nosend-locked-admin",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "ReadMessageHistory",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:sendrole",
+            "permissions": [
+              "SendMessages"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R7-nosend-locked-sendrole",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:sendrole"
+        ]
+      },
+      "thread": null
+    },
+    {
+      "category": {
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          }
+        ]
+      },
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": true,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R8-default-category-staffer",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": {
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": true,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R8-default-category-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "createPublicThread": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactExisting": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": {
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          }
+        ]
+      },
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": "unobservable",
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R9-default-category-outsider",
+      "kind": "effective",
+      "observed": {
+        "createPrivateThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "createPublicThread": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactExisting": {
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": null
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R10-default-open-staffer-public",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": false
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R10-default-open-outsider-public",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R11-default-open-staffer-private-added",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "private"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": false,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": false
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R11-default-open-staffer-private-notadded",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "send": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": false,
+        "type": "private"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R12-default-locked-staffer-public",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": "unobservable",
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R12-default-locked-staffer-public-archived",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": true,
+          "code": 50083,
+          "result": "blocked_archived",
+          "status": 400
+        },
+        "reactNew": {
+          "archivedAfter": true,
+          "code": 50083,
+          "result": "blocked_archived",
+          "status": 400
+        },
+        "readHistory": {
+          "archivedAfter": true,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": true,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "archivedAfter": true,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": true,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:subject"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": false,
+        "CreatePrivateThreads": false,
+        "CreatePublicThreads": false,
+        "ReadMessageHistory": true,
+        "SendMessages": false,
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": false,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": false,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          }
+        ]
+      },
+      "id": "R12-default-locked-staffer-private-added",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "code": 50013,
+          "result": "denied",
+          "status": 403
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "code": 50001,
+          "result": "denied",
+          "status": 403
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": []
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "private"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R12-default-locked-admin-public",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": "unobservable",
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R12-default-locked-admin-public-archived",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": true,
+          "code": 50083,
+          "result": "blocked_archived",
+          "status": 400
+        },
+        "reactNew": {
+          "archivedAfter": true,
+          "code": 50083,
+          "result": "blocked_archived",
+          "status": 400
+        },
+        "readHistory": {
+          "archivedAfter": true,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "archivedAfter": true,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": {
+        "archived": true,
+        "subjectIsMember": true,
+        "type": "public"
+      }
+    },
+    {
+      "category": null,
+      "channel": {
+        "createdUnderCategoryWithoutOverwrites": false,
+        "overwrites": [
+          {
+            "allow": [],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads",
+              "ViewChannel"
+            ],
+            "denyOther": [],
+            "target": "everyone"
+          },
+          {
+            "allow": [
+              "SendMessages",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "ManageChannels"
+            ],
+            "deny": [],
+            "denyOther": [],
+            "target": "member:genie"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [
+              "AttachFiles"
+            ],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "member:other"
+          },
+          {
+            "allow": [
+              "ReadMessageHistory",
+              "ViewChannel"
+            ],
+            "allowOther": [],
+            "deny": [
+              "AddReactions",
+              "CreatePrivateThreads",
+              "CreatePublicThreads",
+              "SendMessages",
+              "SendMessagesInThreads"
+            ],
+            "denyOther": [],
+            "target": "role:organizer"
+          }
+        ]
+      },
+      "computedByLibrary": {
+        "AddReactions": true,
+        "CreatePrivateThreads": true,
+        "CreatePublicThreads": true,
+        "ReadMessageHistory": true,
+        "SendMessages": true,
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "effective": {
+        "AddReactions": true,
+        "CreatePrivateThreads": "unobservable",
+        "CreatePublicThreads": "unobservable",
+        "ReadMessageHistory": true,
+        "SendMessages": "unobservable",
+        "SendMessagesInThreads": true,
+        "ViewChannel": true
+      },
+      "guild": {
+        "everyone": [
+          "AddReactions",
+          "CreatePrivateThreads",
+          "CreatePublicThreads",
+          "ReadMessageHistory",
+          "SendMessages",
+          "SendMessagesInThreads",
+          "ViewChannel"
+        ],
+        "roles": [
+          {
+            "key": "role:organizer",
+            "permissions": [],
+            "position": 0
+          },
+          {
+            "key": "role:admin",
+            "permissions": [
+              "Administrator"
+            ],
+            "position": 1
+          }
+        ]
+      },
+      "id": "R12-default-locked-admin-private-added",
+      "kind": "effective",
+      "observed": {
+        "reactExisting": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "reactNew": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "readHistory": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "send": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        },
+        "view": {
+          "archivedAfter": false,
+          "result": "allowed",
+          "status": 200
+        }
+      },
+      "other": {
+        "key": "member:other",
+        "roles": []
+      },
+      "subject": {
+        "key": "member:subject",
+        "roles": [
+          "role:admin"
+        ]
+      },
+      "thread": {
+        "archived": false,
+        "subjectIsMember": true,
+        "type": "private"
+      }
+    }
+  ],
+  "meta": {
+    "apiVersion": "10",
+    "discordJs": "14.27.0",
+    "passIds": [
+      "20261014075104-8020",
+      "20261014075549-c6a7"
+    ],
+    "recordedAt": "2026-10-14T08:00:24.087Z"
+  },
+  "schemaVersion": 1
+}

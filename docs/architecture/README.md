@@ -261,6 +261,10 @@ invited to the store's server. The setup wizard walks through it (§6.1).
   (needed to write permission overwrites), Manage Threads (needed to list and read private threads for
   transcripts), Send Messages, Embed Links, Attach Files, Read Message History, Use Application Commands.
   Not Administrator.
+  - **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
+    acceptance): also Send Messages in Threads, Create Public Threads, Create Private Threads and Add
+    Reactions, 13 in all. Without Administrator, Discord lets the bot allow or deny only permissions it
+    holds itself (spike S3), and the lock (§6.5) denies these four.
 - **How Discord resolves permissions, and why it matters here.** A member's permissions in a channel are
   computed in this order, each step overriding the last:
   1. **guild base permissions**: the `@everyone` role's permissions combined with those of the member's
@@ -272,6 +276,12 @@ invited to the store's server. The setup wizard walks through it (§6.1).
   So a permission Genie leaves out of an allow list is **not** denied: the member still has it from step 1
   (most guilds give `@everyone` Send Messages). Every overwrite Genie writes is designed against this
   order, and anything that must be off is an explicit **deny** (§6.5).
+
+  **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
+  acceptance): after these steps, a member without View Channels has **no** other permission in the
+  channel, whatever the computed bits say. Spike S3 observed this in every such case, while discord.js's
+  `permissionsFor()` still reported the underlying bits. The privacy audit and the fake gateway apply the
+  rule, so any check of another permission requires View first.
 - **Public bot off.** The application must have "Public Bot" turned off, so nobody else can invite it.
   The setup wizard reads the flag (`getApplication().botPublic`) and won't finish while it is on.
 - **Interactions over the gateway** ([ADR-0003](adr/0003-discord-gateway-and-port.md)). Slash commands,
@@ -532,6 +542,11 @@ sequenceDiagram
   audience, allowing View/Send/Read History/Attach. `setOverwrites` replaces the whole list, so applying
   twice is a no-op, and anything a human changed by hand is put back on the next sync. Audiences come
   from `desiredChannels()`, the same plan `canSee()` reads ([ADR-0010](adr/0010-one-audience-model.md)).
+  - **Proposed** ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner
+    acceptance): the bot's own overwrite, on the category and every channel, allows View, Send and Manage
+    Channels, and **not** Manage Roles. Without Administrator, Discord refuses a channel overwrite in
+    which the bot grants itself Manage Roles (spike S3). The bot's guild role keeps Manage Roles, which is
+    what lets it write overwrites.
 - **Privacy audit.** After applying, the job re-reads every channel and computes each guild member's
   effective View using the resolution order in §4.1. Members with Administrator and members of the
   organizer role are left out of the comparison and reported in the job log ("also visible to:
@@ -619,7 +634,10 @@ sequenceDiagram
    - on every member overwrite.
 
    View Channel and Read Message History stay allowed for each channel's audience, and the bot's own
-   overwrite is unchanged. Those channel-level denies also cover every thread. Penalties become read-only
+   overwrite is unchanged. Those channel-level denies also cover every thread. **Proposed**
+   ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md), M0 finding, awaiting owner acceptance):
+   members can still click reactions that already exist (spike S3); reactions aren't messages, so the
+   purge's high-water check is unaffected. Penalties become read-only
    for everyone except organizers (§6.4). The lock job checkpoints per channel like provisioning; the
    export does not start until every channel is locked.
 3. **Export:** an `export` job writes:
@@ -632,7 +650,10 @@ sequenceDiagram
      message was deleted is recorded as `skipped` with a reason (`export_attachment`).
 
    Each file is recorded with its SHA-256. If a thread can't be read, the export fails, and the purge
-   stays blocked.
+   stays blocked. **Proposed** (M0 finding, awaiting owner acceptance): before listing threads, the export
+   checks that the bot holds Manage Threads and Read Message History in each channel, and fails otherwise.
+   Without Manage Threads, Discord's active-thread listing silently omits private threads the bot isn't
+   in, so they would never be exported, yet nothing would count as unreadable (spike S4).
 4. **Grace period:** the day is `closed`; channels stay locked and visible to their audiences for
    `GENIE_PURGE_GRACE` (default 7 days) so anyone can still look something up. "Delete now" skips it.
    The purge's due time is persisted, and the jobs module's timer runs it (§10).
@@ -986,3 +1007,4 @@ Answered by the owner on 2026-10-13:
 | [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Accepted |
 | [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |
 | [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Accepted |
+| [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Proposed (M0 finding, awaiting owner acceptance) |

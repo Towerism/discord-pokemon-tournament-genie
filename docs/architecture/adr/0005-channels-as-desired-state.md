@@ -2,6 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
+- Amendment by [ADR-0012](0012-genie-overwrite-without-manage-roles.md): Proposed (M0 finding, awaiting
+  owner acceptance). The bot's own overwrite would allow View, Send and Manage Channels, not Manage Roles.
 - Date: 2026-10-13
 
 ## Context

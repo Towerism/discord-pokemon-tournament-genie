@@ -1,0 +1,736 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "overwrites": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "allow": {
+                              "items": {
+                                "enum": [
+                                  "ViewChannel",
+                                  "ReadMessageHistory",
+                                  "SendMessages",
+                                  "SendMessagesInThreads",
+                                  "CreatePublicThreads",
+                                  "CreatePrivateThreads",
+                                  "AddReactions"
+                                ],
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "allowOther": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "deny": {
+                              "items": {
+                                "enum": [
+                                  "ViewChannel",
+                                  "ReadMessageHistory",
+                                  "SendMessages",
+                                  "SendMessagesInThreads",
+                                  "CreatePublicThreads",
+                                  "CreatePrivateThreads",
+                                  "AddReactions"
+                                ],
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "denyOther": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "target": {
+                              "pattern": "^(everyone|role:[a-z]+|member:(subject|other|genie|unknown))$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "target",
+                            "allow",
+                            "deny",
+                            "allowOther",
+                            "denyOther"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "overwrites"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "channel": {
+                "additionalProperties": false,
+                "properties": {
+                  "createdUnderCategoryWithoutOverwrites": {
+                    "type": "boolean"
+                  },
+                  "overwrites": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allow": {
+                          "items": {
+                            "enum": [
+                              "ViewChannel",
+                              "ReadMessageHistory",
+                              "SendMessages",
+                              "SendMessagesInThreads",
+                              "CreatePublicThreads",
+                              "CreatePrivateThreads",
+                              "AddReactions"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "allowOther": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "deny": {
+                          "items": {
+                            "enum": [
+                              "ViewChannel",
+                              "ReadMessageHistory",
+                              "SendMessages",
+                              "SendMessagesInThreads",
+                              "CreatePublicThreads",
+                              "CreatePrivateThreads",
+                              "AddReactions"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "denyOther": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "target": {
+                          "pattern": "^(everyone|role:[a-z]+|member:(subject|other|genie|unknown))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "target",
+                        "allow",
+                        "deny",
+                        "allowOther",
+                        "denyOther"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "createdUnderCategoryWithoutOverwrites",
+                  "overwrites"
+                ],
+                "type": "object"
+              },
+              "computedByLibrary": {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "ViewChannel",
+                    "ReadMessageHistory",
+                    "SendMessages",
+                    "SendMessagesInThreads",
+                    "CreatePublicThreads",
+                    "CreatePrivateThreads",
+                    "AddReactions"
+                  ],
+                  "type": "string"
+                },
+                "required": [
+                  "ViewChannel",
+                  "ReadMessageHistory",
+                  "SendMessages",
+                  "SendMessagesInThreads",
+                  "CreatePublicThreads",
+                  "CreatePrivateThreads",
+                  "AddReactions"
+                ],
+                "type": "object"
+              },
+              "effective": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "const": "unobservable",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "ViewChannel",
+                    "ReadMessageHistory",
+                    "SendMessages",
+                    "SendMessagesInThreads",
+                    "CreatePublicThreads",
+                    "CreatePrivateThreads",
+                    "AddReactions"
+                  ],
+                  "type": "string"
+                },
+                "required": [
+                  "ViewChannel",
+                  "ReadMessageHistory",
+                  "SendMessages",
+                  "SendMessagesInThreads",
+                  "CreatePublicThreads",
+                  "CreatePrivateThreads",
+                  "AddReactions"
+                ],
+                "type": "object"
+              },
+              "guild": {
+                "additionalProperties": false,
+                "properties": {
+                  "everyone": {
+                    "items": {
+                      "enum": [
+                        "ViewChannel",
+                        "ReadMessageHistory",
+                        "SendMessages",
+                        "SendMessagesInThreads",
+                        "CreatePublicThreads",
+                        "CreatePrivateThreads",
+                        "AddReactions"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "roles": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "aboveGenie": {
+                          "type": "boolean"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "permissions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "position": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "position",
+                        "permissions"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "everyone",
+                  "roles"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "effective",
+                "type": "string"
+              },
+              "observed": {
+                "additionalProperties": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "archivedAfter": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "result": {
+                      "enum": [
+                        "allowed",
+                        "denied",
+                        "blocked_archived"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "view",
+                    "readHistory",
+                    "reactExisting",
+                    "reactNew",
+                    "createPublicThread",
+                    "createPrivateThread",
+                    "send"
+                  ],
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "other": {
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "enum": [
+                      "member:subject",
+                      "member:other"
+                    ],
+                    "type": "string"
+                  },
+                  "roles": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "key",
+                  "roles"
+                ],
+                "type": "object"
+              },
+              "subject": {
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "enum": [
+                      "member:subject",
+                      "member:other"
+                    ],
+                    "type": "string"
+                  },
+                  "roles": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "key",
+                  "roles"
+                ],
+                "type": "object"
+              },
+              "thread": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "subjectIsMember": {
+                        "type": "boolean"
+                      },
+                      "type": {
+                        "enum": [
+                          "public",
+                          "private"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "archived",
+                      "subjectIsMember"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "guild",
+              "subject",
+              "other",
+              "category",
+              "channel",
+              "thread",
+              "observed",
+              "effective",
+              "computedByLibrary"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attempted": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "allow": {
+                      "items": {
+                        "enum": [
+                          "ViewChannel",
+                          "ReadMessageHistory",
+                          "SendMessages",
+                          "SendMessagesInThreads",
+                          "CreatePublicThreads",
+                          "CreatePrivateThreads",
+                          "AddReactions"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "allowOther": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "deny": {
+                      "items": {
+                        "enum": [
+                          "ViewChannel",
+                          "ReadMessageHistory",
+                          "SendMessages",
+                          "SendMessagesInThreads",
+                          "CreatePublicThreads",
+                          "CreatePrivateThreads",
+                          "AddReactions"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "denyOther": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "target": {
+                      "pattern": "^(everyone|role:[a-z]+|member:(subject|other|genie|unknown))$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "target",
+                    "allow",
+                    "deny",
+                    "allowOther",
+                    "denyOther"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "code": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "context": {
+                "additionalProperties": false,
+                "properties": {
+                  "everyone": {
+                    "items": {
+                      "enum": [
+                        "ViewChannel",
+                        "ReadMessageHistory",
+                        "SendMessages",
+                        "SendMessagesInThreads",
+                        "CreatePublicThreads",
+                        "CreatePrivateThreads",
+                        "AddReactions"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "genieRole": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "overwritesBefore": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allow": {
+                          "items": {
+                            "enum": [
+                              "ViewChannel",
+                              "ReadMessageHistory",
+                              "SendMessages",
+                              "SendMessagesInThreads",
+                              "CreatePublicThreads",
+                              "CreatePrivateThreads",
+                              "AddReactions"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "allowOther": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "deny": {
+                          "items": {
+                            "enum": [
+                              "ViewChannel",
+                              "ReadMessageHistory",
+                              "SendMessages",
+                              "SendMessagesInThreads",
+                              "CreatePublicThreads",
+                              "CreatePrivateThreads",
+                              "AddReactions"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "denyOther": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "target": {
+                          "pattern": "^(everyone|role:[a-z]+|member:(subject|other|genie|unknown))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "target",
+                        "allow",
+                        "deny",
+                        "allowOther",
+                        "denyOther"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "everyone",
+                  "genieRole",
+                  "overwritesBefore"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "write",
+                "type": "string"
+              },
+              "path": {
+                "enum": [
+                  "create",
+                  "edit"
+                ],
+                "type": "string"
+              },
+              "result": {
+                "enum": [
+                  "ok",
+                  "refused"
+                ],
+                "type": "string"
+              },
+              "stored": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "allow": {
+                      "items": {
+                        "enum": [
+                          "ViewChannel",
+                          "ReadMessageHistory",
+                          "SendMessages",
+                          "SendMessagesInThreads",
+                          "CreatePublicThreads",
+                          "CreatePrivateThreads",
+                          "AddReactions"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "allowOther": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "deny": {
+                      "items": {
+                        "enum": [
+                          "ViewChannel",
+                          "ReadMessageHistory",
+                          "SendMessages",
+                          "SendMessagesInThreads",
+                          "CreatePublicThreads",
+                          "CreatePrivateThreads",
+                          "AddReactions"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "denyOther": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "target": {
+                      "pattern": "^(everyone|role:[a-z]+|member:(subject|other|genie|unknown))$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "target",
+                    "allow",
+                    "deny",
+                    "allowOther",
+                    "denyOther"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "path",
+              "context",
+              "attempted",
+              "result"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "meta": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "type": "string"
+        },
+        "discordJs": {
+          "type": "string"
+        },
+        "passIds": {
+          "items": false,
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "type": "array"
+        },
+        "recordedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordedAt",
+        "discordJs",
+        "apiVersion",
+        "passIds"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "meta",
+    "cases"
+  ],
+  "type": "object"
+}

@@ -8,8 +8,8 @@ issue #7).
 | ----- | -------- | -------- | ------ |
 | S1 | Which OAuth redirect URIs does Discord accept for a LAN install? | [s1-oauth-redirects.md](s1-oauth-redirects.md) | not yet run |
 | S2 | How fast can a judge record a penalty on a phone, and with which form? | [s2-penalty-form.md](s2-penalty-form.md) | not yet run |
-| S3 | Do Genie's open and locked overwrites behave as designed on a real guild? | [s3-permissions.md](s3-permissions.md), fixtures in [`test/fixtures/discord-permissions/`](../../test/fixtures/discord-permissions/) | not yet run |
-| S4 | Can transcripts (threads included) be exported completely enough for the purge gate? | [s4-transcript-export.md](s4-transcript-export.md) | not yet run |
+| S3 | Do Genie's open and locked overwrites behave as designed on a real guild? | [s3-permissions.md](s3-permissions.md), fixtures in [`test/fixtures/discord-permissions/`](../../test/fixtures/discord-permissions/) | recorded 2026-10-14 against the candidate profile ([ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), Proposed); human cross-check pending |
+| S4 | Can transcripts (threads included) be exported completely enough for the purge gate? | [s4-transcript-export.md](s4-transcript-export.md) | recorded 2026-10-14; expired-URL check pending (after 2026-10-15 07:46 UTC) |
 
 The harnesses live in [`spikes/`](../../spikes/), a self-contained pnpm package (Node ≥ 22, discord.js 14.27.0
 pinned exactly). Only the findings and S3's fixtures are long-lived; `spikes/` stays for re-recording the
@@ -126,8 +126,8 @@ pnpm spike cleanup --run <seed runId>
 | ----- | ---- | ---------- | --- | ------- |
 | S1 | — | — | v10 | — |
 | S2 | — | 14.27.0 | v10 | — |
-| S3 | — | 14.27.0 | v10 | — |
-| S4 | — | 14.27.0 | v10 | — |
+| S3 | 2026-10-14 | 14.27.0 | v10 | `20261014075104-8020`, `20261014075549-c6a7` (original profile, stopped with exit 7: `20261014073111-0567`) |
+| S4 | 2026-10-14 | 14.27.0 | v10 | seed `20261014073319-9a00` |
 
 Committed findings use placeholders for network names (`<lan-ip>`, `<hostname>.local`,
 `<machine>.<tailnet>.ts.net`, `<proxy-host>`); the real values stay in `spikes/out/`.
