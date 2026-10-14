@@ -21,6 +21,8 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
+          // The store's time zone, so start times and day dates are tested off UTC.
+          env: { TZ: 'America/Chicago' },
           include: ['shared/**/*.test.ts', 'server/**/*.test.ts', 'test/unit/**/*.test.ts'],
         },
       },

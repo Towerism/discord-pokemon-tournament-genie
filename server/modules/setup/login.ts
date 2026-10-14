@@ -17,6 +17,8 @@ export interface SessionUser {
 export interface SessionData {
   user: SessionUser;
   grant: Grant;
+  /** Holds the mapped head-judge role, as of `checkedAt` (ADR-0010). */
+  holdsHeadJudgeRole: boolean;
   checkedAt: number;
 }
 
@@ -24,7 +26,7 @@ export type LoginOutcome = { redirect: string; session?: SessionData };
 
 export type RefreshOutcome =
   | { action: 'keep' }
-  | { action: 'update'; grant: Grant; checkedAt: number }
+  | { action: 'update'; grant: Grant; holdsHeadJudgeRole: boolean; checkedAt: number }
   | { action: 'revoke' }
   | { action: 'unavailable' };
 
@@ -38,8 +40,10 @@ export function createLoginService(opts: {
   createDiscord: CreateDiscord;
   clock: Clock;
   logger: Logger;
+  /** Whether the user is a day head judge of a day not purged (FR-31); the event-days module answers it. */
+  dayHeadJudge?: (userId: string, holdsHeadJudgeRole: boolean) => boolean;
 }) {
-  const { store, setup, createDiscord, clock, logger } = opts;
+  const { store, setup, createDiscord, clock, logger, dayHeadJudge = () => false } = opts;
 
   /** The user's membership of the bound guild. Throws when Discord (or the stored token) can't answer. */
   async function membership(userId: string): Promise<{ member: Member | null; guildId: string }> {
@@ -52,13 +56,16 @@ export function createLoginService(opts: {
   async function decide(userId: string) {
     const { member } = await membership(userId);
     const binding = store.binding()!;
-    return decideAccess({
+    const holdsHeadJudgeRole = member !== null && binding.headJudgeRoleId !== null && member.roleIds.includes(binding.headJudgeRoleId);
+    const decision = decideAccess({
       userId,
       member,
       ownerId: store.install()?.ownerDiscordUserId ?? null,
       organizerRoleId: binding.organizerRoleId,
       allowlist: { enabled: binding.organizerAllowlistEnabled, userIds: store.allowlist() },
+      dayHeadJudge: member !== null && dayHeadJudge(userId, holdsHeadJudgeRole),
     });
+    return { decision, holdsHeadJudgeRole };
   }
 
   return {
@@ -77,12 +84,12 @@ export function createLoginService(opts: {
         }
         if (outcome !== 'bound') return { redirect: `/setup?error=${outcome}` };
         store.audit(user.id, 'owner', now);
-        return { redirect: '/setup', session: { user, grant: 'owner', checkedAt: now } };
+        return { redirect: '/setup', session: { user, grant: 'owner', holdsHeadJudgeRole: false, checkedAt: now } };
       }
 
-      let decision;
+      let decision, holdsHeadJudgeRole;
       try {
-        decision = await decide(user.id);
+        ({ decision, holdsHeadJudgeRole } = await decide(user.id));
       } catch (err) {
         logger.warn('Could not check a login against the guild.', { userId: user.id, err });
         return { redirect: '/login?error=discord_unavailable' };
@@ -93,15 +100,15 @@ export function createLoginService(opts: {
       }
       store.audit(user.id, decision.grant, now);
       logger.info('Login.', { userId: user.id, grant: decision.grant });
-      return { redirect: '/', session: { user, grant: decision.grant, checkedAt: now } };
+      return { redirect: '/', session: { user, grant: decision.grant, holdsHeadJudgeRole, checkedAt: now } };
     },
 
-    async refresh(session: SessionData): Promise<RefreshOutcome> {
+    async refresh(session: Pick<SessionData, 'user' | 'grant' | 'checkedAt'>): Promise<RefreshOutcome> {
       const now = clock.now();
       if (now - session.checkedAt < SESSION_REFRESH_MS) return { action: 'keep' };
-      let decision;
+      let decision, holdsHeadJudgeRole;
       try {
-        decision = await decide(session.user.id);
+        ({ decision, holdsHeadJudgeRole } = await decide(session.user.id));
       } catch (err) {
         logger.warn('Could not re-check a session against the guild.', { userId: session.user.id, err });
         return { action: 'unavailable' };
@@ -110,7 +117,7 @@ export function createLoginService(opts: {
         logger.info('Session revoked.', { userId: session.user.id, reason: decision.reason });
         return { action: 'revoke' };
       }
-      return { action: 'update', grant: decision.grant, checkedAt: now };
+      return { action: 'update', grant: decision.grant, holdsHeadJudgeRole, checkedAt: now };
     },
   };
 }

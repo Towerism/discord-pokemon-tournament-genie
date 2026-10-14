@@ -67,7 +67,7 @@ export function rateLimit(event: H3Event, route: 'login' | 'callback' | 'setup')
 export async function requirePrincipal(event: H3Event, resource: Resource) {
   const session = await getUserSession(event);
   if (!session.user || !session.grant) throw apiError(401, 'unauthenticated', 'Log in first.');
-  const principal: Principal = { userId: session.user.id, grant: session.grant };
+  const principal: Principal = { userId: session.user.id, grant: session.grant, holdsHeadJudgeRole: session.holdsHeadJudgeRole ?? false };
   if (!canSee(principal, resource)) {
     throw resource.kind === 'organizer_allowlist'
       ? apiError(403, 'owner_only', 'Only the install owner can do this.')

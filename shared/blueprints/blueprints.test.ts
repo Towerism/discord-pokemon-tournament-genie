@@ -8,6 +8,7 @@ import {
   DEFAULT_BLUEPRINT,
   type DesiredContext,
   type PlanInput,
+  dateTokens,
   deriveSlug,
   desiredChannels,
   formatName,
@@ -238,6 +239,23 @@ describe('desiredChannels', () => {
         expect(desiredChannels(plan, DEFAULT_BLUEPRINT, c)).toEqual(day);
       }),
       { seed: SEED, numRuns: 300 },
+    );
+  });
+});
+
+describe('dateTokens', () => {
+  it('reads the calendar date with no time-zone conversion', () => {
+    expect(process.env.TZ).toBe('America/Chicago');
+    expect(dateTokens('2026-10-17')).toEqual({ weekday: 'Sat', date: 'Oct 17' });
+    expect(dateTokens('2026-11-01')).toEqual({ weekday: 'Sun', date: 'Nov 1' });
+    fc.assert(
+      fc.property(fc.date({ min: new Date(Date.UTC(2020, 0, 1)), max: new Date(Date.UTC(2035, 11, 31)), noInvalidDate: true }), (d) => {
+        const iso = d.toISOString().slice(0, 10);
+        // The process runs in America/Chicago, where UTC midnight is the day before: a time-zone bug shows here.
+        const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T12:00:00Z`));
+        expect(dateTokens(iso).weekday, iso).toBe(weekday);
+      }),
+      { seed: SEED, numRuns: 200 },
     );
   });
 });

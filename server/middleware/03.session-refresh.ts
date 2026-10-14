@@ -9,7 +9,9 @@ export default defineEventHandler(async (event) => {
   if (!session.user || !session.grant || session.checkedAt === undefined) return;
 
   const outcome = await useLogin().refresh({ user: session.user, grant: session.grant, checkedAt: session.checkedAt });
-  if (outcome.action === 'update') await setUserSession(event, { grant: outcome.grant, checkedAt: outcome.checkedAt });
+  if (outcome.action === 'update') {
+    await setUserSession(event, { grant: outcome.grant, holdsHeadJudgeRole: outcome.holdsHeadJudgeRole, checkedAt: outcome.checkedAt });
+  }
   if (outcome.action === 'revoke') {
     await clearUserSession(event);
     throw apiError(401, 'session_revoked', 'Your access changed. Log in again.');
