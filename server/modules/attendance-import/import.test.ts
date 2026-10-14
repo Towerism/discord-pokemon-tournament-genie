@@ -438,7 +438,8 @@ describe('accepting is idempotent', () => {
     ),
     elm: fc.constantFrom('read', 'unread', 'missing'),
   });
-  const toDay = (r: fc.Infer<typeof response>): AttendanceDay => {
+  type Response = typeof response extends fc.Arbitrary<infer T> ? T : never;
+  const toDay = (r: Response): AttendanceDay => {
     const professors = [professor.read('oak')];
     if (r.elm === 'read') professors.push(professor.read('elm'));
     if (r.elm === 'unread') professors.push(professor.unread('elm'));

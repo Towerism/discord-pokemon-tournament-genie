@@ -55,6 +55,9 @@ export default defineNuxtConfig({
       login: { max: 10, windowMs: 900_000 },
       setup: { max: 5, windowMs: 900_000 },
     },
+    // Attendance reads play-tools live, once per connected professor (ADR-0008), so a day can take a while.
+    // NUXT_ATTENDANCE_*: optional tuning, not in the template.
+    attendance: { timeoutMs: 60_000, maxBytes: 2 * 1024 * 1024 },
     // Test-only overrides (NUXT_DISCORD_*), never in the template: tests point these at a fake Discord.
     discord: {
       apiUrl: 'https://discord.com/api',

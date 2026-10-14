@@ -81,6 +81,12 @@ export default withNuxt(
     },
   },
   {
+    // Only an adapter talks to the outside (§3): attendance through server/modules/attendance/adapters/http alone.
+    files: ['server/modules/**/*.ts'],
+    ignores: [...TEST_FILES, 'server/modules/*/adapters/**'],
+    rules: { 'no-restricted-globals': ['error', { name: 'fetch', message: 'Only an adapter calls the network; use its port.' }] },
+  },
+  {
     // Server code logs through the kit's logger (redacted, request-tagged), never the console (§10).
     files: ['server/**/*.ts'],
     ignores: TEST_FILES,
