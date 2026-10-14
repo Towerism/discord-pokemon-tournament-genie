@@ -8,7 +8,8 @@ through Caddy as an HTTPS reverse proxy ([ADR-0013](../architecture/adr/0013-htt
 so the production redirect URI is `https://<caddy-host>/auth/discord`.
 
 - **Recorded:** 2026-10-14, Discord API v10, the owner's browser: Chrome 154 on Linux. No other browser
-  was tested.
+  was tested. The Caddy row is different: it was recorded later, from Genie itself rather than the harness
+  (see below the table).
 - **Harness:** `pnpm spike s1 serve` on the test host (port 3001, redirect path `/auth/discord`), one run
   per setup and cookie mode. Each login used the `identify` scope and a random 32-byte `state` set as an
   `HttpOnly; SameSite=Lax` cookie, `Secure` unless `--insecure-cookie`.
@@ -26,12 +27,17 @@ so the production redirect URI is `https://<caddy-host>/auth/discord`.
 | `https://<machine>.<tailnet>.ts.net` (Tailscale Serve) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
 | `https://<caddy-host>` (Caddy HTTPS reverse proxy, **the supported setup**) | yes | yes | **ok** | not applicable: Genie's cookies are always `Secure` |
 
-**The Caddy row** was recorded by the owner on 2026-10-14, after M1 ([#15](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/15)):
-- it tested Genie itself behind Caddy (the M1 image, not the spike harness), in Chrome (version not recorded);
-- the portal and the authorize step accepted `https://<caddy-host>/auth/discord`;
-- a "Log in with Discord" completed with Genie's `Secure`, `HttpOnly`, `SameSite=Lax` cookies;
-- the certificate is a publicly trusted ACME certificate chaining to GTS Root R4 (Google Trust Services); the
-  challenge type wasn't recorded.
+**The Caddy row** was recorded on 2026-10-14, after M1 ([#15](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/15)),
+from the owner's report:
+- Genie itself ran behind Caddy over HTTPS (not the spike harness), and was set up through its wizard;
+- in Chrome (version not recorded), a "Log in with Discord" completed at `https://<caddy-host>/auth/discord`
+  (`<site>` in the deploy guide). The yes/yes cells follow from that: the redirect URI must have been
+  registered in the portal and accepted at authorize for the login to complete;
+- the certificate chains to GTS Root R4 (Google Trust Services), so it is publicly trusted. How it was issued
+  wasn't recorded.
+
+Genie's session and state cookies are `Secure` by configuration (`runtimeConfig.session.cookie`, and the login
+route's state cookie), which is why the non-`Secure` column doesn't apply.
 
 The plain-HTTP rows show why Genie isn't served directly: only `localhost` works, and that's for development
 and for the owner on the host itself (including over an SSH tunnel). The supported setup is the Caddy row.
@@ -73,8 +79,9 @@ owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS rev
 the only supported setup, with `http://localhost` only for development and for the owner on the host itself
 (including over an SSH tunnel). Tailscale and other proxies are not supported, so their rows above stay `not
 tested`. The Caddy setup wasn't available during the spike. The owner moved its test to before the first
-release (#11), and on 2026-10-14 confirmed the portal, the authorize step and a full round trip with a
-`Secure` cookie at `https://<caddy-host>/auth/discord` (the Caddy row above). ADR-0013 holds.
+release (#11). On 2026-10-14 the owner reported a completed login at `https://<caddy-host>/auth/discord`
+through Caddy in Chrome, which also shows that the redirect URI was registered and accepted (the Caddy row
+above). ADR-0013 holds.
 
 ## Timebox
 
