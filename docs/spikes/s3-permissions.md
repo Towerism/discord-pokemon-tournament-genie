@@ -12,10 +12,10 @@ Discord guild, and what are the recorded cases the fake gateway must reproduce (
 - **Fixture:** [`test/fixtures/discord-permissions/cases.v1.json`](../../test/fixtures/discord-permissions/cases.v1.json)
   and its schema. Each case carries the overwrites as Discord stored them, the observed actions, the
   derived effective permissions, and discord.js's computed view beside them.
-- **Profile recorded:** the **candidate** profile, not the accepted one. `genie`'s own overwrite allows
-  View, Send and Manage Channels, without Manage Roles, and its invite set is §4.1's nine permissions plus
-  Send Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions (13 in all).
-  The amendment that makes this the architecture is
+- **Profile recorded:** the **candidate** profile, not the original (pre-ADR-0012) profile. `genie`'s
+  own overwrite allows View, Send and Manage Channels, without Manage Roles, and its invite set is the
+  original nine (pre-ADR-0012) permissions plus Send Messages in Threads, Create Public Threads, Create
+  Private Threads and Add Reactions (13 in all). The amendment that makes this the architecture is
   [ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), accepted by the owner on
   2026-10-14.
 
@@ -23,7 +23,7 @@ Discord guild, and what are the recorded cases the fake gateway must reproduce (
 
 | §13 question | Answer | Cases |
 | ------------ | ------ | ----- |
-| Can `genie` write its profiles at all, without Administrator? | **Not the accepted one.** With §4.1's nine permissions, every write of the original profile was refused (403, code 50013), on create and on the create-then-edit fallback. The candidate profile was written on every production path under both guild bases: create category, create channel, sync onto an open channel, the fallback onto a bare channel, and the lock. | `W0-*`, `W1-*`, `W2-*`, `W6-default-original` |
+| Can `genie` write its profiles at all, without Administrator? | **Not the original (pre-ADR-0012) profile.** With the original nine (pre-ADR-0012) permissions, every write of the original profile was refused (403, code 50013), on create and on the create-then-edit fallback. The candidate profile was written on every production path under both guild bases: create category, create channel, sync onto an open channel, the fallback onto a bare channel, and the lock. | `W0-*`, `W1-*`, `W2-*`, `W6-default-original` |
 | Bot role position vs. member overwrites | Role position doesn't limit overwrites. `genie` wrote a role overwrite for a role above its own (`W3`) and a member overwrite for a member whose top role is above its own (`W4`). Both stored as written. | `W3-default-edit`, `W4-default-edit` |
 | Category vs. channel overwrites | A channel created under the category **without** its own overwrites inherited the category's, and an outsider couldn't see it (`R8`). A channel whose overwrites `genie` wrote **without** the `@everyone` deny was visible to an outsider, even though the category denies it (`R9`). That confirms §6.3's rule: deny `@everyone` View on the category **and** on every channel, and never rely on category sync. | `R8-*`, `R9-default-category-outsider` |
 | Guild base with and without Send (`@everyone`) under the open overwrites | Outsiders see nothing under either base (`R1`). Staffers can view, read and send under both (`R2`). Under the no-send base, though, a staffer **can't create threads or react** in an open channel: the staffer overwrite allows View, Send, Read History and Attach Files only, and the base no longer grants the rest. | `R1-*`, `R2-*`, `R3-default-open-organizer` |
@@ -72,10 +72,11 @@ the `@everyone` deny.
 ## Why the original profile was refused
 
 The first pass (`20261014073111-0567`) used the architecture's profile, in which `genie`'s own channel
-overwrite also allows Manage Roles. With §4.1's nine permissions, Discord refused (403, code 50013) every
-write of that profile that didn't already find `genie`'s Manage Roles overwrite on the channel: all four
-`W0` creates and the `W1`/`W2` writes onto a bare channel. Every write onto a channel that already carried
-that overwrite succeeded. Both production paths were refused, so the run stopped before the R cases.
+overwrite also allows Manage Roles. With the original nine (pre-ADR-0012) permissions, Discord refused
+(403, code 50013) every write of that profile that didn't already find `genie`'s Manage Roles overwrite on
+the channel: all four `W0` creates and the `W1`/`W2` writes onto a bare channel. Every write onto a
+channel that already carried that overwrite succeeded. Both production paths were refused, so the run
+stopped before the R cases.
 
 The diagnostic cases in the recorded passes isolate the rule. Both passes agree:
 
@@ -94,10 +95,11 @@ So two Discord rules apply to a bot without Administrator:
 1. it can't grant Manage Roles in a channel overwrite unless that channel already gives it Manage Roles;
 2. it can only allow or deny permissions it holds itself.
 
-The accepted design breaks both: §6.3 has `genie` allow itself Manage Roles, and §6.5's lock denies four
-permissions §4.1 doesn't grant. [ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md)
-proposes the fix the candidate recorded: drop Manage Roles from `genie`'s overwrite (its guild role keeps
-Manage Roles, which is what lets it write overwrites at all), and add the four permissions to the invite.
+The original (pre-ADR-0012) design breaks both: §6.3 had `genie` allow itself Manage Roles, and §6.5's
+lock denies four permissions the original nine didn't grant.
+[ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md) adopts the fix the candidate
+recorded: drop Manage Roles from `genie`'s overwrite (its guild role keeps Manage Roles, which is what lets
+it write overwrites at all), and add the four permissions to the invite.
 
 ## Observations that contradict the architecture
 
@@ -107,12 +109,13 @@ Manage Roles, which is what lets it write overwrites at all), and add the four p
 | `genie` can't deny permissions it doesn't hold, and the lock denies four that §4.1 doesn't grant | §4.1's invite set, §6.5's lock | ADR-0012: invite set grows to 13 |
 | A member who can't view a channel has no other permission in it, whatever the bits say (see below) | §4.1's resolution order, which the fake follows, doesn't state this | ADR-0012 adds the rule to §4.1 |
 | Existing reactions stay clickable after the lock denies Add Reactions (`reactExisting` was allowed in every locked case where the subject can view, except archived threads) | §6.5's "nobody but the bot can add anything" | §6.5 now says reactions on existing emoji still work. Reactions aren't messages, so the purge's high-water check isn't affected |
+| Role position doesn't limit overwrites: `genie` wrote overwrites for a role and a member above its own (`W3`, `W4`) | §12's risk row ("bot role below a staffer's role can't manage overwrites"), §6.1's "bot role high enough", ADR-0005's role-position precondition | None: §12, §6.1 and ADR-0005 now note the observation; the position check is kept |
 
 Not contradictions, recorded for later milestones:
 
 - Under a no-send guild base, staffers can't create threads or react in open channels (`R2-nosend`). The
   architecture doesn't promise either. If stores want threads in day channels, the staffer overwrite
-  would have to allow them; that is a product decision for M3, not an M0 amendment.
+  would have to allow them; that is a product decision for M2, not an M0 amendment.
 - §6.3's rule to deny `@everyone` View on every channel, not only the category, is confirmed by `R9`.
 
 ## Library vs. observed

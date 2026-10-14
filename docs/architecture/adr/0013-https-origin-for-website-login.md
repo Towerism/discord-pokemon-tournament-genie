@@ -42,19 +42,31 @@ So the implied plain-HTTP LAN setup can't log anyone into the website on Chrome.
 Option 1, with one supported setup (owner decision, 2026-10-14).
 
 - The website's public URL (`NUXT_PUBLIC_SITE_URL`) MUST be an `https://` origin served by **Caddy** as a
-  reverse proxy in front of Genie. The setup wizard warns, and login refuses with a clear message, when it
-  isn't.
+  reverse proxy in front of Genie. Caddy is set up first. The setup wizard refuses to accept secrets, and
+  login refuses with a clear message, on any origin other than `NUXT_PUBLIC_SITE_URL` (`https://`) or
+  `http://localhost` on the host.
 - Caddy is the only supported HTTPS setup. Tailscale Serve, other reverse proxies and plain HTTP on the
   LAN are not supported; the deploy guide documents only the Caddy setup.
-- `http://localhost:<port>` stays allowed for development and for the owner on the host itself.
+- `http://localhost:<port>` stays allowed for development and for the owner on the host itself; login and
+  the setup wizard exempt it from the `https://` check.
 - Before M1's login work, the Caddy setup is tested the way S1 tested the others (portal, authorize, full
   round trip with a `Secure` cookie). If it doesn't work, this ADR is revisited.
 
 ## Consequences
 
 - (+) Login keeps `Secure`, sealed cookies and `nuxt-auth-utils`' state check, unchanged.
-- (+) Session cookies never cross the LAN in clear text.
+- (+) Session cookies never cross the LAN in clear text, provided the obligations below hold.
 - (+) One supported setup keeps the deploy guide, the wizard's checks and support simple.
+- Obligations for the deploy guide and M1:
+  - Caddy runs on the same host as Genie, on a Docker network shared with it.
+  - Genie's port is not published to the LAN; it is reachable only from Caddy.
+  - Forwarded headers (`X-Forwarded-*`) are trusted only from Caddy's address.
+  - The login rate limiter keys on the trusted client address, not on Caddy's.
+  - The deploy guide states the certificate source: a public DNS name with ACME, or Caddy's internal CA
+    installed on judges' devices.
+  - The OAuth redirect URL is pinned to `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, never derived from the
+    request.
+  - The setup wizard refuses secrets on any origin but `NUXT_PUBLIC_SITE_URL` or `http://localhost`.
 - (−) Even LAN-only use of the website needs Caddy in front of Genie. The Discord side (the bot) is
   unaffected; only the website login needs it.
 - (−) Owners who already use Tailscale Serve or another proxy must add Caddy.

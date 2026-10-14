@@ -33,7 +33,7 @@ Option 1 (accepted by the owner, 2026-10-14).
 - Its modal has five `Label` components: three string selects (category, severity, penalty) and two text
   inputs (player ID, validated as digits; notes, optional).
 - The bot builds the modal when the command runs, so the penalty select lists only the penalties valid for
-  the event's game (no prize penalties outside TCG), as autocomplete did.
+  the event's game and the day's season (no prize penalties outside TCG), as autocomplete did.
 - Everything else in ADR-0006 is unchanged: the card, Edit / Void, idempotency key, revisions, the CSV.
 
 ## Consequences

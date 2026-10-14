@@ -1,6 +1,6 @@
 # Tournament Genie — System Architecture
 
-Status: **Accepted** (by the owner, 2026-10-13) · amended by ADR-0011 (accepted 2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
+Status: **Accepted** (by the owner, 2026-10-13) · amended by ADR-0011 (accepted 2026-10-13) · amended by ADR-0012, ADR-0013, ADR-0014 (accepted 2026-10-14) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
 
 ## 1. Context
 
@@ -66,8 +66,10 @@ integrations are Discord and, optionally, attendance.
    deleted before it has been exported.
 3. **Low operator effort.** Opening a typical day is ≤ 3 clicks once its staff are in place. Recording a
    penalty takes one command and one short form.
-4. **Cheap and painless to run on Unraid.** One container, one appdata folder, no required template
-   fields, credentials entered in the browser (same rules as attendance, [ADR-0009](adr/0009-docker-on-unraid.md)).
+4. **Cheap and painless to run on Unraid.** One Genie container, one appdata folder, no required
+   template fields, credentials entered in the browser (same rules as attendance,
+   [ADR-0009](adr/0009-docker-on-unraid.md)). The website is reached only through Caddy, a required HTTPS
+   front proxy in its own container ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
 5. **Resilience to outside change.** Discord and attendance each sit behind one port; changes stay
    contained in one adapter.
 
@@ -84,6 +86,7 @@ flowchart LR
   subgraph Browser
     SPA["Nuxt app (Vue 3)<br/>Nuxt UI"]
   end
+  CADDY["Caddy (own container)<br/>HTTPS reverse proxy, ADR-0013"]
   subgraph DiscordClients["Discord clients"]
     J["Judges / head judges<br/>/penalty, buttons, modals"]
   end
@@ -119,7 +122,8 @@ flowchart LR
   DISCORD["Discord API<br/>gateway + REST"]
   ATT["attendance<br/>GET /api/integrations/v1/days/{date}"]
 
-  SPA -- "JSON, session cookie" --> API
+  SPA -- "HTTPS: JSON, session cookie" --> CADDY
+  CADDY -- "Docker network" --> API
   J --> DISCORD
   DISCORD <--> DJS
   BOT --> Modules
@@ -471,12 +475,17 @@ runs commands), a **player ID** (how attendance identifies staff) and a **displa
 
 ### 6.1 First run
 
+Caddy is set up first ([ADR-0013](adr/0013-https-origin-for-website-login.md)). `/setup` is completed only at
+`NUXT_PUBLIC_SITE_URL` (an `https://` origin) or at `http://localhost` on the host itself. On any other
+origin the wizard refuses to accept secrets; it doesn't just warn.
+
 1. The container prints a one-time **setup code** to its log. The code comes from the kit's
    `generateSetupCode` and is checked with `setupCodeMatches`. When it stops working (step 5) is Genie's rule.
 2. `/setup` asks for the code, then walks the organizer through: create a Discord application, paste the
    **bot token**, **client ID** and **client secret**, toggle the two privileged intents, and invite the
    bot with the generated URL. Genie verifies each step live (token valid, **Public Bot off**, bot in the
-   chosen guild, intents on, permissions present, bot role high enough).
+   chosen guild, intents on, permissions present, bot role high enough). Spike S3 found that role
+   position doesn't limit overwrites (`W3`, `W4`); the position check is kept as it is.
 3. Still inside the wizard, the organizer **logs in with Discord**. That account becomes the install
    owner. Ownership is only ever granted within this setup-code-gated session, never by a later login.
    They map Discord roles to Genie's *organizer* and *head judge* permissions (§9).
@@ -576,10 +585,10 @@ sequenceDiagram
   participant D as Discord
   participant B as Bot router
   participant P as penalties
-  Jd->>D: /penalty in #lc-penalties (round, category, severity, penalty: autocomplete)
+  Jd->>D: /penalty in #lc-penalties (round; event too in a day-wide channel)
   D->>B: interaction
   B->>B: caller is staff on this event with a player ID? penalties channel of an open day?
-  B-->>D: modal: competitor's player ID, notes
+  B-->>D: modal: category, severity, penalty selects (by game and season), competitor's player ID, notes
   Jd->>D: submit
   D->>B: modal submit
   B->>P: record(eventId, judge, fields)
@@ -629,7 +638,8 @@ sequenceDiagram
 2. **Lock:** a `lock` job rewrites every channel's overwrites so nobody but the bot can add anything.
    Leaving Send out of an allow list is not enough, because members keep Send from their guild base
    permissions (§4.1). So the job writes explicit **denies** for Send Messages, Send Messages in Threads,
-   Create Public Threads, Create Private Threads and Add Reactions:
+   Create Public Threads, Create Private Threads and Add Reactions (re-locking an already-locked channel
+   is an open risk, to be resolved before M5: [ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)):
    - on the `@everyone` overwrite;
    - on the organizer-role overwrite;
    - on every member overwrite.
@@ -800,7 +810,7 @@ logged (§4.1).
 | Bot token theft (acts as the bot in the guild) | The kit's vault (AES-256-GCM). Its key is declared with the kit's `aes256Key` spec: from `NUXT_VAULT_KEY` or `/data/secrets/vault.key`, 0600, never in the DB. Never logged or sent to the browser. Least-privilege permissions, no Administrator. Rotating it is one paste in Settings. **Limit:** the key file and `app.db` both live under `/data` and land in the same backup, so the vault only protects against a leak of the DB file on its own, not of the folder or its backup (ADR-0009). |
 | Someone else claims the install | The owner is bound inside the setup-code-gated wizard; setup routes answer `410` afterwards (§6.1). |
 | Bot invited elsewhere | Public Bot must be off (checked at setup); foreign-guild interactions and DMs are dropped (§4.1). |
-| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed httpOnly SameSite=Lax cookies; the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
+| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed, httpOnly, `Secure`, SameSite=Lax cookies ([ADR-0013](adr/0013-https-origin-for-website-login.md); `http://localhost` excepted); the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
 | The organizer role as a trust root | Anyone in the guild with Manage Roles can hand out the mapped organizer role, and with it every day channel and full website access. This is documented in Settings. Role-derived organizer logins are audited. The owner can turn on the **organizer allowlist**, which limits organizers to `owner ∪ (organizer role ∩ allowlist)`. An empty allowlist leaves only the owner, and Settings warns about that. |
 | Spoofed or replayed interactions | Gateway delivery only (no public endpoint). Every handler re-checks the caller against Genie's data. A replayed `/penalty` submission hits the idempotency key (§6.4). |
 | Attendance token theft | Stored in the vault; read-only scope on attendance's side; revocable there. |
@@ -820,17 +830,20 @@ logged (§4.1).
 
 ## 10. Deployment and operations
 
-- **One container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)): default port
+- **One Genie container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)): default port
   3001, `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ`, no required
   template fields. The launcher, secret bootstrap, entrypoint and image/release workflows come from
   `@towerism/selfhost-kit` ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)).
+  **Caddy** runs beside it in a separate container, as the required HTTPS front proxy for the website
+  ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
 - **Reaching attendance:** by URL (e.g. `http://<unraid-ip>:3000` or a shared Docker network name),
   entered in Settings.
 - **Discord login redirect:** `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, registered in the Discord
   application (spike S1 confirms which URLs Discord accepts).
   Per [ADR-0013](adr/0013-https-origin-for-website-login.md) (accepted 2026-10-14): `NUXT_PUBLIC_SITE_URL`
-  must be an `https://` origin served by Caddy as a reverse proxy, the only supported setup, with
-  `http://localhost` for development only. S1 found that Chrome completes the login only on
+  must be an `https://` origin served by Caddy as a reverse proxy, the only supported setup.
+  `http://localhost` stays allowed for development and for the owner on the host itself; login and the
+  setup wizard exempt it from the `https://` check. S1 found that Chrome completes the login only on
   `localhost` over plain HTTP; on a LAN IP or `.local` name the state cookie is withheld on the redirect
   back from Discord.
 - **Bot lifecycle:** the bot plugin logs in at boot and logs out on shutdown; jobs left running are marked
@@ -882,7 +895,7 @@ A case may only be added or changed together with a real-guild observation.
 | Provisioning job | Integration | Crash after each step and retry: no duplicate channels; adopted IDs; drift (deleted channel, edited overwrite, foreign channel in the category); 429 and 5xx from the fake |
 | Owner binding | Integration on the setup routes | A login outside the wizard never becomes the owner. Every `/api/setup/*` route answers 410 after setup |
 | Transcript serving | Unit (renderer escapes an XSS payload corpus) + integration (response headers) | Rendered output holds no executable markup. CSP, `nosniff` and `Content-Disposition` are present |
-| Attachments | Integration with a fake CDN | An over-cap, 404 or deleted-message attachment is `skipped` and the purge refuses. Retry succeeds after the cap is raised. Discard is logged, then the purge proceeds. An expired URL is re-resolved |
+| Attachments | Integration with a fake CDN | An over-cap, 404 or deleted-message attachment is `skipped` and the purge refuses. Retry succeeds after the cap is raised. Discard is logged, then the purge proceeds. An expired URL is re-resolved (S4's expired-URL check didn't run, so this is still unverified on Discord, §13) |
 | Threads | Integration on the fake | Active, archived and private thread messages land in their own transcripts with their own high-water marks |
 | Penalties | Integration | Authorization per role and channel; judge without a player ID; catalog validation by game and season; edit window; revisions; card repost; the same idempotency key twice → one row, and the second call returns it |
 | Post-close organizer edit | Integration | A revision plus a new CSV `export_file` with a new hash, and the old row is `superseded_by`. A head judge gets 403 after close. No Discord call is made when the channel is gone |
@@ -938,7 +951,7 @@ A case may only be added or changed together with a real-guild observation.
 | Channels aren't really locked, or content is deleted unexported | Explicit denies, thread transcripts, high-water marks and skipped-attachment gating before purge (§6.5) |
 | The website widens access past Discord | One `canSee()` for both ([ADR-0010](adr/0010-one-audience-model.md)) |
 | A removed staffer keeps access | Removals queue a sync at once; a failure raises an alarm and is retried at boot (§6.3) |
-| Bot role below a staffer's role can't manage overwrites in some setups | Setup and every job check the bot's position and permissions first and fail with a clear fix |
+| Bot role below a staffer's role can't manage overwrites in some setups | Setup and every job check the bot's position and permissions first and fail with a clear fix. Spike S3 found that role position doesn't limit overwrites: `genie` wrote overwrites for a role and a member above its own (`W3`, `W4`). The position check stays as it is |
 | Discord limits: 500 channels per guild, 50 per category, 5 inputs per modal | Day size checked against limits before opening; the penalty modal uses three selects + two text inputs, all five modal components (S2, [ADR-0014](adr/0014-penalty-form-selects-in-modal.md)) |
 | Privileged intents revoked or not enabled | Checked at boot and setup; transcripts degrade to "bot messages only" with a warning rather than failing |
 | Attendance endpoint not ready | Manual entry path; import ships behind its own milestone |
@@ -962,7 +975,8 @@ A case may only be added or changed together with a real-guild observation.
   permissions) that become the fake's contract suite (§11, ADR-0003).
 - **S4 Transcript export.** History paging speed and attachment sizes for a busy day; thread listing
   (active, archived, private) with Manage Threads; attachment URL expiry and re-resolution;
-  MessageContent behaviour.
+  MessageContent behaviour. Two gaps remain, a follow-up before M5: the expired-URL check didn't run (the
+  seed record was lost), and an archived private thread `genie` isn't a member of wasn't seeded or tested.
 
 ## 14. Delivery plan
 

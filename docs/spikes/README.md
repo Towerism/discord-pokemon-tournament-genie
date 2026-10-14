@@ -9,7 +9,7 @@ issue #7).
 | S1 | Which OAuth redirect URIs does Discord accept for the website login, and which setups complete one? | [s1-oauth-redirects.md](s1-oauth-redirects.md) | recorded 2026-10-14 (localhost, `<lan-ip>`, `<hostname>.local`; Tailscale and Caddy not tested); amendment [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), accepted: Caddy HTTPS reverse proxy only, to be tested before M1's login work |
 | S2 | How fast can a judge record a penalty on a phone, and with which form? | [s2-penalty-form.md](s2-penalty-form.md) | recorded 2026-10-14 (one iPhone, 5 runs per form); amendment [ADR-0014](../architecture/adr/0014-penalty-form-selects-in-modal.md), accepted |
 | S3 | Do Genie's open and locked overwrites behave as designed on a real guild? | [s3-permissions.md](s3-permissions.md), fixtures in [`test/fixtures/discord-permissions/`](../../test/fixtures/discord-permissions/) | recorded 2026-10-14 against the candidate profile ([ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), accepted); human cross-check done, all four cases agree |
-| S4 | Can transcripts (threads included) be exported completely enough for the purge gate? | [s4-transcript-export.md](s4-transcript-export.md) | recorded 2026-10-14; expired-URL check not run (seed record lost; needs a re-seed) |
+| S4 | Can transcripts (threads included) be exported completely enough for the purge gate? | [s4-transcript-export.md](s4-transcript-export.md) | recorded 2026-10-14; two gaps, a follow-up before M5: expired-URL check not run (seed record lost; needs a re-seed), and an archived private thread `genie` isn't a member of wasn't seeded or tested |
 
 The harnesses live in [`spikes/`](../../spikes/), a self-contained pnpm package (Node ≥ 22, discord.js 14.27.0
 pinned exactly). Only the findings and S3's fixtures are long-lived; `spikes/` stays for re-recording the
@@ -27,10 +27,10 @@ permission cases (ADR-0003).
    - Message Content intent on (S4 toggles it on `genie` only).
 3. **Invite them:**
    - `arranger` with Administrator;
-   - `genie` with exactly the candidate permissions: §4.1's nine plus Send Messages in Threads, Create
-     Public Threads, Create Private Threads and Add Reactions (`pnpm spike s3 preflight` prints the
-     invite URL). S3's first recording showed a non-admin bot can't write the original profile; see
-     `s3-permissions.md`. If `genie` was invited with the older nine, re-authorize it through the printed
+   - `genie` with exactly the candidate permissions: the original nine (pre-ADR-0012) plus Send Messages
+     in Threads, Create Public Threads, Create Private Threads and Add Reactions (`pnpm spike s3 preflight`
+     prints the invite URL). S3's first recording showed a non-admin bot can't write the original profile;
+     see `s3-permissions.md`. If `genie` was invited with the older nine, re-authorize it through the printed
      URL, or set its role's permissions in Server Settings → Roles;
    - both probes with no permissions.
 
@@ -129,5 +129,5 @@ pnpm spike cleanup --run <seed runId>
 | S3 | 2026-10-14 | 14.27.0 | v10 | `20261014075104-8020`, `20261014075549-c6a7` (original profile, stopped with exit 7: `20261014073111-0567`) |
 | S4 | 2026-10-14 | 14.27.0 | v10 | seed `20261014073319-9a00` |
 
-Committed findings use placeholders for network names (`<lan-ip>`, `<hostname>.local`,
-`<machine>.<tailnet>.ts.net`, `<proxy-host>`); the real values stay in `spikes/out/`.
+Committed findings use placeholders for network names (`<lan-ip>`, `<hostname>.local`, `<magicdns-name>`,
+`<machine>.<tailnet>.ts.net`, `<caddy-host>`); the real values stay in `spikes/out/`.

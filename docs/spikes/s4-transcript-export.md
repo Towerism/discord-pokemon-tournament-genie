@@ -76,8 +76,9 @@ Without Manage Threads, the archived-private listing fails with 403 (code 50001)
 silently omits private threads `genie` isn't a member of.
 
 **Does §4.1's `listThreads` contract hold?** Yes, with Manage Threads, which §4.1's invite set includes:
-every thread, active and archived, public and private, was found. Without it, one thread kind disappears
-**without an error**, which the next answer turns on.
+every seeded thread kind was found. Without it, one thread kind disappears **without an error**, which the
+next answer turns on. One kind wasn't seeded or tested: an **archived** private thread `genie` is **not**
+a member of. That gap, and the expired-URL check below, are a follow-up before M5.
 
 ### Attachment URL expiry and re-resolution
 

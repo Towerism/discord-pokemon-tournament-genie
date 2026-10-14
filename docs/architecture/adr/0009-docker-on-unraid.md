@@ -39,8 +39,7 @@ credentials go in the template; they are entered in `/setup` and Settings and ke
 
 - (+) Same install, update and backup routine the owner already knows.
 - (+) Data stays on the owner's hardware.
-- (−) Remote use (a head judge downloading the CSV from home) needs the owner's existing remote access:
-  Caddy as an HTTPS reverse proxy, the only supported setup ([ADR-0013](0013-https-origin-for-website-login.md)).
-  Documented in the deploy guide.
+- (−) All website use, LAN or remote, goes through Caddy ([ADR-0013](0013-https-origin-for-website-login.md));
+  exposing it beyond the LAN is the owner's choice and the deploy guide's to document.
 - (−) The backup holds `secrets/` with `app.db` and `exports/`, so it can open the vault; keep it private
   (Genie's deploy guide says so).

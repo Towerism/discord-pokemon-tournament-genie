@@ -20,7 +20,8 @@ couldn't be written:
 - **The lock.** §6.5's lock denies Send Messages in Threads, Create Public Threads, Create Private Threads
   and Add Reactions, none of which §4.1's invite grants. `W6-default-lacksallow` and
   `W6-default-lacksdeny` showed that `genie` can neither allow nor **deny** a permission it doesn't hold.
-  Under a guild whose `@everyone` base lacks those permissions, the lock would be refused.
+  Under a guild whose `@everyone` base lacks those permissions, the lock is predicted to be refused
+  (`W6-default-lacksdeny`).
 - **Resolution order.** §4.1 describes the four-step resolution order, which the fake gateway follows.
   In every case where a member couldn't view a channel, Discord refused every other action too, while
   discord.js still reported the underlying bits (21 disagreements, all of this kind).
@@ -48,10 +49,10 @@ Option 1.
 - **Genie's own overwrite**, on the category and every channel, allows **View Channels, Send Messages and
   Manage Channels**. It does not allow Manage Roles. Everything else in the open, locked and category
   overwrites is unchanged.
-- **The invite set** is §4.1's nine permissions plus the four the lock denies: Send Messages in Threads,
-  Create Public Threads, Create Private Threads and Add Reactions (13 in all). Genie can only allow or deny
-  permissions it holds, and under a no-send `@everyone` base it holds these four only through its role.
-  The setup wizard's permission check covers all 13.
+- **The invite set** is the original nine (pre-ADR-0012) permissions plus the four the lock denies: Send
+  Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions (13 in all). Genie
+  can only allow or deny permissions it holds, and under a no-send `@everyone` base it holds these four
+  only through its role. The setup wizard's permission check covers all 13.
 - **Resolution order.** §4.1 adds the implicit rule: a member who can't view a channel has no other
   permission in it, whatever the computed bits say. The privacy audit and the fake gateway apply it, so a
   check such as "can this member post here?" requires View first.
@@ -67,5 +68,10 @@ Option 1.
   doesn't need it, because the guild role's Manage Roles suffices for permissions Genie holds (S3: sync,
   fallback and lock all succeeded). If a later feature needs Genie to grant a permission it doesn't hold,
   that feature needs a new ADR.
+- (−) Open risk: re-locking a locked channel. S3 recorded the lock only onto an open channel (`W2-*-lock`).
+  Re-applying the lock to an already-locked channel, as a retried `lock` job would, wasn't recorded. S3's
+  rule (a bot without Administrator can't allow or deny a permission it doesn't hold in that channel)
+  predicts it may be refused, which would stall close-out. It is to be recorded as a relock case and
+  resolved before M5's lock work.
 - Existing reactions stay clickable after the lock denies Add Reactions (S3, `reactExisting`). Reactions
   aren't messages, so the purge's high-water check isn't affected; §6.5 says so.

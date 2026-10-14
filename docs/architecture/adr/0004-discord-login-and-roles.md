@@ -60,9 +60,10 @@ Option 1.
   website login is written to `login_audit` with the grant that admitted it (`owner`, `organizer_role`,
   `allowlist`, `event_head_judge`). The allowlist is there for owners who don't trust everyone with
   Manage Roles.
-- Session cookies are sealed by `nuxt-auth-utils`. The JSON-only CSRF guard, rate limits and security
-  headers come from `@towerism/selfhost-kit`'s `jsonOnly`, `enforceRateLimit` and `securityHeadersPlugin`
-  (ADR-0011).
+- Session cookies are sealed by `nuxt-auth-utils`: sealed, httpOnly, `Secure`, SameSite=Lax cookies
+  ([ADR-0013](0013-https-origin-for-website-login.md); `http://localhost` excepted). The JSON-only CSRF
+  guard, rate limits and security headers come from `@towerism/selfhost-kit`'s `jsonOnly`,
+  `enforceRateLimit` and `securityHeadersPlugin` (ADR-0011).
 
 ## Consequences
 
@@ -71,6 +72,6 @@ Option 1.
 - (+) Nobody can claim the install by logging in first.
 - (−) By default, organizer access is as safe as the guild's Manage Roles holders. The allowlist and the
   login audit are the mitigation, and the owner chooses whether to turn the allowlist on.
-- (−) The OAuth redirect must be a URL Discord accepts and the browser can reach; spike S1 settles LAN,
-  Tailscale and reverse-proxy setups.
+- (−) The OAuth redirect must be a URL Discord accepts and the browser can reach; settled by S1 and
+  [ADR-0013](0013-https-origin-for-website-login.md): HTTPS through Caddy only.
 - (−) Discord down means no website login. Acceptable: the bot is down too, and exports were already written.
