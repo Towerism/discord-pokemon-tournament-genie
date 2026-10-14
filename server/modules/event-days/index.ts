@@ -532,6 +532,10 @@ export function createEventDaysService(opts: {
         return enqueueProvision();
       });
     },
+    /** Every category a day records, so a stray with the same name can be told apart (FR-37 step 2). */
+    recordedCategoryIds(): Set<string> {
+      return new Set(db.select({ id: eventDay.categoryId }).from(eventDay).where(isNotNull(eventDay.categoryId)).all().map((r) => r.id!));
+    },
     recordCategory(dayId: number, categoryId: string): void {
       db.update(eventDay).set({ categoryId, updatedAt: clock.now() }).where(eq(eventDay.id, dayId)).run();
     },

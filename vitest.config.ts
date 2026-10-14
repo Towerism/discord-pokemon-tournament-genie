@@ -10,6 +10,13 @@ export default defineConfig({
       // Set by risk (architecture §11): the access decision gates every login and route.
       thresholds: {
         'shared/access/**': { branches: 95 },
+        // M2: where a bug leaks a channel (architecture §11), then crash safety, then the planning modules.
+        'shared/discord/**': { branches: 95 },
+        'shared/blueprints/**': { branches: 95 },
+        'server/modules/provisioning/audit.ts': { branches: 95 },
+        'server/modules/provisioning/**': { branches: 90 },
+        'server/modules/directory/**': { branches: 85 },
+        'server/modules/event-days/**': { branches: 85 },
         'server/modules/setup/**': { branches: 90 },
         'server/modules/jobs/**': { branches: 85 },
         'server/bot/**': { branches: 85 },

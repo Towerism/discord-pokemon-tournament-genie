@@ -114,6 +114,11 @@ export interface FakeDiscord {
   inviteBot(appId: string, guildId: string, opts?: { permissions?: bigint; position?: number }): void;
   /** The next mutating calls fail this way, one per entry. */
   failNext(...failures: WriteFailure[]): void;
+  /**
+   * Called synchronously at every mutating call, with its index in `mutations`, before Discord's rules are checked:
+   * it may fail the call, or change the fake's state the call is then checked against. `null` clears it.
+   */
+  failOn(rule: ((call: MutationRecord, index: number) => WriteFailure | null | undefined) | null): void;
   /** Replaces a channel's overwrites as an administrator would: no bot permission rules. */
   forceOverwrites(channelId: string, overwrites: Overwrite[]): void;
   addThread(channelId: string, thread: { type: 'public' | 'private'; archived?: boolean; memberIds?: string[] }): string;
@@ -138,6 +143,7 @@ export function createFakeDiscord(): FakeDiscord {
   const commands = new Map<string, readonly CommandDefinition[]>();
   const mutations: MutationRecord[] = [];
   const pendingFailures: WriteFailure[] = [];
+  let rule: ((call: MutationRecord, index: number) => WriteFailure | null | undefined) | null = null;
   let handlers: InteractionHandlers | null = null;
   let counter = 900_000_000_000_000_000n;
   const snowflake = () => (++counter).toString();
@@ -213,6 +219,9 @@ export function createFakeDiscord(): FakeDiscord {
     failNext(...failures) {
       pendingFailures.push(...failures);
     },
+    failOn(next) {
+      rule = next;
+    },
     forceOverwrites(channelId, overwrites) {
       need(channels.get(channelId)).overwrites = overwrites.map(copy);
     },
@@ -278,8 +287,9 @@ export function createFakeDiscord(): FakeDiscord {
       async function write<T>(method: string, target: string, guildId: string, overwrites: readonly Overwrite[] | null, existing: readonly Overwrite[] | null, apply: () => T): Promise<T> {
         await fake.writeGate;
         const app = appOf();
-        mutations.push({ method, target });
-        const failure = pendingFailures.shift();
+        const call = { method, target };
+        mutations.push(call);
+        const failure = rule?.(call, mutations.length - 1) || pendingFailures.shift();
         if (failure === 'unavailable') throw new DiscordUnavailableError(`${method} failed (fake, injected).`);
         if (overwrites) refuseUnlessAllowed(botGuild(guildId), app.botUserId, overwrites, existing ?? []);
         const result = apply();
