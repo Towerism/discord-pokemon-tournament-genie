@@ -84,3 +84,7 @@ Option 1, with one supported setup (owner decision, 2026-10-14).
   unaffected; only the website login needs it.
 - (−) Owners who already use Tailscale Serve or another proxy must add Caddy.
 - (−) The Caddy setup wasn't tested in S1; that test is a precondition for M1's login work.
+  **Update 2026-10-14:** the owner moved the test to before the first release (#11), then reported a completed
+  Discord login through Caddy over HTTPS in Firefox 157.0.1 on Arch Linux, which also shows that the redirect
+  URI was registered and accepted (#15; the Caddy row of [S1](../../spikes/s1-oauth-redirects.md)). S1's
+  failures were in Chrome, so a Chrome login through Caddy is still to be recorded.
