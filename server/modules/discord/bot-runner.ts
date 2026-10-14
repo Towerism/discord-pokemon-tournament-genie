@@ -3,6 +3,7 @@ import { missingPermissions } from '../../../shared/discord/permissions';
 import {
   type CommandDefinition,
   type CreateDiscord,
+  type DisconnectReason,
   type Discord,
   type InteractionHandlers,
   DisallowedIntentsError,
@@ -71,7 +72,7 @@ export function createBotRunner(opts: {
     }
     const next = createDiscord(token);
     try {
-      await next.bot.connect({ onInteraction });
+      await next.bot.connect({ onInteraction, onDisconnected: (reason) => lost(gen, reason) });
       if (gen !== generation) {
         await next.bot.disconnect();
         return;
@@ -85,15 +86,28 @@ export function createBotRunner(opts: {
     } catch (err) {
       if (gen !== generation) return;
       await next.bot.disconnect().catch(() => undefined);
-      if (err instanceof DiscordAuthError) fail('invalid_token', 'Discord refused the bot token. Paste a new one in Settings.');
-      else if (err instanceof DisallowedIntentsError)
-        fail('disallowed_intents', 'Turn on the Server Members and Message Content intents in the Discord developer portal.');
-      else {
-        failures += 1;
-        const delay = Math.min(FIRST_RETRY_MS * 2 ** (failures - 1), MAX_RETRY_MS);
-        fail('discord_unavailable', `The bot could not reach Discord; retrying in ${Math.round(delay / 1000)} s.`, err);
-        cancelRetry = scheduler.after(delay, () => attempt(gen));
-      }
+      if (err instanceof DiscordAuthError) failFor(gen, 'invalid_token');
+      else if (err instanceof DisallowedIntentsError) failFor(gen, 'disallowed_intents');
+      else failFor(gen, 'unavailable', err);
+    }
+  }
+
+  /** A connected session that Discord ended for good. */
+  function lost(gen: number, reason: DisconnectReason) {
+    if (gen !== generation) return;
+    discord = null;
+    failFor(gen, reason);
+  }
+
+  function failFor(gen: number, reason: DisconnectReason, err?: unknown) {
+    if (reason === 'invalid_token') fail('invalid_token', 'Discord refused the bot token. Paste a new one in Settings.');
+    else if (reason === 'disallowed_intents')
+      fail('disallowed_intents', 'Turn on the Server Members and Message Content intents in the Discord developer portal.');
+    else {
+      failures += 1;
+      const delay = Math.min(FIRST_RETRY_MS * 2 ** (failures - 1), MAX_RETRY_MS);
+      fail('discord_unavailable', `The bot could not reach Discord; retrying in ${Math.round(delay / 1000)} s.`, err);
+      cancelRetry = scheduler.after(delay, () => attempt(gen));
     }
   }
 

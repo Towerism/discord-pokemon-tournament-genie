@@ -10,6 +10,7 @@ import {
   type ApplicationInfo,
   type CommandDefinition,
   type CreateDiscord,
+  type DisconnectReason,
   type DiscordBotConnection,
   type DiscordGateway,
   type GuildInfo,
@@ -58,6 +59,8 @@ export interface FakeDiscord {
   removeMember(guildId: string, userId: string): void;
   /** Invites the application's bot into the guild with a managed role holding `permissions`. */
   inviteBot(appId: string, guildId: string, opts?: { permissions?: bigint; position?: number }): void;
+  /** Ends the bot's session the way an unrecoverable gateway close does. */
+  dropConnection(reason: DisconnectReason): void;
   /** Sends an interaction to the connected bot; resolves with its ephemeral replies. */
   dispatch(interaction: InboundInteraction): Promise<string[]>;
   create: CreateDiscord;
@@ -124,6 +127,12 @@ export function createFakeDiscord(): FakeDiscord {
         ...(opts.position === undefined ? {} : { position: opts.position }),
       });
       fake.addMember(guildId, app.botUserId, [roleId]);
+    },
+    dropConnection(reason) {
+      const current = handlers;
+      handlers = null;
+      fake.connected = false;
+      current?.onDisconnected?.(reason);
     },
     async dispatch(interaction) {
       if (!handlers) throw new Error('The bot is not connected.');

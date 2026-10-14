@@ -65,8 +65,12 @@ export interface CommandDefinition {
   description: string;
 }
 
+export type DisconnectReason = 'invalid_token' | 'disallowed_intents' | 'unavailable';
+
 export interface InteractionHandlers {
   onInteraction(interaction: InboundInteraction, reply: InteractionReply): Promise<void>;
+  /** The session ended for good after `connect` resolved (Discord won't resume it on its own). */
+  onDisconnected?(reason: DisconnectReason): void;
 }
 
 /** The bot's gateway session. */

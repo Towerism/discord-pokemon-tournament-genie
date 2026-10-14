@@ -11,7 +11,7 @@
     "build": "nuxt build && esbuild server/bootstrap/launcher.ts --bundle --platform=node --format=esm --target=node24 --packages=bundle --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --outfile=.output/launcher.mjs",
     "start": "node .output/launcher.mjs",
     "postinstall": "nuxt prepare",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "nuxt typecheck",
     "test": "vitest run --project unit --coverage && vitest run --project server",
     "test:unit": "vitest run --project unit",

@@ -98,6 +98,21 @@ describe('the bot runner', () => {
     expect(JSON.stringify(logger.records)).not.toContain(TOKEN);
   });
 
+  it('notices a session Discord ends after connecting, and retries only when Discord was unavailable', async () => {
+    const { discord, scheduler, runner } = setup();
+    await runner.start();
+    discord.dropConnection('disallowed_intents');
+    expect(await runner.status()).toMatchObject({ state: 'error', error: 'disallowed_intents' });
+    expect(scheduler.pending()).toBe(0);
+
+    await runner.start();
+    discord.dropConnection('unavailable');
+    expect(await runner.status()).toMatchObject({ state: 'error', error: 'discord_unavailable' });
+    expect(scheduler.delays).toEqual([1_000]);
+    await scheduler.fire();
+    expect((await runner.status()).state).toBe('connected');
+  });
+
   it('disconnects on stop and cancels a pending retry', async () => {
     const { discord, scheduler, runner } = setup();
     await runner.start();
