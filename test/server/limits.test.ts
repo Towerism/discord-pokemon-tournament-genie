@@ -41,6 +41,14 @@ describe('a restart', () => {
   });
 });
 
+describe('login before the Discord application is stored', () => {
+  it('sends the browser to the wizard', async () => {
+    const res = await browser(genie.url).get('/auth/discord');
+    expect(res.status).toBe(302);
+    expect(res.location).toBe('/setup');
+  });
+});
+
 describe('readiness', () => {
   it('answers 503 once the database file is gone, while liveness stays up', async () => {
     rmSync(genie.dataDir.databasePath);

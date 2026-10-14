@@ -69,7 +69,12 @@ describe('logging in', () => {
     expect(authorize.searchParams.get('redirect_uri')).toBe(`http://localhost:${genie.port}/auth/discord`);
     expect(authorize.searchParams.get('client_id')).toBe(IDS.app);
     expect(authorize.searchParams.get('scope')).toBe('identify');
-    for (const cookie of local.setCookies) expect(cookie).toMatch(/Secure.*HttpOnly|HttpOnly.*Secure/i);
+    expect(local.setCookies.length).toBeGreaterThan(0);
+    for (const cookie of local.setCookies) {
+      expect(cookie).toMatch(/;\s*Secure/i);
+      expect(cookie).toMatch(/;\s*HttpOnly/i);
+      expect(cookie).toMatch(/;\s*SameSite=Lax/i);
+    }
 
     expect((await browser(genie.url, { host: 'evil.example' }).get('/auth/discord')).json()).toMatchObject({
       statusCode: 403,

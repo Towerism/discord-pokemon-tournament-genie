@@ -35,7 +35,7 @@ export async function completeSetup(browser: Browser, genie: Genie, discord: Fak
   expect(finish.status, finish.text).toBe(200);
 }
 
-/** No reply body or header, and no log line, may carry a secret (NFR-1). */
+/** No reply body or header, and no log line, may carry a secret. */
 export function expectNoSecrets(texts: string[]): void {
   const secrets = [BOT_TOKEN, CLIENT_SECRET];
   for (const text of texts) for (const secret of secrets) expect(text).not.toContain(secret);
