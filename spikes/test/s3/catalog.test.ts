@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildCatalog, findCase } from '../../src/s3/catalog.js';
-import { BASE_PERMISSIONS, genieOverwrite, lockedProfile, openProfile } from '../../src/s3/profiles.js';
+import {
+  BASE_PERMISSIONS,
+  categoryProfile,
+  genieOverwrite,
+  lockedProfile,
+  openProfile,
+  originalGenieOverwrite,
+  originalOpenProfile,
+  overwrite,
+} from '../../src/s3/profiles.js';
 import { CHANNEL_ACTIONS, LOCK_DENIES, THREAD_ACTIONS, type EffectiveCase, type Overwrite, type WriteCase } from '../../src/s3/types.js';
 
 const catalog = buildCatalog();
@@ -43,25 +52,28 @@ describe('buildCatalog: completeness', () => {
     expect(ids).toContain(id);
   });
 
-  it('has exactly the 16 expanded write cases', () => {
+  it('has exactly the 19 expanded write cases', () => {
     expect(writes.map((w) => w.id).sort()).toEqual(
       [
         'W0-default-createcategory',
         'W0-default-create',
         'W0-nosend-createcategory',
         'W0-nosend-create',
-        'W1-default-mroverwrite',
-        'W1-default-nomroverwrite',
-        'W1-nosend-mroverwrite',
-        'W1-nosend-nomroverwrite',
-        'W2-default-mroverwrite',
-        'W2-default-nomroverwrite',
-        'W2-nosend-mroverwrite',
-        'W2-nosend-nomroverwrite',
-        'W3-default-mroverwrite',
-        'W4-default-mroverwrite',
-        'W5-default-mroverwrite',
-        'W5-default-nomroverwrite',
+        'W1-default-sync',
+        'W1-default-fallback',
+        'W1-nosend-sync',
+        'W1-nosend-fallback',
+        'W2-default-lock',
+        'W2-nosend-lock',
+        'W3-default-edit',
+        'W4-default-edit',
+        'W5-default-edit',
+        'W6-default-control',
+        'W6-default-mrself',
+        'W6-default-lacksallow',
+        'W6-default-lacksdeny',
+        'W6-default-original',
+        'W7-default-originalmr',
       ].sort(),
     );
   });
@@ -70,7 +82,7 @@ describe('buildCatalog: completeness', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) {
       expect(id).toMatch(
-        /^(R\d+-(default|nosend)-(open|locked|category)-(outsider|staffer|organizer|admin|sendrole)(-(public|public-archived|private-added|private-notadded))?|W\d-(default|nosend)-(createcategory|create|mroverwrite|nomroverwrite))$/,
+        /^(R\d+-(default|nosend)-(open|locked|category)-(outsider|staffer|organizer|admin|sendrole)(-(public|public-archived|private-added|private-notadded))?|W\d-(default|nosend)-(createcategory|create|sync|fallback|lock|edit|control|mrself|lacksallow|lacksdeny|original|originalmr))$/,
       );
     }
   });
@@ -189,38 +201,87 @@ describe('special rows', () => {
   });
 });
 
+describe('candidate profile', () => {
+  const genieIn = (ows: Overwrite[]) => byTarget(ows, 'member:genie')!;
+  const grantsManageRoles = (o: Overwrite) => o.allowOther.includes('ManageRoles');
+
+  it('genie allows itself View, Send and Manage Channels, and not Manage Roles', () => {
+    expect(genieOverwrite()).toEqual(overwrite('member:genie', { allow: ['ViewChannel', 'SendMessages'], allowOther: ['ManageChannels'] }));
+  });
+
+  it('no candidate profile grants genie Manage Roles', () => {
+    for (const profile of [openProfile(true), openProfile(false), lockedProfile(true), lockedProfile(false), categoryProfile()]) {
+      expect(grantsManageRoles(genieIn(profile))).toBe(false);
+    }
+  });
+
+  it('the original profile, kept for diagnostics, differs from the candidate only by genie\'s Manage Roles', () => {
+    expect(grantsManageRoles(originalGenieOverwrite())).toBe(true);
+    const original = originalOpenProfile(false);
+    expect(original.filter((o) => o.target !== 'member:genie')).toEqual(openProfile(false).filter((o) => o.target !== 'member:genie'));
+    expect(genieIn(original)).toEqual(originalGenieOverwrite());
+  });
+});
+
 describe('write cases', () => {
   const w = (id: string) => findCase(id) as WriteCase;
+  const diagnostics = writes.filter((c) => /^W[5-7]-/.test(c.id));
 
   it('classifies the production contexts', () => {
     expect(w('W0-default-createcategory').productionRole).toBe('create');
     expect(w('W0-nosend-create').productionRole).toBe('create');
-    expect(w('W1-default-mroverwrite').productionRole).toBe('edit');
-    expect(w('W2-nosend-mroverwrite').productionRole).toBe('edit');
-    expect(w('W1-nosend-nomroverwrite').productionRole).toBe('fallback');
-    expect(w('W2-default-nomroverwrite').productionRole).toBeNull();
-    expect(w('W3-default-mroverwrite').productionRole).toBeNull();
-    expect(w('W5-default-nomroverwrite').productionRole).toBeNull();
+    expect(w('W1-default-sync').productionRole).toBe('edit');
+    expect(w('W2-nosend-lock').productionRole).toBe('edit');
+    expect(w('W1-nosend-fallback').productionRole).toBe('fallback');
+    expect(w('W3-default-edit').productionRole).toBeNull();
+    expect(w('W4-default-edit').productionRole).toBeNull();
   });
 
-  it('creates go through the create path with no prior overwrites', () => {
-    expect(w('W0-default-create')).toMatchObject({ path: 'create', target: 'channel', mrOverwrite: null, overwritesBefore: [] });
+  it('never makes a diagnostic case a production context', () => {
+    expect(diagnostics).toHaveLength(7);
+    for (const c of diagnostics) expect(c.productionRole).toBeNull();
+  });
+
+  it('creates go through the create path with no prior overwrites; only W6 creates at the top level', () => {
+    expect(w('W0-default-create')).toMatchObject({ path: 'create', target: 'channel', topLevel: false, overwritesBefore: [] });
     expect(w('W0-default-createcategory').target).toBe('category');
+    for (const c of writes.filter((c) => c.row === 'W6')) {
+      expect(c).toMatchObject({ path: 'create', target: 'channel', topLevel: true, overwritesBefore: [] });
+    }
+    expect(writes.filter((c) => c.topLevel).every((c) => c.row === 'W6')).toBe(true);
   });
 
-  it('the Manage Roles overwrite variants differ only in genie\'s prior overwrite', () => {
-    expect(w('W1-default-mroverwrite').overwritesBefore).toEqual([genieOverwrite()]);
-    expect(w('W1-default-nomroverwrite').overwritesBefore).toEqual([]);
-    expect(w('W2-default-mroverwrite').overwritesBefore).toEqual(openProfile(false));
+  it('sync and lock start from the candidate open profile; the fallback starts bare', () => {
+    expect(w('W1-default-sync')).toMatchObject({ overwritesBefore: openProfile(false), attempted: openProfile(false) });
+    expect(w('W1-default-fallback')).toMatchObject({ overwritesBefore: [], attempted: openProfile(false) });
+    expect(w('W2-nosend-lock')).toMatchObject({ overwritesBefore: openProfile(false), attempted: lockedProfile(false) });
   });
 
-  it('W3 and W4 use a role above genie; W5 allows Mention Everyone', () => {
-    expect(w('W3-default-mroverwrite').roles.find((r) => r.aboveGenie)).toBeDefined();
-    expect(w('W4-default-mroverwrite').otherRoles).toContain('role:high');
-    expect(w('W5-default-nomroverwrite').attempted.some((o) => o.allowOther.includes('MentionEveryone'))).toBe(true);
+  it('W3 and W4 use a role above genie; W5 allows Mention Everyone on a channel carrying genie\'s candidate overwrite', () => {
+    expect(w('W3-default-edit').roles.find((r) => r.aboveGenie)).toBeDefined();
+    expect(w('W4-default-edit').otherRoles).toContain('role:high');
+    expect(w('W5-default-edit').overwritesBefore).toEqual([genieOverwrite()]);
+    expect(byTarget(w('W5-default-edit').attempted, 'member:other')!.allowOther).toEqual(['MentionEveryone']);
   });
 
-  it('every write case states its base', () => {
+  it('W6 isolates one overwrite per variant', () => {
+    expect(w('W6-default-control').attempted).toEqual([genieOverwrite()]);
+    expect(w('W6-default-mrself').attempted).toEqual([overwrite('member:genie', { allowOther: ['ManageRoles'] })]);
+    expect(w('W6-default-lacksallow').attempted).toEqual([overwrite('member:other', { allowOther: ['MentionEveryone'] })]);
+    expect(w('W6-default-lacksdeny').attempted).toEqual([overwrite('member:other', { denyOther: ['MentionEveryone'] })]);
+    expect(w('W6-default-original').attempted).toEqual(originalOpenProfile(false));
+  });
+
+  it('W7 replays the original edit path: the original genie overwrite before, the original open profile written', () => {
+    expect(w('W7-default-originalmr')).toMatchObject({
+      path: 'edit',
+      overwritesBefore: [originalGenieOverwrite()],
+      attempted: originalOpenProfile(false),
+    });
+  });
+
+  it('every write case states its base; the diagnostics run under B-default', () => {
     for (const c of writes) expect(['default', 'nosend']).toContain(c.base);
+    for (const c of diagnostics) expect(c.base).toBe('default');
   });
 });

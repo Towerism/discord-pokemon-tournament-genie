@@ -44,7 +44,7 @@ describe('fixture', () => {
 
   it('carries the write context, the attempt and what Discord stored', async () => {
     const f = await recorded(['20261013120000-0a1f', '20261013121000-0b2e'], '2026-10-13T12:20:00.000Z');
-    const w = f.cases.find((c) => c.id === 'W2-nosend-mroverwrite');
+    const w = f.cases.find((c) => c.id === 'W2-nosend-lock');
     expect(w).toMatchObject({
       kind: 'write',
       path: 'edit',
@@ -86,7 +86,7 @@ describe('fixture', () => {
 
   it('refuses to build from a pass that stopped', () => {
     const catalog = buildCatalog();
-    const stopped = { passId: 'p', writes: [], cases: [], amendmentRequired: [], stop: { reason: 'profile_unwritable' as const, caseIds: ['W1-default-mroverwrite'] } };
+    const stopped = { passId: 'p', writes: [], cases: [], amendmentRequired: [], stop: { reason: 'profile_unwritable' as const, caseIds: ['W1-default-sync'] } };
     expect(() =>
       buildFixture(catalog, stopped, { recordedAt: 'x', discordJs: '14.27.0', apiVersion: '10', passIds: ['a', 'b'], genieRolePermissions: [] }),
     ).toThrow(/stopped/);

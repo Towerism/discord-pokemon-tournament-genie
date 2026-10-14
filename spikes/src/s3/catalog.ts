@@ -1,4 +1,13 @@
-import { categoryProfile, genieOverwrite, lockedProfile, openProfile, overwrite, stafferOpen } from './profiles.js';
+import {
+  categoryProfile,
+  genieOverwrite,
+  lockedProfile,
+  openProfile,
+  originalGenieOverwrite,
+  originalOpenProfile,
+  overwrite,
+  stafferOpen,
+} from './profiles.js';
 import {
   CHANNEL_ACTIONS,
   THREAD_ACTIONS,
@@ -103,62 +112,64 @@ function effectiveRows(): EffectiveCase[] {
   ];
 }
 
-function writeCase(c: Omit<WriteCase, 'kind' | 'roles' | 'otherRoles'> & Partial<Pick<WriteCase, 'roles' | 'otherRoles'>>): WriteCase {
-  return { kind: 'write', roles: [ORGANIZER], otherRoles: [], ...c };
+function writeCase(
+  c: Omit<WriteCase, 'kind' | 'roles' | 'otherRoles' | 'topLevel'> & Partial<Pick<WriteCase, 'roles' | 'otherRoles' | 'topLevel'>>,
+): WriteCase {
+  return { kind: 'write', roles: [ORGANIZER], otherRoles: [], topLevel: false, ...c };
 }
+
+const edit = (id: string, c: Partial<WriteCase> & Pick<WriteCase, 'overwritesBefore' | 'attempted'>) =>
+  writeCase({ id, row: id.split('-')[0]!, base: 'default', path: 'edit', target: 'channel', productionRole: null, ...c });
+
+/** W6: genie creates a top-level channel carrying exactly one overwrite set. */
+const diagnosticCreate = (variant: string, attempted: WriteCase['attempted']) =>
+  writeCase({
+    id: `W6-default-${variant}`, row: 'W6', base: 'default', path: 'create', target: 'channel', topLevel: true,
+    productionRole: null, overwritesBefore: [], attempted,
+  });
 
 function writeRows(): WriteCase[] {
   const bases: Base[] = ['default', 'nosend'];
-  const mr = [true, false] as const;
-  const suffix = (m: boolean) => (m ? 'mroverwrite' : 'nomroverwrite');
   return [
     ...bases.flatMap((base) => [
       writeCase({
         id: `W0-${base}-createcategory`, row: 'W0', base, path: 'create', target: 'category',
-        mrOverwrite: null, productionRole: 'create', overwritesBefore: [], attempted: categoryProfile(),
+        productionRole: 'create', overwritesBefore: [], attempted: categoryProfile(),
       }),
       writeCase({
         id: `W0-${base}-create`, row: 'W0', base, path: 'create', target: 'channel',
-        mrOverwrite: null, productionRole: 'create', overwritesBefore: [], attempted: openProfile(false),
+        productionRole: 'create', overwritesBefore: [], attempted: openProfile(false),
       }),
     ]),
-    ...bases.flatMap((base) =>
-      mr.map((m) =>
-        writeCase({
-          id: `W1-${base}-${suffix(m)}`, row: 'W1', base, path: 'edit', target: 'channel', mrOverwrite: m,
-          productionRole: m ? 'edit' : 'fallback', overwritesBefore: m ? [genieOverwrite()] : [], attempted: openProfile(false),
-        }),
-      ),
+    ...bases.flatMap((base) => [
+      edit(`W1-${base}-sync`, { base, productionRole: 'edit', overwritesBefore: openProfile(false), attempted: openProfile(false) }),
+      edit(`W1-${base}-fallback`, { base, productionRole: 'fallback', overwritesBefore: [], attempted: openProfile(false) }),
+    ]),
+    ...bases.map((base) =>
+      edit(`W2-${base}-lock`, { base, productionRole: 'edit', overwritesBefore: openProfile(false), attempted: lockedProfile(false) }),
     ),
-    ...bases.flatMap((base) =>
-      mr.map((m) =>
-        writeCase({
-          id: `W2-${base}-${suffix(m)}`, row: 'W2', base, path: 'edit', target: 'channel', mrOverwrite: m,
-          productionRole: m ? 'edit' : null, overwritesBefore: m ? openProfile(false) : [], attempted: lockedProfile(false),
-        }),
-      ),
-    ),
-    writeCase({
-      id: 'W3-default-mroverwrite', row: 'W3', base: 'default', path: 'edit', target: 'channel', mrOverwrite: true,
-      productionRole: null, roles: [ORGANIZER, HIGH], overwritesBefore: [genieOverwrite()],
+    edit('W3-default-edit', {
+      roles: [ORGANIZER, HIGH], overwritesBefore: [genieOverwrite()],
       attempted: [genieOverwrite(), overwrite('role:high', { allow: ['ViewChannel'] })],
     }),
-    writeCase({
-      id: 'W4-default-mroverwrite', row: 'W4', base: 'default', path: 'edit', target: 'channel', mrOverwrite: true,
-      productionRole: null, roles: [ORGANIZER, HIGH], otherRoles: ['role:high'], overwritesBefore: [genieOverwrite()],
+    edit('W4-default-edit', {
+      roles: [ORGANIZER, HIGH], otherRoles: ['role:high'], overwritesBefore: [genieOverwrite()],
       attempted: [genieOverwrite(), overwrite('member:other', { allow: ['ViewChannel'] })],
     }),
-    ...mr.map((m) =>
-      writeCase({
-        id: `W5-default-${suffix(m)}`, row: 'W5', base: 'default', path: 'edit', target: 'channel', mrOverwrite: m,
-        productionRole: null, overwritesBefore: m ? [genieOverwrite()] : [],
-        attempted: [...(m ? [genieOverwrite()] : []), overwrite('member:other', { allow: ['ViewChannel'], allowOther: ['MentionEveryone'] })],
-      }),
-    ),
+    edit('W5-default-edit', {
+      overwritesBefore: [genieOverwrite()],
+      attempted: [genieOverwrite(), overwrite('member:other', { allow: ['ViewChannel'], allowOther: ['MentionEveryone'] })],
+    }),
+    diagnosticCreate('control', [genieOverwrite()]),
+    diagnosticCreate('mrself', [overwrite('member:genie', { allowOther: ['ManageRoles'] })]),
+    diagnosticCreate('lacksallow', [overwrite('member:other', { allowOther: ['MentionEveryone'] })]),
+    diagnosticCreate('lacksdeny', [overwrite('member:other', { denyOther: ['MentionEveryone'] })]),
+    diagnosticCreate('original', originalOpenProfile(false)),
+    edit('W7-default-originalmr', { overwritesBefore: [originalGenieOverwrite()], attempted: originalOpenProfile(false) }),
   ];
 }
 
-/** Write cases first: a production-context refusal stops a pass before any effective case runs (FR-22). */
+/** Write cases first: a production-context refusal stops a pass before any effective case runs. */
 export function buildCatalog(): Case[] {
   return [...writeRows(), ...effectiveRows()];
 }

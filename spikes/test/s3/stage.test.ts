@@ -20,7 +20,7 @@ describe('stagePlan', () => {
   });
 
   it('refuses a write case (nothing to try by hand)', () => {
-    expect(() => stagePlan('W1-default-mroverwrite', '1')).toThrow(/effective/);
+    expect(() => stagePlan('W1-default-sync', '1')).toThrow(/effective/);
   });
 });
 

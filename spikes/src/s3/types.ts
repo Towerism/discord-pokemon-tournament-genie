@@ -86,8 +86,8 @@ export type WriteCase = {
   base: Base;
   path: 'create' | 'edit';
   target: 'category' | 'channel';
-  /** Whether genie's own Manage Roles overwrite is on the channel before the write; null for creates. */
-  mrOverwrite: boolean | null;
+  /** A create with no parent category, so no parent's overwrites take part (the diagnostics). */
+  topLevel: boolean;
   productionRole: ProductionRole;
   roles: RoleSpec[];
   otherRoles: `role:${string}`[];

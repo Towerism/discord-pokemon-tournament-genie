@@ -20,8 +20,8 @@ export type FakeOptions = {
   refuseWrite?: number;
   /** Read-back mutation: Discord stores something other than what was written. */
   storeDifferently?: (written: ResolvedOverwrite[]) => ResolvedOverwrite[];
-  /** Create-path outcome for write cases. */
-  createOutcome?: (kind: 'category' | 'channel') => Outcome;
+  /** Create-path outcome for write cases, by kind and the case's channel name. */
+  createOutcome?: (kind: 'category' | 'channel', name: string) => Outcome;
   /** Edit-path outcome for write cases, keyed by the case's channel name fragment. */
   refuseEditFor?: (channelName: string) => boolean;
   library?: Partial<Record<PermissionName, boolean>>;
@@ -42,6 +42,7 @@ export function fakePorts(opts: FakeOptions = {}) {
   let writesThisCase = 0;
   let teardowns = 0;
   const cursor = new Map<Action, number>();
+  const creates: { kind: 'category' | 'channel'; name: string; parentId?: string }[] = [];
 
   const ports: RunnerPorts = {
     arrange: {
@@ -87,7 +88,8 @@ export function fakePorts(opts: FakeOptions = {}) {
         return ok(204);
       },
       async createWithOverwrites(spec) {
-        const outcome = opts.createOutcome?.(spec.kind) ?? ok(201);
+        creates.push({ kind: spec.kind, name: spec.name, ...(spec.parentId ? { parentId: spec.parentId } : {}) });
+        const outcome = opts.createOutcome?.(spec.kind, spec.name) ?? ok(201);
         if (outcome.kind === 'http' && outcome.status >= 300) return { outcome };
         const created = id();
         channelNames.set(created, spec.name);
@@ -119,5 +121,5 @@ export function fakePorts(opts: FakeOptions = {}) {
       },
     },
   };
-  return { ports, attempts, teardowns: () => teardowns, overwrites };
+  return { ports, attempts, teardowns: () => teardowns, overwrites, creates };
 }

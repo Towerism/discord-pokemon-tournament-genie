@@ -36,7 +36,7 @@ describe('checkStability', () => {
   it('reports a write case whose outcome differs', () => {
     expect(checkStability(pass(), pass({ writes: [writeRecord({ result: 'refused', code: 50013 })] }))).toEqual({
       stable: false,
-      caseIds: ['W1-default-mroverwrite'],
+      caseIds: ['W1-default-sync'],
     });
   });
 
@@ -45,7 +45,7 @@ describe('checkStability', () => {
   });
 
   it('is unstable when either pass stopped', () => {
-    const stopped = pass({ cases: [], stop: { reason: 'profile_unwritable', caseIds: ['W1-default-mroverwrite'] } });
+    const stopped = pass({ cases: [], stop: { reason: 'profile_unwritable', caseIds: ['W1-default-sync'] } });
     expect(checkStability(stopped, pass()).stable).toBe(false);
   });
 });

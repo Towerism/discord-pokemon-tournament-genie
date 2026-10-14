@@ -74,7 +74,7 @@ describe('runCase', () => {
   });
 
   it('is arrange_failed when Discord stores something other than what genie wrote', async () => {
-    const { ports } = fakePorts({ storeDifferently: (w) => w.map((o) => ({ ...o, allow: o.allow.filter((p) => p !== 'ManageRoles') })) });
+    const { ports } = fakePorts({ storeDifferently: (w) => w.map((o) => ({ ...o, allow: o.allow.filter((p) => p !== 'ManageChannels') })) });
     const r = await runCase(eff('R2-default-open-staffer'), ports, ctx);
     expect(r.status).toBe('arrange_failed');
     expect(r.failure).toMatch(/read-back/);
@@ -106,16 +106,26 @@ describe('runCase', () => {
 describe('runWriteCase', () => {
   it('records a refusal with its code and context', async () => {
     const { ports } = fakePorts({ refuseEditFor: () => true });
-    const r = await runWriteCase(wc('W2-nosend-nomroverwrite'), ports, ctx);
-    expect(r).toMatchObject({ caseId: 'W2-nosend-nomroverwrite', result: 'refused', status: 403, code: 50013 });
+    const r = await runWriteCase(wc('W2-nosend-lock'), ports, ctx);
+    expect(r).toMatchObject({ caseId: 'W2-nosend-lock', result: 'refused', status: 403, code: 50013 });
     expect(r.stored).toBeUndefined();
   });
 
   it('records what Discord stored, not what was attempted', async () => {
     const { ports } = fakePorts({ storeDifferently: (w) => w.slice(1) });
-    const r = await runWriteCase(wc('W1-default-mroverwrite'), ports, ctx);
+    const r = await runWriteCase(wc('W1-default-sync'), ports, ctx);
     expect(r.result).toBe('ok');
-    expect(r.stored).toHaveLength(wc('W1-default-mroverwrite').attempted.length - 1);
+    expect(r.stored).toHaveLength(wc('W1-default-sync').attempted.length - 1);
+  });
+
+  it('creates W6 at the top level and W0\'s channel under a parent category', async () => {
+    const f = fakePorts();
+    await runWriteCase(wc('W6-default-mrself'), f.ports, ctx);
+    await runWriteCase(wc('W0-default-create'), f.ports, ctx);
+    const [w6, w0] = f.creates;
+    expect(w6).toMatchObject({ kind: 'channel' });
+    expect(w6!.parentId).toBeUndefined();
+    expect(w0!.parentId).toBeDefined();
   });
 
   it('creates through the create path', async () => {
@@ -132,28 +142,28 @@ describe('runPass', () => {
     const f = fakePorts();
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
     expect(pass.stop).toBeUndefined();
-    expect(pass.writes).toHaveLength(16);
-    expect(pass.cases).toHaveLength(catalog.length - 16);
+    expect(pass.writes).toHaveLength(19);
+    expect(pass.cases).toHaveLength(catalog.length - 19);
     expect(f.teardowns()).toBe(catalog.length);
   });
 
   it('stops before the effective cases when an edit-path production case is refused', async () => {
-    const f = fakePorts({ refuseEditFor: (name) => name.includes('w1-default-mroverwrite') });
+    const f = fakePorts({ refuseEditFor: (name) => name.includes('w1-default-sync') });
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
-    expect(pass.stop).toEqual({ reason: 'profile_unwritable', caseIds: ['W1-default-mroverwrite'] });
+    expect(pass.stop).toEqual({ reason: 'profile_unwritable', caseIds: ['W1-default-sync'] });
     expect(pass.cases).toEqual([]);
   });
 
   it('stops when an accepted production write is stored differently', async () => {
     const f = fakePorts({
-      storeDifferently: (w) => w.map((o) => ({ ...o, allow: o.allow.filter((p) => p !== 'ManageRoles') })),
+      storeDifferently: (w) => w.map((o) => ({ ...o, allow: o.allow.filter((p) => p !== 'ManageChannels') })),
     });
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
     expect(pass.stop?.reason).toBe('profile_unwritable');
   });
 
   it('continues when only the create path is refused and the fallback works, flagging the amendment', async () => {
-    const f = fakePorts({ createOutcome: () => ({ kind: 'http', status: 403, code: 50013 }) });
+    const f = fakePorts({ createOutcome: (_k, name) => (/-w0-/.test(name) ? { kind: 'http', status: 403, code: 50013 } : ok(201)) });
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
     expect(pass.stop).toBeUndefined();
     expect(pass.amendmentRequired.sort()).toEqual(
@@ -164,17 +174,39 @@ describe('runPass', () => {
 
   it('stops when the create path and the fallback are both unwritable', async () => {
     const f = fakePorts({
-      createOutcome: () => ({ kind: 'http', status: 403, code: 50013 }),
-      refuseEditFor: (name) => name.includes('w1-nosend-nomroverwrite'),
+      createOutcome: (_k, name) => (/-w0-/.test(name) ? { kind: 'http', status: 403, code: 50013 } : ok(201)),
+      refuseEditFor: (name) => name.includes('w1-nosend-fallback'),
     });
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
-    expect(pass.stop?.caseIds.sort()).toEqual(['W0-nosend-create', 'W0-nosend-createcategory', 'W1-nosend-nomroverwrite'].sort());
+    expect(pass.stop?.caseIds.sort()).toEqual(['W0-nosend-create', 'W0-nosend-createcategory', 'W1-nosend-fallback'].sort());
   });
 
   it('records a non-production refusal as data and carries on', async () => {
-    const f = fakePorts({ refuseEditFor: (name) => name.includes('w2-nosend-nomroverwrite') });
+    const f = fakePorts({ refuseEditFor: (name) => name.includes('w4-default-edit') });
     const pass = await runPass(catalog, f.ports, ctx, 'p1');
     expect(pass.stop).toBeUndefined();
-    expect(pass.writes.find((w) => w.caseId === 'W2-nosend-nomroverwrite')?.result).toBe('refused');
+    expect(pass.writes.find((w) => w.caseId === 'W4-default-edit')?.result).toBe('refused');
+  });
+
+  it('never stops on the diagnostic cases, even when every one of them is refused', async () => {
+    const f = fakePorts({
+      createOutcome: (_k, name) => (/-w6-/.test(name) ? { kind: 'http', status: 403, code: 50013 } : ok(201)),
+      refuseEditFor: (name) => /-w[57]-/.test(name),
+    });
+    const pass = await runPass(catalog, f.ports, ctx, 'p1');
+    expect(pass.stop).toBeUndefined();
+    expect(pass.amendmentRequired).toEqual([]);
+    const diagnostic = pass.writes.filter((w) => /^W[5-7]-/.test(w.caseId));
+    expect(diagnostic).toHaveLength(7);
+    expect(diagnostic.every((w) => w.result === 'refused' && w.code === 50013)).toBe(true);
+    expect(pass.cases.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the diagnostic records in a pass that stops', async () => {
+    const f = fakePorts({ refuseEditFor: (name) => name.includes('w2-default-lock') || /-w[57]-/.test(name) });
+    const pass = await runPass(catalog, f.ports, ctx, 'p1');
+    expect(pass.stop).toEqual({ reason: 'profile_unwritable', caseIds: ['W2-default-lock'] });
+    expect(pass.writes.filter((w) => /^W[5-7]-/.test(w.caseId) && w.result === 'refused')).toHaveLength(2);
+    expect(pass.writes).toHaveLength(19);
   });
 });

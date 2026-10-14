@@ -29,7 +29,7 @@ export function caseResult(over: Partial<CaseResult> = {}): CaseResult {
 }
 
 export function writeRecord(over: Partial<WriteCaseRecord> = {}): WriteCaseRecord {
-  return { caseId: 'W1-default-mroverwrite', result: 'ok', stored: [], ...over };
+  return { caseId: 'W1-default-sync', result: 'ok', stored: [], ...over };
 }
 
 export function pass(over: Partial<PassResult> = {}): PassResult {

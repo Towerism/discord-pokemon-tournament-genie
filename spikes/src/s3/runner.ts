@@ -137,7 +137,7 @@ export async function runWriteCase(c: WriteCase, ports: RunnerPorts, ctx: RunCon
 
   if (c.path === 'create') {
     const parentId =
-      c.target === 'channel' ? await ports.arrange.createParentCategory(`${name}-parent`, resolve(categoryProfile(), ids)) : undefined;
+      c.target === 'channel' && !c.topLevel ? await ports.arrange.createParentCategory(`${name}-parent`, resolve(categoryProfile(), ids)) : undefined;
     const created = await ports.write.createWithOverwrites({
       kind: c.target,
       name,

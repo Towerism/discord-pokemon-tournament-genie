@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { checkGenieRole, checkRoleOrder, INVITE_PERMISSIONS } from '../../src/s3/preflight.js';
+import { ARCHITECTURE_INVITE_PERMISSIONS, checkGenieRole, checkRoleOrder, INVITE_PERMISSIONS } from '../../src/s3/preflight.js';
+import { BASE_PERMISSIONS } from '../../src/s3/profiles.js';
+import { LOCK_DENIES } from '../../src/s3/types.js';
 
 describe('checkGenieRole', () => {
-  it('passes the exact §4.1 invite set', () => {
+  it('passes the exact candidate invite set', () => {
     expect(checkGenieRole([...INVITE_PERMISSIONS], false)).toEqual({ ok: true });
   });
 
@@ -12,17 +14,31 @@ describe('checkGenieRole', () => {
   });
 
   it('refuses an extra permission', () => {
-    const r = checkGenieRole([...INVITE_PERMISSIONS, 'AddReactions'], false);
-    expect(r).toMatchObject({ ok: false, extra: ['AddReactions'] });
+    const r = checkGenieRole([...INVITE_PERMISSIONS, 'MentionEveryone'], false);
+    expect(r).toMatchObject({ ok: false, extra: ['MentionEveryone'] });
   });
 
   it('refuses Administrator from any role', () => {
     expect(checkGenieRole([...INVITE_PERMISSIONS], true)).toMatchObject({ ok: false, administrator: true });
   });
 
-  it('ignores the @everyone base, which is not passed in', () => {
-    // The caller passes only the managed role's permissions; B-default's extras never reach this check.
-    expect(INVITE_PERMISSIONS).not.toContain('AddReactions');
+  it('the candidate set is §4.1\'s nine plus the four lock permissions §4.1 lacks', () => {
+    expect([...INVITE_PERMISSIONS].sort()).toEqual(
+      [...ARCHITECTURE_INVITE_PERMISSIONS, 'SendMessagesInThreads', 'CreatePublicThreads', 'CreatePrivateThreads', 'AddReactions'].sort(),
+    );
+    for (const p of LOCK_DENIES) expect(INVITE_PERMISSIONS).toContain(p);
+  });
+
+  it('refuses a role still holding only §4.1\'s nine, naming the four it lacks', () => {
+    const r = checkGenieRole([...ARCHITECTURE_INVITE_PERMISSIONS], false);
+    expect(r).toMatchObject({ ok: false, extra: [] });
+    expect(r.ok ? [] : r.missing).toEqual(['AddReactions', 'CreatePrivateThreads', 'CreatePublicThreads', 'SendMessagesInThreads']);
+  });
+
+  it('leaves genie without Mention Everyone, which the hold-it diagnostics rely on', () => {
+    // The check sees only the managed role; under B-default genie also holds @everyone's base.
+    expect(INVITE_PERMISSIONS).not.toContain('MentionEveryone');
+    expect(BASE_PERMISSIONS.default).not.toContain('MentionEveryone');
   });
 });
 

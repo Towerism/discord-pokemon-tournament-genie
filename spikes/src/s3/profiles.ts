@@ -21,8 +21,16 @@ export const BASE_PERMISSIONS: Record<Base, PermissionName[]> = {
   nosend: sorted(['ViewChannel', 'ReadMessageHistory'] as PermissionName[]),
 };
 
-/** §6.3: the bot allows itself View, Send, Manage Channels and Manage Roles. */
+/**
+ * The candidate bot overwrite: View, Send and Manage Channels. §6.3 also allows Manage Roles, but a
+ * non-admin bot can't grant that in an overwrite (S3's first recording), so the candidate drops it
+ * and genie writes overwrites through its guild-level Manage Roles instead.
+ */
 export const genieOverwrite = (): Overwrite =>
+  overwrite('member:genie', { allow: ['ViewChannel', 'SendMessages'], allowOther: ['ManageChannels'] });
+
+/** §6.3's bot overwrite as accepted, with Manage Roles. Diagnostic cases only. */
+export const originalGenieOverwrite = (): Overwrite =>
   overwrite('member:genie', { allow: ['ViewChannel', 'SendMessages'], allowOther: ['ManageChannels', 'ManageRoles'] });
 
 const stafferOpen = (target: OverwriteTarget) =>
@@ -33,9 +41,18 @@ const stafferLocked = (target: OverwriteTarget) =>
 
 /** §6.3's open profile. `member:other` is always a staffer; the subject is one when `subjectIsStaffer`. */
 export function openProfile(subjectIsStaffer: boolean): Overwrite[] {
+  return withGenie(subjectIsStaffer, genieOverwrite());
+}
+
+/** The open profile with §6.3's original bot overwrite. Diagnostic cases only. */
+export function originalOpenProfile(subjectIsStaffer: boolean): Overwrite[] {
+  return withGenie(subjectIsStaffer, originalGenieOverwrite());
+}
+
+function withGenie(subjectIsStaffer: boolean, genie: Overwrite): Overwrite[] {
   return [
     overwrite('everyone', { deny: ['ViewChannel'] }),
-    genieOverwrite(),
+    genie,
     overwrite('role:organizer', { allow: ['ViewChannel'] }),
     ...(subjectIsStaffer ? [stafferOpen('member:subject')] : []),
     stafferOpen('member:other'),

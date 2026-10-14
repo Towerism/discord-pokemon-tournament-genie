@@ -27,7 +27,11 @@ permission cases (ADR-0003).
    - Message Content intent on (S4 toggles it on `genie` only).
 3. **Invite them:**
    - `arranger` with Administrator;
-   - `genie` with exactly the §4.1 permissions (`pnpm spike s3 preflight` prints the invite URL);
+   - `genie` with exactly the candidate permissions: §4.1's nine plus Send Messages in Threads, Create
+     Public Threads, Create Private Threads and Add Reactions (`pnpm spike s3 preflight` prints the
+     invite URL). S3's first recording showed a non-admin bot can't write the original profile; see
+     `s3-permissions.md`. If `genie` was invited with the older nine, re-authorize it through the printed
+     URL, or set its role's permissions in Server Settings → Roles;
    - both probes with no permissions.
 
    Then drag the roles into this order: arranger > genie > the probes.

@@ -1,5 +1,5 @@
-/** Architecture §4.1: exactly the permissions Genie's invite URL requests. */
-export const INVITE_PERMISSIONS = [
+/** Architecture §4.1 as accepted: the permissions Genie's invite URL requests. */
+export const ARCHITECTURE_INVITE_PERMISSIONS = [
   'ViewChannel',
   'ManageChannels',
   'ManageRoles',
@@ -9,6 +9,19 @@ export const INVITE_PERMISSIONS = [
   'AttachFiles',
   'ReadMessageHistory',
   'UseApplicationCommands',
+] as const;
+
+/**
+ * The candidate invite set S3 records against: §4.1 plus the four permissions the lock denies that
+ * §4.1 doesn't grant. Without a Manage Roles overwrite, a bot can allow or deny only permissions it
+ * holds, and under a no-send `@everyone` base genie holds these only through its role.
+ */
+export const INVITE_PERMISSIONS = [
+  ...ARCHITECTURE_INVITE_PERMISSIONS,
+  'SendMessagesInThreads',
+  'CreatePublicThreads',
+  'CreatePrivateThreads',
+  'AddReactions',
 ] as const;
 
 export type GenieRoleCheck =
