@@ -67,9 +67,10 @@ integrations are Discord and, optionally, attendance.
 3. **Low operator effort.** Opening a typical day is ≤ 3 clicks once its staff are in place. Recording a
    penalty takes one command and one short form.
 4. **Cheap and painless to run on Unraid.** One Genie container, one appdata folder, no required
-   template fields, credentials entered in the browser (same rules as attendance,
-   [ADR-0009](adr/0009-docker-on-unraid.md)). The website is reached only through Caddy, a required HTTPS
-   front proxy in its own container ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
+   template fields (`NUXT_PUBLIC_SITE_URL` is optional), credentials entered in the browser (same rules as
+   attendance, [ADR-0009](adr/0009-docker-on-unraid.md)). The website is reached only through Caddy, a
+   required HTTPS front proxy in its own container; Genie's port is published only on the host's loopback,
+   never to the LAN ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
 5. **Resilience to outside change.** Discord and attendance each sit behind one port; changes stay
    contained in one adapter.
 
@@ -452,7 +453,7 @@ erDiagram
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
 | `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by Genie's own `jobs` module (§3): lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
 | `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7), editable in Settings. The CSV writes `label` as is. A guideline change is an edit, not a release. |
-| `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `discord_message_id`, `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the Discord interaction ID, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4). |
+| `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `discord_message_id`, `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the ID of the `/penalty` command interaction, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4). |
 | `penalty_revision` | `penalty_id`, `revision`, full row snapshot, `edited_by`, `edited_at` | Edits and voids are auditable. |
 | `export_file` | `day_id`, `kind` (`penalties_csv`/`penalties_voided_csv`/`transcript_json`/`transcript_html`/`thread_transcript_json`/`thread_transcript_html`/`attachment`), `event_id?`, `channel_id?`, `thread_id?`, `high_water_message_id?`, `path`, `sha256`, `bytes`, `created_at`, `superseded_by?` | Files live in `/data/exports/<day-id>/`. `high_water_message_id` is the newest message a transcript holds (§6.5). A re-exported CSV gets a new row, and the old row points to it through `superseded_by` and is kept. |
 | `export_attachment` | `export_file_id` (the transcript), `attachment_id`, `message_id`, `file_id?` (the saved `attachment` file), `state` (`saved`/`skipped`/`discarded`), `reason?` (`over_cap`/`download_failed`/`message_deleted`), `discarded_by?`, `discarded_at?` | One row per attachment in a transcript. Purge refuses while any row is `skipped` (§6.5). |
@@ -475,9 +476,15 @@ runs commands), a **player ID** (how attendance identifies staff) and a **displa
 
 ### 6.1 First run
 
-Caddy is set up first ([ADR-0013](adr/0013-https-origin-for-website-login.md)). `/setup` is completed only at
-`NUXT_PUBLIC_SITE_URL` (an `https://` origin) or at `http://localhost` on the host itself. On any other
-origin the wizard refuses to accept secrets; it doesn't just warn.
+Genie's port is published only on the host's loopback (`127.0.0.1:3001`) or not at all, never to the LAN
+([ADR-0013](adr/0013-https-origin-for-website-login.md)). The owner reaches `/setup` in one of two ways:
+
+- before Caddy is configured, through an SSH tunnel to the host (`ssh -L 3001:127.0.0.1:3001 <host>`),
+  then at `http://localhost:3001`;
+- once Caddy is configured, at `NUXT_PUBLIC_SITE_URL` (an `https://` origin).
+
+`NUXT_PUBLIC_SITE_URL` is an optional template field. Without it, `/setup` is reachable only through the
+localhost path. On any other origin the wizard refuses to accept secrets; it doesn't just warn.
 
 1. The container prints a one-time **setup code** to its log. The code comes from the kit's
    `generateSetupCode` and is checked with `setupCodeMatches`. When it stops working (step 5) is Genie's rule.
@@ -592,7 +599,7 @@ sequenceDiagram
   Jd->>D: submit
   D->>B: modal submit
   B->>P: record(eventId, judge, fields)
-  P->>P: validate (catalog, player ID format), insert penalty + revision 1 (idempotency key = interaction ID)
+  P->>P: validate (catalog, player ID format), insert penalty + revision 1 (idempotency key = /penalty interaction ID, from the modal's custom_id)
   P->>D: post card (embed) with Edit / Void buttons
   P->>P: store discord_message_id
   B-->>D: ephemeral "Recorded #12"
@@ -601,15 +608,16 @@ sequenceDiagram
 - **Event from the channel.** Run in an event's penalty channel, the event is implied. Run in a day-wide
   channel, the command asks for the event (autocomplete over the day's events).
 - **Fields mirror the clipboard sheet.** `round` (integer, and `event` in a day-wide channel) are command
-  options. The modal holds `category` (Game Play, Deck/Team, Pace of Play, Procedural, Unsporting,
-  Cheating), `severity` (Minor / Major / Severe) and `penalty` (Warning, DPC, QPC, GL, DQ, limited to those
-  valid for the event's game: no prize penalties outside TCG) as string selects, next to the free-text
+  options. The modal holds `category` (Game Play, Deck/Team, Pace of Play, Procedural, Unsporting, Cheating),
+  `severity` (Minor / Major / Severe) and `penalty` (Warning, DPC, QPC, GL, DQ, limited to those valid for the
+  event's game and the day's season: no prize penalties outside TCG) as string selects, next to the free-text
   fields: the competitor's player ID (validated as digits) and the notes. S2 timed this form at a 35.8 s
   median on a phone against 43.3 s for command options plus a 2-field modal
-  ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md)). The judge's player ID comes from the directory,
-  so a judge without one is told to `/link` first.
-- **Recorded once.** Each penalty carries an `idempotency_key`: the interaction ID for `/penalty`, or a
-  UUID the website form generates. A repeated submission (a double tap, a replay) returns the existing
+  ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md)). The judge's player ID comes from the directory, so
+  a judge without one is told to `/link` first.
+- **Recorded once.** Each penalty carries an `idempotency_key`: the ID of the `/penalty` command
+  interaction, carried in the modal's `custom_id` so the modal submit records it, or a UUID the website form
+  generates. A repeated submission (a double tap, a replay) returns the existing
   penalty instead of creating a second one.
 - **Edit / Void** buttons on the card: the recording judge can edit within 15 minutes; **the event's**
   head judges and organizers can edit or void any time until the day is closed. Who counts as the
@@ -639,7 +647,8 @@ sequenceDiagram
    Leaving Send out of an allow list is not enough, because members keep Send from their guild base
    permissions (§4.1). So the job writes explicit **denies** for Send Messages, Send Messages in Threads,
    Create Public Threads, Create Private Threads and Add Reactions (re-locking an already-locked channel
-   is an open risk, to be resolved before M5: [ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)):
+   is an open risk, to be resolved before M5: [ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md),
+   [issue #9](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/9)):
    - on the `@everyone` overwrite;
    - on the organizer-role overwrite;
    - on every member overwrite.
@@ -810,7 +819,7 @@ logged (§4.1).
 | Bot token theft (acts as the bot in the guild) | The kit's vault (AES-256-GCM). Its key is declared with the kit's `aes256Key` spec: from `NUXT_VAULT_KEY` or `/data/secrets/vault.key`, 0600, never in the DB. Never logged or sent to the browser. Least-privilege permissions, no Administrator. Rotating it is one paste in Settings. **Limit:** the key file and `app.db` both live under `/data` and land in the same backup, so the vault only protects against a leak of the DB file on its own, not of the folder or its backup (ADR-0009). |
 | Someone else claims the install | The owner is bound inside the setup-code-gated wizard; setup routes answer `410` afterwards (§6.1). |
 | Bot invited elsewhere | Public Bot must be off (checked at setup); foreign-guild interactions and DMs are dropped (§4.1). |
-| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed, httpOnly, `Secure`, SameSite=Lax cookies ([ADR-0013](adr/0013-https-origin-for-website-login.md); `http://localhost` excepted); the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
+| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed, httpOnly, `Secure`, SameSite=Lax cookies, `Secure` always ([ADR-0013](adr/0013-https-origin-for-website-login.md); S1's localhost row: Chrome treats `http://localhost` as a secure context, so `Secure` cookies work there too); the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
 | The organizer role as a trust root | Anyone in the guild with Manage Roles can hand out the mapped organizer role, and with it every day channel and full website access. This is documented in Settings. Role-derived organizer logins are audited. The owner can turn on the **organizer allowlist**, which limits organizers to `owner ∪ (organizer role ∩ allowlist)`. An empty allowlist leaves only the owner, and Settings warns about that. |
 | Spoofed or replayed interactions | Gateway delivery only (no public endpoint). Every handler re-checks the caller against Genie's data. A replayed `/penalty` submission hits the idempotency key (§6.4). |
 | Attendance token theft | Stored in the vault; read-only scope on attendance's side; revocable there. |
@@ -830,22 +839,26 @@ logged (§4.1).
 
 ## 10. Deployment and operations
 
-- **One Genie container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)): default port
-  3001, `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ`, no required
-  template fields. The launcher, secret bootstrap, entrypoint and image/release workflows come from
+- **One Genie container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)):
+  - port 3001 in the container, published only on the host's loopback (`127.0.0.1:3001`) or not at all,
+    never to the LAN;
+  - `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ`;
+  - no required template fields; `NUXT_PUBLIC_SITE_URL` is optional, and without it `/setup` is reachable
+    only through an SSH tunnel to the host's loopback (§6.1).
+
+  The launcher, secret bootstrap, entrypoint and image/release workflows come from
   `@towerism/selfhost-kit` ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)).
-  **Caddy** runs beside it in a separate container, as the required HTTPS front proxy for the website
-  ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
+  **Caddy** runs beside it in a separate container, on a dedicated Docker network shared with Genie, as the
+  required HTTPS front proxy for the website ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
 - **Reaching attendance:** by URL (e.g. `http://<unraid-ip>:3000` or a shared Docker network name),
   entered in Settings.
-- **Discord login redirect:** `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, registered in the Discord
-  application (spike S1 confirms which URLs Discord accepts).
-  Per [ADR-0013](adr/0013-https-origin-for-website-login.md) (accepted 2026-10-14): `NUXT_PUBLIC_SITE_URL`
-  must be an `https://` origin served by Caddy as a reverse proxy, the only supported setup.
-  `http://localhost` stays allowed for development and for the owner on the host itself; login and the
-  setup wizard exempt it from the `https://` check. S1 found that Chrome completes the login only on
-  `localhost` over plain HTTP; on a LAN IP or `.local` name the state cookie is withheld on the redirect
-  back from Discord.
+- **Discord login redirect:** `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, registered in the Discord application
+  (spike S1 confirms which URLs Discord accepts). Per [ADR-0013](adr/0013-https-origin-for-website-login.md)
+  (accepted 2026-10-14): `NUXT_PUBLIC_SITE_URL` must be an `https://` origin served by Caddy as a reverse
+  proxy, the only supported setup. `http://localhost` stays allowed for development and for the owner on the
+  host itself (including over an SSH tunnel); login and the setup wizard exempt it from the `https://` check,
+  and cookies stay `Secure` there. S1 found that Chrome completes the login only on `localhost` over plain
+  HTTP; on a LAN IP or `.local` name the state cookie is withheld on the redirect back from Discord.
 - **Bot lifecycle:** the bot plugin logs in at boot and logs out on shutdown; jobs left running are marked
   `interrupted` at boot and can be retried. Syncs with pending removals are retried automatically
   (§6.3). The site shows bot status (connected, latency, missing permissions, unexpected extra guilds)
@@ -973,10 +986,12 @@ A case may only be added or changed together with a real-guild observation.
   overwrites, thread permissions, and what an admin with Administrator still sees (organizers will).
   **Deliverable:** the recorded permission cases (JSON fixtures, each with the observed effective
   permissions) that become the fake's contract suite (§11, ADR-0003).
-- **S4 Transcript export.** History paging speed and attachment sizes for a busy day; thread listing
-  (active, archived, private) with Manage Threads; attachment URL expiry and re-resolution;
-  MessageContent behaviour. Two gaps remain, a follow-up before M5: the expired-URL check didn't run (the
-  seed record was lost), and an archived private thread `genie` isn't a member of wasn't seeded or tested.
+- **S4 Transcript export.** History paging speed and attachment sizes for a busy day; thread listing (active,
+  archived, private) with Manage Threads; attachment URL expiry and re-resolution; MessageContent behaviour.
+  Two gaps remain, a follow-up before M5 ([issue
+  #10](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/10)): the expired-URL check didn't
+  run (the seed record was lost), and an archived private thread `genie` isn't a member of wasn't seeded or
+  tested.
 
 ## 14. Delivery plan
 

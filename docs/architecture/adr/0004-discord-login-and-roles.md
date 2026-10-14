@@ -60,8 +60,9 @@ Option 1.
   website login is written to `login_audit` with the grant that admitted it (`owner`, `organizer_role`,
   `allowlist`, `event_head_judge`). The allowlist is there for owners who don't trust everyone with
   Manage Roles.
-- Session cookies are sealed by `nuxt-auth-utils`: sealed, httpOnly, `Secure`, SameSite=Lax cookies
-  ([ADR-0013](0013-https-origin-for-website-login.md); `http://localhost` excepted). The JSON-only CSRF
+- Session cookies are sealed by `nuxt-auth-utils`: sealed, httpOnly, `Secure`, SameSite=Lax cookies,
+  `Secure` always ([ADR-0013](0013-https-origin-for-website-login.md); S1's localhost row: Chrome treats
+  `http://localhost` as a secure context, so `Secure` cookies work there too). The JSON-only CSRF
   guard, rate limits and security headers come from `@towerism/selfhost-kit`'s `jsonOnly`,
   `enforceRateLimit` and `securityHeadersPlugin` (ADR-0011).
 

@@ -7,10 +7,10 @@
 ## Context
 
 Spike S3 ([findings](../../spikes/s3-permissions.md)) recorded Genie's permission design on a real guild,
-with a `genie` bot holding exactly §4.1's invite permissions and no Administrator. The accepted design
-couldn't be written:
+with a `genie` bot holding exactly the original nine (pre-ADR-0012) invite permissions of §4.1 and no
+Administrator. The design as accepted then couldn't be written:
 
-- **Provisioning.** §6.3 and ADR-0005 have the bot's own channel overwrite allow View, Send and "Manage",
+- **Provisioning.** §6.3 and ADR-0005 had the bot's own channel overwrite allow View, Send and "Manage",
   including Manage Roles. Discord refused (403, code 50013) every create of a category or channel with
   that overwrite, and every write of it onto a channel that didn't already carry it. The diagnostic case
   `W6-default-mrself`, an overwrite in which `genie` allows itself Manage Roles and nothing else, was
@@ -18,7 +18,7 @@ couldn't be written:
   without Administrator can't grant Manage Roles in a channel overwrite unless the channel already gives
   it Manage Roles.
 - **The lock.** §6.5's lock denies Send Messages in Threads, Create Public Threads, Create Private Threads
-  and Add Reactions, none of which §4.1's invite grants. `W6-default-lacksallow` and
+  and Add Reactions, none of which the original nine (pre-ADR-0012) granted. `W6-default-lacksallow` and
   `W6-default-lacksdeny` showed that `genie` can neither allow nor **deny** a permission it doesn't hold.
   Under a guild whose `@everyone` base lacks those permissions, the lock is predicted to be refused
   (`W6-default-lacksdeny`).
@@ -69,9 +69,9 @@ Option 1.
   fallback and lock all succeeded). If a later feature needs Genie to grant a permission it doesn't hold,
   that feature needs a new ADR.
 - (−) Open risk: re-locking a locked channel. S3 recorded the lock only onto an open channel (`W2-*-lock`).
-  Re-applying the lock to an already-locked channel, as a retried `lock` job would, wasn't recorded. S3's
-  rule (a bot without Administrator can't allow or deny a permission it doesn't hold in that channel)
-  predicts it may be refused, which would stall close-out. It is to be recorded as a relock case and
-  resolved before M5's lock work.
+  Re-applying the lock to an already-locked channel, as a retried `lock` job would, wasn't recorded. S3's rule
+  (a bot without Administrator can't allow or deny a permission it doesn't hold in that channel) predicts it
+  may be refused, which would stall close-out. It is to be recorded as a relock case and resolved before M5's
+  lock work ([issue #9](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/9)).
 - Existing reactions stay clickable after the lock denies Add Reactions (S3, `reactExisting`). Reactions
   aren't messages, so the purge's high-water check isn't affected; §6.5 says so.

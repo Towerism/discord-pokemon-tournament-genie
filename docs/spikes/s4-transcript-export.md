@@ -75,10 +75,11 @@ from its role by `arranger` (snapshotted and restored).
 Without Manage Threads, the archived-private listing fails with 403 (code 50001), and the active listing
 silently omits private threads `genie` isn't a member of.
 
-**Does §4.1's `listThreads` contract hold?** Yes, with Manage Threads, which §4.1's invite set includes:
-every seeded thread kind was found. Without it, one thread kind disappears **without an error**, which the
-next answer turns on. One kind wasn't seeded or tested: an **archived** private thread `genie` is **not**
-a member of. That gap, and the expired-URL check below, are a follow-up before M5.
+**Does §4.1's `listThreads` contract hold?** Yes, with Manage Threads, which §4.1's invite set includes: every
+seeded thread kind was found. Without it, one thread kind disappears **without an error**, which the next
+answer turns on. One kind wasn't seeded or tested: an **archived** private thread `genie` is **not** a member
+of. That gap, and the expired-URL check below, are a follow-up before M5 ([issue
+#10](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/10)).
 
 ### Attachment URL expiry and re-resolution
 

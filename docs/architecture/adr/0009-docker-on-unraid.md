@@ -30,7 +30,10 @@ Option 1, with the shared pieces from `@towerism/selfhost-kit` (ADR-0011):
 - the kit's reusable `app-image.yml` and `app-release.yml` workflows, pinned by SHA, with its shareable
   semantic-release config and PR images;
 - Genie's own Dockerfile, which adds `exports/` and port **3001** (the default), so it sits beside
-  attendance's 3000.
+  attendance's 3000. The template publishes that port only on the host's loopback (`127.0.0.1:3001`), or
+  not at all, never to the LAN ([ADR-0013](0013-https-origin-for-website-login.md));
+- no required template fields. `NUXT_PUBLIC_SITE_URL` is optional; without it, `/setup` is reachable only
+  through an SSH tunnel to the host (`ssh -L 3001:127.0.0.1:3001 <host>`, then `http://localhost:3001`).
 
 Persistent data is `/data/app.db`, `/data/secrets/` and `/data/exports/`. No Discord or attendance
 credentials go in the template; they are entered in `/setup` and Settings and kept in the vault.

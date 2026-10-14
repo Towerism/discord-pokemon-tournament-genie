@@ -26,8 +26,8 @@ so the production redirect URI is `https://<caddy-host>/auth/discord`.
 | `https://<machine>.<tailnet>.ts.net` (Tailscale Serve) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
 | `https://<caddy-host>` (Caddy HTTPS reverse proxy, **the supported setup**) | not tested — no Caddy available on the test host; required before M1's login work | | | |
 
-The plain-HTTP rows show why Genie isn't served directly: only `localhost` works, and that's for
-development on the host. The supported setup is the Caddy row.
+The plain-HTTP rows show why Genie isn't served directly: only `localhost` works, and that's for development
+and for the owner on the host itself (including over an SSH tunnel). The supported setup is the Caddy row.
 
 - Discord accepted every plain-HTTP redirect URI, both in the developer portal and at the authorize step.
   Discord itself doesn't require HTTPS.
@@ -54,19 +54,19 @@ development on the host. The supported setup is the Caddy row.
 
 ## What it means for Genie
 
-**Contradiction with the architecture.** Genie's login ([ADR-0004](../architecture/adr/0004-discord-login-and-roles.md))
-uses `nuxt-auth-utils`, with sealed, `SameSite=Lax` cookies, and the OAuth flow relies on the browser
-carrying state across the redirect back from Discord. [ADR-0009](../architecture/adr/0009-docker-on-unraid.md)
-treats plain-HTTP LAN use as the baseline and asks for Tailscale or an HTTPS reverse proxy only for remote
-use. On Chrome, a plain-HTTP LAN address (IP or `.local`) can't complete that login, so the baseline
-doesn't hold for the website.
+**Contradiction with the architecture.** Genie's login
+([ADR-0004](../architecture/adr/0004-discord-login-and-roles.md)) uses `nuxt-auth-utils`, with sealed,
+`SameSite=Lax` cookies, and the OAuth flow relies on the browser carrying state across the redirect back from
+Discord. [ADR-0009](../architecture/adr/0009-docker-on-unraid.md) treated (before ADR-0013) plain-HTTP LAN use
+as the baseline and asked for Tailscale or an HTTPS reverse proxy only for remote use. On Chrome, a plain-HTTP
+LAN address (IP or `.local`) can't complete that login, so the baseline doesn't hold for the website.
 
 The amendment is [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), **accepted by the
-owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS reverse proxy through Caddy
-is the only supported setup, with `http://localhost` only for development on the host itself. Tailscale
-and other proxies are not supported, so their rows above stay `not tested`. The Caddy setup wasn't
-available here, so it must be tested before M1's login work: portal, authorize, and a full round trip with
-a `Secure` cookie at `https://<caddy-host>/auth/discord`.
+owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS reverse proxy through Caddy is
+the only supported setup, with `http://localhost` only for development and for the owner on the host itself
+(including over an SSH tunnel). Tailscale and other proxies are not supported, so their rows above stay `not
+tested`. The Caddy setup wasn't available here, so it must be tested before M1's login work: portal,
+authorize, and a full round trip with a `Secure` cookie at `https://<caddy-host>/auth/discord`.
 
 ## Timebox
 

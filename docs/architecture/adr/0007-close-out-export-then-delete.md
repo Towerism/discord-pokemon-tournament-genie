@@ -1,6 +1,8 @@
 # ADR-0007: Close-out: lock, export, then delete after a grace period
 
 - Status: Accepted (2026-10-13)
+- See [ADR-0012](0012-genie-overwrite-without-manage-roles.md) (open relock risk,
+  [issue #9](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/9))
 - Date: 2026-10-13
 
 ## Context

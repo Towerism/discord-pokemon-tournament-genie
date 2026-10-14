@@ -66,7 +66,8 @@ How it fits the 5-components-per-modal limit (architecture §12):
   sixth field can be added to the modal later.
 - Anything else stays a command option outside the modal: `round`, and the `event` option in a day-wide
   channel (§6.4). The bot builds the modal when the command runs, so the penalty select can still be
-  limited to the penalties valid for the event's game (no prize penalties outside TCG).
+  limited to the penalties valid for the event's game and the day's season (no prize penalties outside
+  TCG).
 - A string select holds at most 25 options; the clipboard sheet's lists are well under that.
 
 This contradicts §6.4, §12 and ADR-0006, which fix Variant A (options plus a 2-field modal). The

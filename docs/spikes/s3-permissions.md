@@ -105,8 +105,8 @@ it write overwrites at all), and add the four permissions to the invite.
 
 | Observation | Contradicts | Amendment (accepted) |
 | ----------- | ----------- | ------------------ |
-| `genie` can't allow itself Manage Roles in a channel overwrite | §6.3 ("the bot allow View/Send/Manage"), ADR-0005 | ADR-0012: `genie`'s overwrite allows View, Send, Manage Channels |
-| `genie` can't deny permissions it doesn't hold, and the lock denies four that §4.1 doesn't grant | §4.1's invite set, §6.5's lock | ADR-0012: invite set grows to 13 |
+| `genie` can't allow itself Manage Roles in a channel overwrite | §6.3 and ADR-0005 as they were before ADR-0012 ("the bot allow View/Send/Manage") | ADR-0012: `genie`'s overwrite allows View, Send, Manage Channels |
+| `genie` can't deny permissions it doesn't hold, and the lock denies four that the original nine (pre-ADR-0012) didn't grant | §4.1's original invite set (pre-ADR-0012), §6.5's lock | ADR-0012: invite set grows to 13 |
 | A member who can't view a channel has no other permission in it, whatever the bits say (see below) | §4.1's resolution order, which the fake follows, doesn't state this | ADR-0012 adds the rule to §4.1 |
 | Existing reactions stay clickable after the lock denies Add Reactions (`reactExisting` was allowed in every locked case where the subject can view, except archived threads) | §6.5's "nobody but the bot can add anything" | §6.5 now says reactions on existing emoji still work. Reactions aren't messages, so the purge's high-water check isn't affected |
 | Role position doesn't limit overwrites: `genie` wrote overwrites for a role and a member above its own (`W3`, `W4`) | §12's risk row ("bot role below a staffer's role can't manage overwrites"), §6.1's "bot role high enough", ADR-0005's role-position precondition | None: §12, §6.1 and ADR-0005 now note the observation; the position check is kept |
