@@ -16,6 +16,7 @@
     "test": "vitest run --project unit --coverage && vitest run --project server",
     "test:unit": "vitest run --project unit",
     "test:server": "vitest run --project server",
+    "test:contract:discord": "vitest run --project contract-discord",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate"
   },

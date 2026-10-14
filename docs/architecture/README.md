@@ -787,9 +787,11 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST /api/days/{id}/reexport` | organizer | Re-export after messages newer than the high-water marks (202; `409` unless the day is `closed`) |
 | `POST /api/days/{id}/exports/attachments/retry` | organizer | Retry `skipped` attachments after raising the cap (202; `409 nothing_skipped`) |
 | `POST /api/days/{id}/exports/attachments/discard` | organizer | Body `{ attachmentIds, confirm: true }`; marks them `discarded` and logs it (`422` without `confirm`) |
-| `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim` | organizer | Directory |
+| `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim`, `POST /api/staff/{id}/reject-claim` | organizer | Directory; rejecting a claim deletes a row the claim itself created |
 | `GET /api/discord/members?q=` | organizer | Member picker |
-| `GET/PUT /api/blueprints…`, `GET/PUT /api/templates…`, `GET/PUT /api/catalog…`, `GET/PUT /api/settings` | organizer | Configuration |
+| `GET/POST/PUT/DELETE /api/blueprints[/{id}]`, `GET/POST/PUT/DELETE /api/templates[/{id}]`, `GET/PUT /api/catalog…`, `GET/PUT /api/settings` | organizer | Configuration (a blueprint an opened day uses is frozen: `409 blueprint_in_use`) |
+| `POST /api/days/{id}/orphans/{channelId}/adopt`, `…/delete` | organizer | Adopt or delete a channel found in the day's category that Genie didn't record (§6.3) |
+| `GET /api/me` | signed in | The user and grant; for a head judge, `headJudgeDays`, their way to their days (`GET /api/days` is organizer only) |
 | `GET/PUT /api/settings/organizer-allowlist` | install owner only (`403 owner_only`) | Optional organizer allowlist (§9) |
 
 ## 8. Discord surface
@@ -890,7 +892,11 @@ Send Messages in Threads, Create Public/Private Threads and Add Reactions, not V
 each with the effective permissions observed on a real test guild. One table-driven contract suite runs
 those cases:
 - against the fake, in CI;
-- against the discord.js adapter, on the test guild before each release and whenever the cases change.
+- against the discord.js adapter, on the test guild before each release and whenever the cases change
+  (`pnpm test:contract:discord`). There the subject is the adapter plus the resolver: the adapter writes
+  each case's overwrites and reads them back, and the resolver computes the effective permissions from what
+  was read. Setups that S3's administrator placed run through an optional test-guild admin bot, or are
+  skipped with the reason.
 
 A case may only be added or changed together with a real-guild observation.
 

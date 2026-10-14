@@ -10,6 +10,7 @@ export const PERMISSION_BITS = {
   SendMessages: 1n << 11n,
   EmbedLinks: 1n << 14n,
   AttachFiles: 1n << 15n,
+  MentionEveryone: 1n << 17n,
   ReadMessageHistory: 1n << 16n,
   ManageRoles: 1n << 28n,
   UseApplicationCommands: 1n << 31n,
@@ -20,6 +21,23 @@ export const PERMISSION_BITS = {
 } as const;
 
 export type PermissionName = keyof typeof PERMISSION_BITS;
+
+const isName = (name: string): name is PermissionName => Object.hasOwn(PERMISSION_BITS, name);
+
+/** Permission names to bits. An unknown name throws, so a typo can't silently grant nothing. */
+export function bitsOf(names: readonly string[]): bigint {
+  let bits = 0n;
+  for (const name of names) {
+    if (!isName(name)) throw new Error(`Unknown permission: ${name}`);
+    bits |= PERMISSION_BITS[name];
+  }
+  return bits;
+}
+
+/** The named permissions set in `bits`, in declaration order. */
+export function namesOf(bits: bigint): PermissionName[] {
+  return (Object.keys(PERMISSION_BITS) as PermissionName[]).filter((name) => (bits & PERMISSION_BITS[name]) !== 0n);
+}
 
 /**
  * What the invite URL requests and the setup wizard checks (§4.1): the original nine plus the four the lock

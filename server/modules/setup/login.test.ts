@@ -47,7 +47,7 @@ describe('logging in during setup', () => {
     const outcome = await login.complete({ user: user(IDS.owner), unlocked: true });
     expect(outcome).toEqual({
       redirect: '/setup',
-      session: { user: user(IDS.owner), grant: 'owner', checkedAt: 5_000 },
+      session: { user: user(IDS.owner), grant: 'owner', holdsHeadJudgeRole: false, checkedAt: 5_000 },
     });
     expect(setup.progress().ownerId).toBe(IDS.owner);
     expect(audit()).toEqual([[IDS.owner, 'owner', 5_000]]);
@@ -79,7 +79,7 @@ describe('logging in after setup', () => {
     clock.advance(1_000);
     expect(await login.complete({ user: user(IDS.organizer), unlocked: false })).toEqual({
       redirect: '/',
-      session: { user: user(IDS.organizer), grant: 'organizer_role', checkedAt: 6_000 },
+      session: { user: user(IDS.organizer), grant: 'organizer_role', holdsHeadJudgeRole: false, checkedAt: 6_000 },
     });
     expect(audit().at(-1)).toEqual([IDS.organizer, 'organizer_role', 6_000]);
   });
@@ -149,7 +149,7 @@ describe('refreshing a session', () => {
       enabled: true,
       userIds: [IDS.organizer],
     });
-    expect(await login.refresh(session)).toEqual({ action: 'update', grant: 'allowlist', checkedAt: clock.now() });
+    expect(await login.refresh(session)).toEqual({ action: 'update', grant: 'allowlist', holdsHeadJudgeRole: false, checkedAt: clock.now() });
   });
 
   it('keeps the session but refuses the request while Discord is down', async () => {
@@ -157,6 +157,53 @@ describe('refreshing a session', () => {
     clock.advance(SESSION_REFRESH_MS);
     discord.unavailable = true;
     expect(await login.refresh(session)).toEqual({ action: 'unavailable' });
+  });
+});
+
+describe('head-judge logins', () => {
+  /** Day head judges of some non-purged day, as the event-days module would answer. */
+  let eventHeadJudges: Set<string>;
+  let roleOnStaff: Set<string>;
+
+  beforeEach(async () => {
+    eventHeadJudges = new Set([IDS.member]);
+    roleOnStaff = new Set();
+    login = createLoginService({
+      store,
+      setup,
+      createDiscord: discord.create,
+      clock,
+      logger: silentLogger,
+      dayHeadJudge: (userId, holdsHeadJudgeRole) => eventHeadJudges.has(userId) || (holdsHeadJudgeRole && roleOnStaff.has(userId)),
+    });
+    await completeSetup();
+  });
+
+  it('admits an event head judge with the event_head_judge grant, audited', async () => {
+    const outcome = await login.complete({ user: user(IDS.member), unlocked: false });
+    expect(outcome).toEqual({ redirect: '/', session: { user: user(IDS.member), grant: 'event_head_judge', holdsHeadJudgeRole: false, checkedAt: 5_000 } });
+    expect(audit()).toContainEqual([IDS.member, 'event_head_judge', 5_000]);
+  });
+
+  it('refuses a plain judge', async () => {
+    eventHeadJudges.clear();
+    expect(await login.complete({ user: user(IDS.member), unlocked: false })).toEqual({ redirect: '/login?error=no_access' });
+  });
+
+  it('revokes a head judge removed from the day after 15 minutes', async () => {
+    const session = (await login.complete({ user: user(IDS.member), unlocked: false })).session!;
+    eventHeadJudges.clear();
+    clock.advance(SESSION_REFRESH_MS);
+    expect(await login.refresh(session)).toEqual({ action: 'revoke' });
+  });
+
+  it('keeps a staffer who gains the head-judge role, recording the role', async () => {
+    const session = (await login.complete({ user: user(IDS.member), unlocked: false })).session!;
+    eventHeadJudges.clear();
+    roleOnStaff.add(IDS.member);
+    discord.guilds.get(IDS.guild)!.members.set(IDS.member, [IDS.headJudgeRole]);
+    clock.advance(SESSION_REFRESH_MS);
+    expect(await login.refresh(session)).toEqual({ action: 'update', grant: 'event_head_judge', holdsHeadJudgeRole: true, checkedAt: clock.now() });
   });
 });
 

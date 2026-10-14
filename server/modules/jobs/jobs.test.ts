@@ -30,6 +30,9 @@ const build = () =>
 
 beforeEach(() => {
   database = freshDb();
+  // `job.day_id` refers to `event_day`: days 1–10 exist for the jobs these tests enqueue.
+  const day = database.sqlite.prepare("INSERT INTO event_day (id, guild_id, date, title, blueprint_id, created_at, updated_at) VALUES (?, 'g', '2026-10-17', 'T', 1, 0, 0)");
+  for (let id = 1; id <= 10; id++) day.run(id);
   clock = fakeClock(1_000_000);
   jobs = build();
 });
@@ -84,6 +87,41 @@ describe('enqueue and runDue', () => {
     const id = jobs.enqueue({ kind: 'sync', dayId: 7 });
     await jobs.runDue();
     expect(jobs.events(id)[1]?.data).toEqual({ botToken: '[REDACTED]', dayId: 7 });
+  });
+});
+
+describe('enqueueUnlessQueued', () => {
+  it('returns the queued sync or provision of the day instead of a second job', async () => {
+    const release = gate();
+    jobs.register('sync', async () => release.opened);
+    jobs.register('provision', async () => {});
+    const first = jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 });
+    expect(first.coalesced).toBe(false);
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 })).toEqual({ jobId: first.jobId, coalesced: true });
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 2 }).coalesced).toBe(false);
+
+    const provision = jobs.enqueueUnlessQueued({ kind: 'provision', dayId: 3 });
+    expect(jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 3 })).toEqual({ jobId: provision.jobId, coalesced: true });
+
+    // A running job reads the plan as it was, so a change after it starts needs a new one.
+    const running = jobs.runDue();
+    const second = jobs.enqueueUnlessQueued({ kind: 'sync', dayId: 1 });
+    expect(second.coalesced).toBe(false);
+    expect(second.jobId).not.toBe(first.jobId);
+    release.open();
+    await running;
+  });
+});
+
+describe('latestForDay', () => {
+  it('answers the day’s newest job, or nothing', () => {
+    jobs.register('sync', async () => {});
+    jobs.register('provision', async () => {});
+    expect(jobs.latestForDay(1)).toBeNull();
+    jobs.enqueue({ kind: 'provision', dayId: 1 });
+    const second = jobs.enqueue({ kind: 'sync', dayId: 1 });
+    jobs.enqueue({ kind: 'sync', dayId: 2 });
+    expect(jobs.latestForDay(1)?.id).toBe(second);
   });
 });
 

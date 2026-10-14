@@ -41,7 +41,9 @@ describe('the bot runner', () => {
 
     expect(await runner.status()).toEqual({ state: 'connected', latencyMs: 42, missingPermissions: [], extraGuilds: [] });
     expect(discord.commands.get(GUILD)).toEqual([]);
-    expect(await discord.dispatch({ id: '1', kind: 'command', name: 'x', guildId: GUILD, channelId: null, userId: '2' })).toEqual([
+    expect(
+      await discord.dispatch({ id: '1', kind: 'command', name: 'x', guildId: GUILD, channelId: null, userId: '2', options: {}, memberRoleIds: [], userDisplayName: 'x' }),
+    ).toEqual([
       'handled',
     ]);
   });

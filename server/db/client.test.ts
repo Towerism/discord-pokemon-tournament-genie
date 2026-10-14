@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('openDatabase', () => {
-  it('creates the file with the pragmas ADR-0002 relies on and the seven M1 tables', () => {
+  it('creates the file with the pragmas ADR-0002 relies on and the M1 and M2 tables', () => {
     const database = openDatabase(tempPath());
     migrateDatabase(database.db, MIGRATIONS);
     const { sqlite } = database;
@@ -28,7 +28,26 @@ describe('openDatabase', () => {
       .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '__drizzle%' order by name")
       .pluck()
       .all();
-    expect(tables).toEqual(['guild_binding', 'install', 'job', 'job_event', 'login_audit', 'organizer_allowlist', 'sealed_secret']);
+    expect(tables).toEqual([
+      'blueprint',
+      'blueprint_channel',
+      'day_staff',
+      'day_template',
+      'day_template_event',
+      'event',
+      'event_day',
+      'event_staff',
+      'guild_binding',
+      'install',
+      'job',
+      'job_event',
+      'login_audit',
+      'organizer_allowlist',
+      'orphan_channel',
+      'provisioned_channel',
+      'sealed_secret',
+      'staff_member',
+    ]);
     database.close();
   });
 
