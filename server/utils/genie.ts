@@ -9,7 +9,11 @@ import {
   stringVault,
   systemClock,
 } from '@towerism/selfhost-kit';
+import { BOT_COMMANDS, createBotHandlers } from '../bot/handlers';
 import { createInteractionRouter } from '../bot/router';
+import { type DirectoryService, createDirectoryService } from '../modules/directory';
+import { type EventDaysService, createEventDaysService } from '../modules/event-days';
+import { createProvisioningService } from '../modules/provisioning';
 import { createBotRunner, systemBotScheduler } from '../modules/discord/bot-runner';
 import { createDiscordJs } from '../modules/discord/adapters/discordjs';
 import type { CreateDiscord } from '../modules/discord/port';
@@ -57,23 +61,98 @@ export const useSetup = once(() =>
 );
 
 export const useLogin = once(() =>
-  createLoginService({ store: useStore(), setup: useSetup(), createDiscord: useCreateDiscord(), clock: systemClock, logger: useLogger('login') }),
+  createLoginService({
+    store: useStore(),
+    setup: useSetup(),
+    createDiscord: useCreateDiscord(),
+    clock: systemClock,
+    logger: useLogger('login'),
+    dayHeadJudge: (userId, holdsHeadJudgeRole) => useEventDays().dayHeadJudge(userId, holdsHeadJudgeRole),
+  }),
 );
 
 export const useSettings = once(() =>
   createSettingsService({ store: useStore(), setup: useSetup(), createDiscord: useCreateDiscord(), clock: systemClock, logger: useLogger('settings') }),
 );
 
-const useRouter = once(() =>
-  createInteractionRouter({ boundGuildId: () => useStore().binding()?.guildId ?? null, logger: useLogger('bot'), commands: {} }),
+/** The store's zone (`TZ`, §5.1): days are its calendar dates. */
+const storeTimeZone = () => process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Discord through the stored bot token (the port caches one REST client per token). */
+const useGateway = () => useCreateDiscord()(useSetup().botToken()).gateway;
+
+// The directory and event-days refer to each other through injected hooks, so the modules stay one-way (FR-13).
+export const useDirectory = once((): DirectoryService =>
+  createDirectoryService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('directory'),
+    onLinkChanged: (id): number[] => useEventDays().onLinkChanged(id),
+    isReferenced: (id): boolean => useEventDays().isReferenced(id),
+  }),
 );
+
+export const useEventDays = once((): EventDaysService =>
+  createEventDaysService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('event-days'),
+    timeZone: storeTimeZone(),
+    guildId: () => useStore().binding()?.guildId ?? null,
+    directory: useDirectory(),
+    enqueueSync: (dayId) => useJobs().enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+  }),
+);
+
+export const useProvisioning = once(() =>
+  createProvisioningService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('provisioning'),
+    eventDays: useEventDays(),
+    jobs: useJobs(),
+    gateway: useGateway,
+    binding: () => {
+      const b = useStore().binding();
+      return b ? { guildId: b.guildId, organizerRoleId: b.organizerRoleId, headJudgeRoleId: b.headJudgeRoleId } : null;
+    },
+  }),
+);
+
+const useBotHandlers = once(() =>
+  createBotHandlers({
+    directory: useDirectory(),
+    provisioning: useProvisioning(),
+    access: () => {
+      const b = useStore().binding();
+      return {
+        ownerId: useStore().install()?.ownerDiscordUserId ?? null,
+        organizerRoleId: b?.organizerRoleId ?? null,
+        headJudgeRoleId: b?.headJudgeRoleId ?? null,
+        allowlist: { enabled: b?.organizerAllowlistEnabled ?? false, userIds: useStore().allowlist() },
+      };
+    },
+    linkLimiter: createFixedWindowLimiter({ max: 5, windowMs: 10 * 60_000 }),
+    logger: useLogger('bot'),
+  }),
+);
+
+const useRouter = once(() => {
+  const handlers = useBotHandlers();
+  return createInteractionRouter({
+    boundGuildId: () => useStore().binding()?.guildId ?? null,
+    logger: useLogger('bot'),
+    commands: handlers.commands,
+    components: handlers.components,
+  });
+});
 
 export const useBot = once(() =>
   createBotRunner({
     createDiscord: useCreateDiscord(),
     loadToken: () => useSetup().botToken(),
     guildId: () => useStore().binding()?.guildId ?? null,
-    commands: [],
+    commands: BOT_COMMANDS,
     onInteraction: (interaction, reply) => useRouter().route(interaction, reply),
     scheduler: systemBotScheduler,
     logger: useLogger('bot'),

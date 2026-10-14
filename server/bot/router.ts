@@ -11,8 +11,11 @@ export function createInteractionRouter(opts: {
   boundGuildId: () => string | null;
   logger: Logger;
   commands: Readonly<Record<string, CommandHandler>>;
+  /** Buttons and other components, by custom-ID prefix (`genie:day-sync:`). */
+  components?: Readonly<Record<string, CommandHandler>>;
 }) {
-  const { boundGuildId, logger, commands } = opts;
+  const { boundGuildId, logger, commands, components = {} } = opts;
+  const componentFor = (customId: string) => Object.entries(components).find(([prefix]) => customId.startsWith(prefix))?.[1];
   return {
     async route(interaction: InboundInteraction, reply: InteractionReply): Promise<void> {
       const bound = boundGuildId();
@@ -24,10 +27,11 @@ export function createInteractionRouter(opts: {
         });
         return;
       }
-      const handler = Object.hasOwn(commands, interaction.name) ? commands[interaction.name] : undefined;
+      const isComponent = interaction.kind === 'component';
+      const handler = isComponent ? componentFor(interaction.name) : Object.hasOwn(commands, interaction.name) ? commands[interaction.name] : undefined;
       try {
         if (!handler) {
-          await reply.ephemeral("This command isn't available.");
+          await reply.ephemeral(isComponent ? "This button isn't available." : "This command isn't available.");
           return;
         }
         await handler(interaction, reply);
