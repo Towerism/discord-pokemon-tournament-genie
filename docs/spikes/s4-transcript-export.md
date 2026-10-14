@@ -85,9 +85,10 @@ Every CDN URL carried an `ex` expiry about 24 hours after upload (2026-10-15 07:
 Re-fetching the message the same day returned the same expiry; re-resolution doesn't extend a URL that
 hasn't expired yet.
 
-**After expiry: not yet run.** `pnpm spike s4 check-expired` is scheduled for 2026-10-15 07:50 UTC, after
-the latest recorded expiry (07:46:43 UTC). It tries each old URL and a freshly re-resolved one, and this
-section will record both statuses.
+**After expiry: not yet run.** The check was due after the latest recorded expiry (2026-10-15 07:46:43 UTC),
+but the local seed record holding the old URLs was lost before then, so it can't run against this seed.
+Running it needs a new seed and a check a day later. `pnpm spike s4 check-expired` tries each old URL and a
+freshly re-resolved one, and this section will record both statuses.
 
 ### MessageContent
 
