@@ -1,6 +1,7 @@
 # ADR-0009: One Docker container on Unraid, beside attendance
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
 - Date: 2026-10-13
 
 ## Context
@@ -18,15 +19,19 @@ browser. Genie should install and back up the same way, on the same box.
 
 ## Decision
 
-Option 1, reusing attendance's pieces:
+Option 1, with the shared pieces from `@towerism/selfhost-kit` (ADR-0011):
 
-- the launcher with secret bootstrap (`/data/secrets/` generated once, mode 0600);
-- the entrypoint (PUID/PGID, gosu, UMASK, optional Litestream);
-- the CI pipeline with semantic-release and PR images.
+- the kit's `runLauncher` and `prepareRuntimeEnv`, with its `/data/secrets` contract: the directory 0700,
+  each secret file generated once with mode 0600;
+- the kit's Docker assets (the entrypoint with PUID/PGID, gosu, UMASK and optional Litestream;
+  `litestream.yml`; the Litestream pin), copied into the build with `selfhost-kit docker-assets`;
+- the kit's reusable `app-image.yml` and `app-release.yml` workflows, pinned by SHA, with its shareable
+  semantic-release config and PR images;
+- Genie's own Dockerfile, which adds `exports/` and port **3001** (the default), so it sits beside
+  attendance's 3000.
 
-Default port **3001** so it sits beside attendance's 3000. Persistent data is `/data/app.db`,
-`/data/secrets/` and `/data/exports/`. No Discord or attendance credentials go in the template; they are
-entered in `/setup` and Settings and kept in the vault.
+Persistent data is `/data/app.db`, `/data/secrets/` and `/data/exports/`. No Discord or attendance
+credentials go in the template; they are entered in `/setup` and Settings and kept in the vault.
 
 ## Consequences
 
@@ -35,4 +40,4 @@ entered in `/setup` and Settings and kept in the vault.
 - (−) Remote use (a head judge downloading the CSV from home) needs the owner's existing remote access:
   Tailscale or an HTTPS reverse proxy. Documented in the deploy guide.
 - (−) The backup holds `secrets/` with `app.db` and `exports/`, so it can open the vault; keep it private
-  (as attendance's guide says).
+  (Genie's deploy guide says so).

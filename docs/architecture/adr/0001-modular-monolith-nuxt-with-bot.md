@@ -1,6 +1,7 @@
 # ADR-0001: Modular monolith on Nuxt 4, with the Discord bot in the same process
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
 - Date: 2026-10-13
 
 ## Context
@@ -46,7 +47,8 @@ Same stack choices as attendance: Nuxt UI, `nuxt-auth-utils`, Drizzle + SQLite, 
 - (+) One deployable and one language; the website and the bot can't drift apart on rules.
 - (+) Jobs, timers and the gateway client need no queue or IPC.
 - (+) No dependency on an experimental Nitro feature for the deletes that matter most (purge).
-- (+) Attendance's launcher, secret bootstrap, entrypoint, CI and release flow carry over almost as-is.
+- (+) The launcher, secret bootstrap, entrypoint, CI and release flow are shared with attendance through
+  `@towerism/selfhost-kit` (ADR-0011; selfhost-kit ADR-0001).
 - (−) A fatal crash takes both faces down together. Mitigated by per-interaction error containment,
   discord.js's own reconnects and Docker's restart policy.
 - (−) Single instance only (the gateway session and job leases assume one process). Fine for one store.

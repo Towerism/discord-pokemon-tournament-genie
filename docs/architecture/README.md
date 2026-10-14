@@ -1,6 +1,6 @@
 # Tournament Genie — System Architecture
 
-Status: **Accepted** (by the owner, 2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
+Status: **Accepted** (by the owner, 2026-10-13) · Amendment ADR-0011 proposed (2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
 
 ## 1. Context
 
@@ -92,7 +92,7 @@ flowchart LR
     API["Nitro routes<br/>server/api/*"]
     BOT["Bot plugin<br/>discord.js gateway client<br/>interaction router"]
     subgraph Modules
-      SETUP["setup<br/>(install, guild binding, vault)"]
+      SETUP["setup<br/>(install, guild binding, sealed settings)"]
       DIR["directory<br/>(staff ↔ Discord user ↔ player ID)"]
       DAYS["event-days<br/>(days, events, staff, blueprints)"]
       PROV["provisioning<br/>(plan → apply → reconcile jobs)"]
@@ -102,6 +102,7 @@ flowchart LR
       JOBS["jobs<br/>(runner, leases, timer)"]
     end
     ACC["shared/access<br/>canSee() (ADR-0010)"]
+    WIRE["server/utils + middleware<br/>(kit wiring + Genie config)"]
     subgraph Ports
       DG[["DiscordGateway"]]
       AS[["AttendanceSource"]]
@@ -112,6 +113,7 @@ flowchart LR
     end
   end
 
+  KIT[["@towerism/selfhost-kit<br/>core: vault · secrets · launcher · logger · security · setup code<br/>/nitro: middleware · plugins · rate-limit guard · error handler"]]
   DB[("SQLite (WAL)<br/>Drizzle")]
   FS[("/data/exports<br/>CSV + transcripts")]
   DISCORD["Discord API<br/>gateway + REST"]
@@ -134,12 +136,31 @@ flowchart LR
   DG --> DJS
   Modules --> DB
   CLOSE --> FS
+  API --> WIRE
+  BOT --> WIRE
+  WIRE --> KIT
+  WIRE -- "injects Logger, Vault, Clock" --> Modules
+  Modules -. "Logger, Vault, Clock types only" .-> KIT
 ```
 
 ### Tech stack
 
-Deliberately the same as attendance, so one person can work on both and reuse what attendance proved
-(secret bootstrap, launcher, Unraid template, CI, release flow).
+The framework choices are deliberately the ones attendance uses, so one person can work on both. The
+platform pieces are not copied from attendance. They are **shared through
+[`@towerism/selfhost-kit`](https://github.com/Towerism/selfhost-kit)** ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)),
+so a fix reaches both apps:
+
+- the secret bootstrap and launcher;
+- the vault;
+- log redaction and request ids;
+- the security middleware and headers;
+- the setup code;
+- the entrypoint and Litestream config;
+- the image and release workflows.
+
+The Unraid template is Genie's own, checked by the kit's `checkUnraidTemplate`. Kit names below are
+listed in the kit's [architecture §5](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/README.md#5-api-sketches);
+the kit's issue specs fix their exact signatures.
 
 | Layer         | Choice                                                                    | Why |
 | ------------- | ------------------------------------------------------------------------- | --- |
@@ -150,7 +171,8 @@ Deliberately the same as attendance, so one person can work on both and reuse wh
 | App auth      | `nuxt-auth-utils` with its **Discord OAuth** provider                     | Staff already have Discord accounts; access follows guild roles ([ADR-0004](adr/0004-discord-login-and-roles.md)). |
 | Database      | SQLite (WAL) + Drizzle ORM + drizzle-kit migrations, `better-sqlite3`    | Hundreds of rows per day. Zero ops ([ADR-0002](adr/0002-sqlite-drizzle.md)). |
 | Files         | `/data/exports/<day>/` for CSVs and transcripts                           | Big blobs stay out of the DB; one folder to back up. |
-| Crypto        | Node `crypto` AES-256-GCM vault for the bot token, OAuth secret and attendance token | Same pattern as attendance's token vault. |
+| Platform      | **`@towerism/selfhost-kit`** (core, `/nitro`, `/testing`), exact 0.x pin | One shared copy of the security-sensitive infrastructure ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)). |
+| Crypto        | The kit's AES-256-GCM vault (`createVault` + `stringVault`) for the bot token, OAuth secret and attendance token | One key, declared with the kit's `aes256Key`: env `NUXT_VAULT_KEY`, file `vault.key` in `secrets/`. Each ciphertext is bound to its row with an AAD `<table>:<key>` (selfhost-kit ADR-0006); M1's spec defines the table. |
 | Packaging     | Single `linux/amd64` image on GHCR, Unraid template                      | [ADR-0009](adr/0009-docker-on-unraid.md). |
 | Testing       | Vitest + `@nuxt/test-utils`; an in-memory **fake Discord** behind `DiscordGateway`; an in-process HTTP fake of attendance; Playwright for website journeys | No real Discord or attendance calls in tests. |
 | Quality       | `@nuxt/eslint` (incl. module-boundary rules), `vue-tsc` in CI            | |
@@ -169,6 +191,12 @@ app/                          Vue side
     settings.vue              Guild, roles, attendance connection, retention, catalog
     setup.vue  login.vue
 server/
+  bootstrap/
+    secrets.ts                the secret specs (kit `sessionPassword()` + `aes256Key` for vault.key); no side effects
+    launcher.ts               kit `runLauncher` + `prepareRuntimeEnv`; runs before Nitro; imports secrets.ts
+  utils/                      kit wiring: builds the vault, logger (redactor; imports secrets.ts for
+                              `secretKeyNames`), limiters
+  middleware/                 one line each: the kit's `jsonOnly`, `bodySizeLimit`
   api/                        thin Nitro routes (§7)
   bot/                        interaction router: slash commands, buttons, modals → module services
   modules/                    plain TS, no h3 / Nuxt / discord.js imports
@@ -176,8 +204,8 @@ server/
     jobs/                     runner, per-day leases, job log, persisted timer (purge, retention sweep)
     discord/{port.ts, adapters/discordjs/, fake/}
     attendance/{port.ts, adapters/http/}
-    vault/
-  plugins/                    bot.ts (log in, register commands), jobs.ts (start the runner and timer, boot recovery)
+  plugins/                    bot.ts (log in, register commands), jobs.ts (start the runner and timer, boot recovery),
+                              the kit's security-headers and request-log plugins
   db/                         schema, migrations, client
 shared/
   schemas/                    Zod DTOs
@@ -189,7 +217,7 @@ docs/architecture/            this document + ADRs
 deploy/unraid/                template + icon
 ```
 
-Module rules (enforced by ESLint):
+Module rules (enforced by ESLint, the kit-import rules included):
 
 - `server/api/*` and `server/bot/*` are thin: authorize, validate with shared Zod schemas, call a module
   service, map errors. The bot router is the Discord-side twin of the API routes.
@@ -199,6 +227,19 @@ Module rules (enforced by ESLint):
 - Modules talk through each other's exported services, never each other's tables.
 - The `jobs` module owns the `job` and `job_event` tables, the leases and the timer. `provisioning` and
   `closeout` register job handlers with it and never touch those tables directly.
+- The `jobs` module is Genie's own, written so it could move into the kit
+  ([selfhost-kit ADR-0002](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/adr/0002-scope.md)):
+  - plain TS;
+  - its storage sits behind a port, so callers never touch `job` or `job_event`;
+  - an injected `Clock`, typed with the kit's `Clock` port.
+
+  It moves into the kit, by an amendment to selfhost-kit ADR-0002, only when a second app needs it.
+- Kit imports
+  ([selfhost-kit ADR-0006](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/adr/0006-api-boundaries.md)):
+  - `server/modules/*` import only **types** from the kit core (`Logger`, `Vault`, `Clock`), never
+    `@towerism/selfhost-kit/nitro`;
+  - `createVault` and `stringVault` are constructed only in `server/utils`;
+  - `@towerism/selfhost-kit/testing` is never imported outside tests.
 - Every "who may see or do this" decision, in `server/api/*` and in `server/bot/*` alike, goes through
   `shared/access.canSee()` ([ADR-0010](adr/0010-one-audience-model.md)).
 - Discord IDs (snowflakes) are TEXT everywhere; `player_id` is TEXT everywhere.
@@ -396,7 +437,7 @@ erDiagram
 | `day_staff` | `day_id`, `staff_member_id`, `is_day_lead` | Who has access to the day's channels at all. |
 | `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`) | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
-| `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by the `jobs` module. Same rails as attendance's submission jobs: lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
+| `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by Genie's own `jobs` module (§3): lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
 | `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7), editable in Settings. The CSV writes `label` as is. A guideline change is an edit, not a release. |
 | `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `discord_message_id`, `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the Discord interaction ID, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4). |
 | `penalty_revision` | `penalty_id`, `revision`, full row snapshot, `edited_by`, `edited_at` | Edits and voids are auditable. |
@@ -421,7 +462,8 @@ runs commands), a **player ID** (how attendance identifies staff) and a **displa
 
 ### 6.1 First run
 
-1. The container prints a one-time **setup code** to its log (as attendance does).
+1. The container prints a one-time **setup code** to its log. The code comes from the kit's
+   `generateSetupCode` and is checked with `setupCodeMatches`. When it stops working (step 5) is Genie's rule.
 2. `/setup` asks for the code, then walks the organizer through: create a Discord application, paste the
    **bot token**, **client ID** and **client secret**, toggle the two privileged intents, and invite the
    bot with the generated URL. Genie verifies each step live (token valid, **Public Bot off**, bot in the
@@ -734,17 +776,17 @@ logged (§4.1).
 | The website shows more than Discord does | One audience function, `canSee()` ([ADR-0010](adr/0010-one-audience-model.md)), decides penalties, exports, transcripts and Discord handlers alike, from the same plan provisioning applies. A head-judge role holder gets no other event's resources. |
 | Messages, threads or attachments destroyed at purge | Lock uses explicit denies; transcripts cover threads; purge checks hashes, high-water marks and skipped attachments (§6.5). |
 | Stored XSS through transcripts or attachments | Escaped rendering, a `sandbox` CSP and `nosniff` for the HTML view; attachments and JSON always served as downloads (§6.5). |
-| Bot token theft (acts as the bot in the guild) | Vault (AES-256-GCM, key from env or `/data/secrets/vault.key`, 0600, never in the DB). Never logged or sent to the browser. Least-privilege permissions, no Administrator. Rotating it is one paste in Settings. **Limit:** the key file and `app.db` both live under `/data` and land in the same backup, so the vault only protects against a leak of the DB file on its own, not of the folder or its backup (ADR-0009). |
+| Bot token theft (acts as the bot in the guild) | The kit's vault (AES-256-GCM). Its key is declared with the kit's `aes256Key` spec: from `NUXT_VAULT_KEY` or `/data/secrets/vault.key`, 0600, never in the DB. Never logged or sent to the browser. Least-privilege permissions, no Administrator. Rotating it is one paste in Settings. **Limit:** the key file and `app.db` both live under `/data` and land in the same backup, so the vault only protects against a leak of the DB file on its own, not of the folder or its backup (ADR-0009). |
 | Someone else claims the install | The owner is bound inside the setup-code-gated wizard; setup routes answer `410` afterwards (§6.1). |
 | Bot invited elsewhere | Public Bot must be off (checked at setup); foreign-guild interactions and DMs are dropped (§4.1). |
-| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed httpOnly SameSite=Lax cookies; JSON-only middleware for CSRF; rate-limited login; security headers as attendance (§9 there). Every login is written to `login_audit` with the grant that admitted it. |
+| Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed httpOnly SameSite=Lax cookies; the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
 | The organizer role as a trust root | Anyone in the guild with Manage Roles can hand out the mapped organizer role, and with it every day channel and full website access. This is documented in Settings. Role-derived organizer logins are audited. The owner can turn on the **organizer allowlist**, which limits organizers to `owner ∪ (organizer role ∩ allowlist)`. An empty allowlist leaves only the owner, and Settings warns about that. |
 | Spoofed or replayed interactions | Gateway delivery only (no public endpoint). Every handler re-checks the caller against Genie's data. A replayed `/penalty` submission hits the idempotency key (§6.4). |
 | Attendance token theft | Stored in the vault; read-only scope on attendance's side; revocable there. |
 | Minors' data in penalties and transcripts | Penalties hold the competitor's player ID and the penalty facts, **no name**. Transcripts hold whatever staff typed. Exports are served `no-store`, downloads are audited, and a retention sweep deletes transcripts and penalty data after a configurable period (90 days for transcripts, 1 year for penalties). Logs redact message content, notes, tokens and secrets. |
 | CSV opened in a spreadsheet (formula injection, lost leading zeros) | The file is a submission artifact and is written verbatim (§6.6); the download page warns against editing it in Excel. Notes are entered only by authenticated staff. |
 | Losing penalties to an early delete | Purge requires a successful export with matching hashes; deletion is a separate, logged job. |
-| Supply chain | Lockfile, Renovate, `pnpm audit` in CI (as attendance). |
+| Supply chain | Lockfile and `pnpm audit` in CI. Renovate, with one group for the kit's npm package and its workflow SHAs ([selfhost-kit ADR-0005](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/adr/0005-versioning-and-security-fixes.md)): `minimumReleaseAge: 0`; automerge of kit patch and minor releases only once required checks pass, with branch protection on; majors never automerged; `vulnerabilityAlerts` labelled `security`. |
 
 **Permission levels** (exact rules in [ADR-0010](adr/0010-one-audience-model.md)):
 - *Organizer*: the install owner, plus holders of the Discord role mapped in Settings (and, when the
@@ -759,7 +801,8 @@ logged (§4.1).
 
 - **One container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)): default port
   3001, `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ`, no required
-  template fields. Same launcher, secret bootstrap, entrypoint and CI/release flow as attendance.
+  template fields. The launcher, secret bootstrap, entrypoint and image/release workflows come from
+  `@towerism/selfhost-kit` ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)).
 - **Reaching attendance:** by URL (e.g. `http://<unraid-ip>:3000` or a shared Docker network name),
   entered in Settings.
 - **Discord login redirect:** `NUXT_PUBLIC_SITE_URL` + `/auth/discord`, registered in the Discord
@@ -773,10 +816,12 @@ logged (§4.1).
   - due times are stored in `job.due_at`;
   - the timer checks for due work every 60 s and runs each due item exactly once, under the day's lease;
   - anything that fell due while the container was down runs at boot.
-- **Backups:** Appdata Backup of the folder (optional Litestream, as attendance). Restore `secrets/` with
-  `app.db`.
-- **Logs:** structured, with an exact redaction key list (token, secret, authorization, cookie, content,
-  notes) as in attendance.
+- **Backups:** Appdata Backup of the folder. Litestream is optional, with its config from the kit; it
+  replicates only the database, never `secrets/`. Restore `secrets/` with `app.db`.
+- **Logs:** structured, through the kit's logger. Redaction is the kit's base key list (credentials such
+  as token, secret, clientSecret, authorization, cookie) plus Genie's extras: `content`, `notes`,
+  `botToken`, `attendanceToken` and the env names of Genie's secrets (`secretKeyNames`). Keys match by
+  name, so a secret logged under any other property name needs its own entry.
 
 ## 11. Testing strategy (outline)
 
@@ -821,8 +866,14 @@ A case may only be added or changed together with a real-guild observation.
 | Attendance adapter | Contract, against a recorded fixture | Diff of a refresh; attendance down; a timezone mismatch is refused with both zones named; `game: null` → unconfirmed `other` |
 | Multi-organizer import | Contract, against a recorded fixture with two read professors and one unread | Every read professor's tournaments become events with their organizer. A tournament two professors list appears once. The warning names the unread professor. No connected professors → `422 no_connected_organizers` and an unchanged plan |
 | Refresh diff across organizers | Unit, property-based over random snapshot pairs and read/unread professor sets | Never proposes removing an event or its staff whose organizer is unread; proposes removal only for a read organizer's absent tournament |
+| Vault, Genie's configuration | Contract: the kit's `describeVaultContract` | Genie's vault seals and opens with its key and AADs; tampering, a wrong key or a wrong AAD throws the kit's `VaultError` |
+| Redaction, Genie's configuration | Contract: the kit's `describeRedactionContract` | mustHide: the bot token, OAuth client secret, attendance token, message content and notes, under the property names Genie logs them with. mustShow: ordinary fields such as `dayId`, `jobId`, `kind`, `guildId`, so redacting too much also fails |
+| Middleware and headers, Genie's configuration | Contract: the kit's `describeJsonOnly`, `describeBodySize`, `describeSecurityHeaders` | The kit's matrices pass for Genie's exempt paths and size limit. The transcript route carries its own sandbox CSP **and** keeps the kit's global headers (`X-Content-Type-Options: nosniff`, the frame and referrer headers) |
+| Unraid template | Contract: the kit's `checkUnraidTemplate` | No required field, secrets masked, image name matches CI |
 | E2E (Playwright) | E2E | Only the critical journeys: first-run setup (including the owner login inside the wizard) against a fake Discord; plan → open → close a day |
 
+- **The kit's own tests are not repeated in Genie.** Its known-answer vectors and unit tests run in the
+  kit's CI. Genie runs only the contract suites above, against its own configuration.
 - **Coverage targets, set by risk** (branch coverage):
   - 95% for the permission resolver, `lockedOverwrites()`, `canSee()`, the privacy audit and the purge gate;
   - 90% for penalties, the CSV writer and the attendance import diff;
@@ -866,6 +917,8 @@ A case may only be added or changed together with a real-guild observation.
 | Privileged intents revoked or not enabled | Checked at boot and setup; transcripts degrade to "bot messages only" with a warning rather than failing |
 | Attendance endpoint not ready | Manual entry path; import ships behind its own milestone |
 | Penalty guideline changes each season | Catalog is data with a `season`; seeded, editable |
+| A kit bug ships to Genie and attendance at once | The kit's contract suites and Genie's full CI run on every kit bump before it merges; the Unraid *Update* click stays the production gate; rolling back is reverting the Renovate PR |
+| Kit K1, K2 or K3 slips | The work that doesn't wait for the kit goes first (§14). Copying a piece from attendance is not the fallback ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)) |
 | Single process: a bot crash takes the site down (or the reverse) | Same process is a deliberate trade (ADR-0001); the bot client reconnects on its own and errors in handlers are contained per interaction |
 
 ## 13. Spikes before building (timeboxed)
@@ -888,11 +941,24 @@ A case may only be added or changed together with a real-guild observation.
 | Milestone | Scope |
 | --------- | ----- |
 | M0 | Spikes S1–S4 (S3 delivers the recorded permission cases) |
-| M1 Skeleton | Nuxt app, DB, vault, secret bootstrap, setup wizard (owner bound in the wizard, Public Bot check, setup lock-out), Discord login, login audit, organizer allowlist, bot online (bound guild only), jobs module and timer, image + CI + Unraid template |
+| M1 Skeleton | Nuxt app, DB, setup wizard (owner bound in the wizard, Public Bot check, setup lock-out), Discord login, login audit, organizer allowlist, bot online (bound guild only), jobs module and timer, CI `check` job, Unraid template. **From the kit:** the vault, secret bootstrap, launcher, logging, middleware and setup code |
+| M1 Image and release | The image and release jobs through the kit's reusable `app-image.yml` and `app-release.yml` workflows, plus the kit's Docker assets copied with `selfhost-kit docker-assets`. A separate M1 issue |
 | M2 Days and channels | Directory, blueprints, day templates, day plan, preview, `canSee()` (ADR-0010), open/sync jobs, auto-sync on removal, privacy audit, the fake's permission model and S3 contract suite |
 | M3 Attendance import | Adapter + fake, import of every connected organizer's tournaments, refresh diff that never removes an unread organizer's events, timezone check, unconfirmed games, linking by player ID (needs the companion attendance issue) |
 | M4 Penalties | Catalog (by game and season), `/penalty` with idempotency keys, cards, edit/void, website page, CSV |
 | M5 Close-out | Lock with explicit denies, transcripts including threads, high-water marks, attachment resolution and skip/retry/discard, safe serving, exports page, grace + purge, organizer post-close corrections with re-export, retention sweep |
+
+**Kit dependencies** ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md), selfhost-kit ADR-0007):
+
+- **M1 Skeleton** starts once kit K1 ([selfhost-kit #11](https://github.com/Towerism/selfhost-kit/issues/11))
+  and K2 ([#16](https://github.com/Towerism/selfhost-kit/issues/16)) publish 0.x, pinned exactly.
+- **M1 Image and release** waits for kit K3 ([#18](https://github.com/Towerism/selfhost-kit/issues/18)).
+  M1's skeleton is done without it, and Genie never ships an image built from copied workflows.
+- **The Unraid template's contract test** (`checkUnraidTemplate`) waits for kit
+  [#19](https://github.com/Towerism/selfhost-kit/issues/19), which no kit milestone names yet. The template
+  itself doesn't wait.
+- **Work that doesn't wait for the kit:** the M0 spikes, the `DiscordGateway` port and its fake, blueprints
+  (`desiredChannels()`) and `canSee()`, all as pure code. These go first if the kit is late.
 
 ## 15. Resolved questions
 
@@ -919,3 +985,4 @@ Answered by the owner on 2026-10-13:
 | [0008](adr/0008-attendance-integration.md) | Pull a day snapshot from attendance through a read-only token API | Accepted |
 | [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Accepted |
 | [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |
+| [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Proposed |
