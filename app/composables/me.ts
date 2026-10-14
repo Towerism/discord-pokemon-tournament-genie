@@ -15,7 +15,7 @@ export interface Me {
   headJudgeDays: DaySummary[];
 }
 
-/** Who is signed in and what they may use; the navigation and pages follow it (FR-45). */
+/** Who is signed in and what they may use; the navigation and pages follow it. */
 export function useMe() {
   const { loggedIn } = useUserSession();
   return useFetch<Me | null>('/api/me', { key: 'me', immediate: loggedIn.value, watch: [loggedIn], default: () => null });

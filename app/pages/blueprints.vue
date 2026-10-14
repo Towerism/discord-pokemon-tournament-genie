@@ -41,7 +41,7 @@ async function act(fn: () => Promise<unknown>) {
   }
 }
 
-// ---- one blueprint edited at a time; a copy is a new blueprint (an opened day's blueprint is frozen, FR-19).
+// ---- one blueprint edited at a time; a copy is a new blueprint (an opened day's blueprint is frozen).
 const editing = ref<(Omit<Blueprint, 'id' | 'isDefault' | 'inUse'> & { id: number | null }) | null>(null);
 const edit = (b: Blueprint) => (editing.value = { id: b.id, name: b.name, categoryNamePattern: b.categoryNamePattern, channels: b.channels.map((c) => ({ ...c })) });
 const copy = (b: Blueprint) => (editing.value = { id: null, name: `${b.name} (copy)`, categoryNamePattern: b.categoryNamePattern, channels: b.channels.map((c) => ({ ...c })) });

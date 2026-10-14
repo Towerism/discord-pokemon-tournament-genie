@@ -84,7 +84,7 @@ const storeTimeZone = () => process.env.TZ || Intl.DateTimeFormat().resolvedOpti
 /** Discord through the stored bot token (the port caches one REST client per token). */
 const useGateway = () => useCreateDiscord()(useSetup().botToken()).gateway;
 
-// The directory and event-days refer to each other through injected hooks, so the modules stay one-way (FR-13).
+// The directory and event-days refer to each other through injected hooks, so the modules stay one-way.
 export const useDirectory = once((): DirectoryService =>
   createDirectoryService({
     db: useDatabase().db,

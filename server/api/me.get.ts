@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     grant: principal.grant,
     isOwner: principal.grant === 'owner',
     isOrganizer: canSee(principal, { kind: 'settings' }),
-    // A head judge's way in (FR-26): `GET /api/days` is organizer only.
+    // A head judge's way in: `GET /api/days` is organizer only.
     headJudgeDays: isOrganizer(principal.grant) ? [] : useEventDays().headJudgeDays(principal.userId, principal.holdsHeadJudgeRole),
   };
 });

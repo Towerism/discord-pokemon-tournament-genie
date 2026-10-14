@@ -25,7 +25,7 @@ export interface AccessInput {
   ownerId: string | null;
   organizerRoleId: string | null;
   allowlist: { enabled: boolean; userIds: readonly string[] };
-  /** A day head judge of any day not purged (FR-31), worked out by the caller from the day plans. */
+  /** A day head judge of any day not purged, worked out by the caller from the day plans. */
   dayHeadJudge: boolean;
 }
 
@@ -80,7 +80,7 @@ export function accessPlan(plan: PlanInput, desired: DesiredDay): AccessPlan {
   };
 }
 
-/** An event head judge on the day, or a holder of the head-judge role on its staff (FR-31). */
+/** An event head judge on the day, or a holder of the head-judge role on its staff. */
 export function isDayHeadJudge(principal: Principal, plan: AccessPlan): boolean {
   const staffer = plan.staff.find((s) => s.discordUserId === principal.userId);
   return staffer !== undefined && (staffer.headJudgeOf.length > 0 || principal.holdsHeadJudgeRole);

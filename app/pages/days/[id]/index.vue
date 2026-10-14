@@ -64,7 +64,7 @@ async function act(fn: () => Promise<unknown>) {
   }
 }
 
-// ---- job progress (FR-43): the job's events, live, over SSE.
+// ---- job progress: the job's events, live, over SSE.
 const jobEvents = ref<JobEvent[]>([]);
 let source: EventSource | null = null;
 function follow(jobId: number) {
@@ -141,7 +141,7 @@ const saveStaff = () =>
   );
 const linkLabel = (state: string) => ({ linked: 'linked', claimed: 'claim not confirmed', unlinked: 'not linked' })[state] ?? state;
 
-// ---- orphans (FR-41)
+// ---- orphans
 const adoptTarget = reactive<Record<string, string>>({});
 const keys = computed(() => (preview.value?.channels ?? []).map((c) => ({ value: `${c.key}|${c.eventId ?? ''}`, label: c.name })));
 const adopt = (channelId: string) =>

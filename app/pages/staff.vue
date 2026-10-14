@@ -30,7 +30,7 @@ async function act(fn: () => Promise<unknown>, done?: string) {
   }
 }
 
-// ---- the member picker (FR-14)
+// ---- the member picker
 const query = ref('');
 const found = ref<Found[]>([]);
 async function search() {

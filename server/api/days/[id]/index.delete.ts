@@ -1,4 +1,4 @@
-/** Only a draft (FR-23): an opened day owns Discord channels. */
+/** Only a draft: an opened day owns Discord channels. */
 export default defineEventHandler(async (event) => {
   const id = idParam(event);
   await requireDay(event, id, 'edit');

@@ -40,7 +40,7 @@ export function createLoginService(opts: {
   createDiscord: CreateDiscord;
   clock: Clock;
   logger: Logger;
-  /** Whether the user is a day head judge of a day not purged (FR-31); the event-days module answers it. */
+  /** Whether the user is a day head judge of a day not purged; the event-days module answers it. */
   dayHeadJudge?: (userId: string, holdsHeadJudgeRole: boolean) => boolean;
 }) {
   const { store, setup, createDiscord, clock, logger, dayHeadJudge = () => false } = opts;

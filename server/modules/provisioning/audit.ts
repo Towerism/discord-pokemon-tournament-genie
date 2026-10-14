@@ -16,7 +16,7 @@ export interface AuditInput {
   };
   botUserId: string;
   organizerRoleId: string;
-  /** The day's category as read back; its desired audience is empty (no member overwrites, FR-28). */
+  /** The day's category as read back; its desired audience is empty (no member overwrites). */
   category: ChannelState;
   channels: { key: string; eventId: number | null; state: ChannelState; audienceUserIds: string[] }[];
   orphans: ChannelState[];

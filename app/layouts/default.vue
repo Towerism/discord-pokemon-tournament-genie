@@ -11,7 +11,7 @@ interface BotStatus {
 const { loggedIn, user, clear } = useUserSession();
 const { data: me } = useMe();
 const isOrganizer = computed(() => me.value?.isOrganizer === true);
-// The bot's state and the alarms are for organizers (FR-40).
+// The bot's state and the alarms are for organizers.
 const { data: status } = useFetch<BotStatus | null>('/api/status', { immediate: false, watch: [isOrganizer], default: () => null });
 watch(isOrganizer, (yes) => {
   if (!yes) status.value = null;

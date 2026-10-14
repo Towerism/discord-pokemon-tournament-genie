@@ -1,7 +1,7 @@
 /**
  * Event days (§5.2, §6.2): blueprints, day templates, days, events and their staff. The day plan is the desired
  * state provisioning applies (ADR-0005). Every plan change bumps the day's revision; a change on an open day that
- * takes access away queues a sync in the same transaction (FR-36).
+ * takes access away queues a sync in the same transaction.
  */
 import type { Clock, Logger } from '@towerism/selfhost-kit';
 import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
@@ -95,7 +95,7 @@ export interface Alarm {
   since: number;
 }
 
-/** Audiences depend only on the plan and these two sets; IDs here never change an audience (FR-36). */
+/** Audiences depend only on the plan and these two sets; IDs here never change an audience. */
 const REMOVAL_CTX: DesiredContext = { guildId: '0', botUserId: '0', organizerRoleId: '0', headJudgeRoleHolders: new Set(), guildMemberIds: null };
 
 export function createEventDaysService(opts: {
@@ -387,7 +387,7 @@ export function createEventDaysService(opts: {
         if (patch.title !== undefined) changes.title = patch.title.trim();
         if (patch.date !== undefined && patch.date !== day.date) {
           changes.date = patch.date;
-          // Each event keeps its local start time on the new date (FR-23).
+          // Each event keeps its local start time on the new date.
           for (const e of eventsOf(dayId)) {
             db.update(event).set({ startsAt: zonedInstant(patch.date, localTimeOf(e.startsAt, timeZone), timeZone) }).where(eq(event.id, e.id)).run();
           }
@@ -475,7 +475,7 @@ export function createEventDaysService(opts: {
     },
 
     // hooks for other modules
-    /** The directory's `onLinkChanged`: an unlink or relink on an open day is a removal (FR-13). */
+    /** The directory's `onLinkChanged`: an unlink or relink on an open day is a removal. */
     onLinkChanged(staffMemberId: number): number[] {
       const rows = db
         .select({ dayId: dayStaff.dayId, state: eventDay.state })
@@ -512,7 +512,7 @@ export function createEventDaysService(opts: {
         // `revoke_pending_at` is set whenever a revocation is pending (bump).
         .map((d) => ({ kind: 'access_not_revoked' as const, dayId: d.id, title: d.title, since: d.revokePendingAt! }));
     },
-    /** Open days whose removals may not have landed, for boot recovery (FR-39). */
+    /** Open days whose removals may not have landed, for boot recovery. */
     daysNeedingRevocation(): number[] {
       return db
         .select()
@@ -523,7 +523,7 @@ export function createEventDaysService(opts: {
         .filter((d) => d.appliedRevision === null || revocationPending(d))
         .map((d) => d.id);
     },
-    /** Opens a draft day and queues its provision job in one transaction (FR-34). */
+    /** Opens a draft day and queues its provision job in one transaction. */
     openDay(dayId: number, enqueueProvision: () => number): number {
       return db.transaction(() => {
         const day = dayRow(dayId);
@@ -532,7 +532,7 @@ export function createEventDaysService(opts: {
         return enqueueProvision();
       });
     },
-    /** Every category a day records, so a stray with the same name can be told apart (FR-37 step 2). */
+    /** Every category a day records, so a stray with the same name can be told apart. */
     recordedCategoryIds(): Set<string> {
       return new Set(db.select({ id: eventDay.categoryId }).from(eventDay).where(isNotNull(eventDay.categoryId)).all().map((r) => r.id!));
     },
@@ -553,7 +553,7 @@ export function createEventDaysService(opts: {
           .run();
       });
     },
-    /** A plan change that isn't the organizer's edit (an adopted orphan, FR-41). */
+    /** A plan change that isn't the organizer's edit (an adopted orphan). */
     touch(dayId: number): void {
       bump(dayId, false);
     },

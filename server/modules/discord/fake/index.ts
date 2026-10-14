@@ -7,9 +7,9 @@
  * Discord refused them in spike S3. Both are checked against S3's recorded cases (test/contract).
  */
 import type { Member } from '../../../../shared/access/access';
-import { type Overwrite, targetKey } from '../../../../shared/discord/overwrites';
-import { PERMISSION_BITS } from '../../../../shared/discord/permissions';
+import type { Overwrite } from '../../../../shared/discord/overwrites';
 import { effectivePermissions } from '../../../../shared/discord/resolve';
+import { writeRefusal } from '../../../../shared/discord/write-rules';
 import {
   type ApplicationInfo,
   type ChannelState,
@@ -435,11 +435,7 @@ export function createFakeDiscord(): FakeDiscord {
   return fake;
 }
 
-/**
- * Discord's rules for a bot without Administrator writing overwrites, as spike S3 recorded them (ADR-0012):
- * it needs Manage Roles at all, it can only allow or deny what it holds, and it can't put Manage Roles in an
- * overwrite unless the channel already gives it Manage Roles.
- */
+/** Refuses a write the way Discord did in spike S3 (shared/discord/write-rules). */
 function refuseUnlessAllowed(guild: FakeGuild, botUserId: string, overwrites: readonly Overwrite[], existing: readonly Overwrite[]): void {
   const base = effectivePermissions({
     guildId: guild.id,
@@ -448,15 +444,8 @@ function refuseUnlessAllowed(guild: FakeGuild, botUserId: string, overwrites: re
     member: { userId: botUserId, roleIds: guild.members.get(botUserId) ?? [] },
     channel: null,
   });
-  if (base & PERMISSION_BITS.Administrator) return;
-  if (overwrites.length === 0) return;
-  if (!(base & PERMISSION_BITS.ManageRoles)) throw new DiscordPermissionError('Missing Permissions (fake): Manage Roles.');
-  for (const o of overwrites) {
-    if ((o.allow | o.deny) & ~base) throw new DiscordPermissionError(`Missing Permissions (fake): ${targetKey(o.target)} uses bits the bot lacks.`);
-  }
-  const grantsManageRoles = overwrites.some((o) => o.allow & PERMISSION_BITS.ManageRoles);
-  const alreadyHas = existing.some((o) => o.target.kind === 'member' && o.target.id === botUserId && o.allow & PERMISSION_BITS.ManageRoles);
-  if (grantsManageRoles && !alreadyHas) throw new DiscordPermissionError('Missing Permissions (fake): Manage Roles in an overwrite.');
+  const refusal = writeRefusal(base, botUserId, overwrites, existing);
+  if (refusal) throw new DiscordPermissionError(`Missing Permissions (fake): ${refusal}.`);
 }
 
 const copy = (o: Overwrite): Overwrite => ({ target: { ...o.target }, allow: o.allow, deny: o.deny });

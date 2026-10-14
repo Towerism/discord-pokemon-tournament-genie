@@ -1,6 +1,6 @@
 import { memberQuery } from '../../../shared/schemas';
 
-/** The member picker (FR-14): humans only, with the staff row already linked to each. */
+/** The member picker: humans only, with the staff row already linked to each. */
 export default defineEventHandler(async (event) => {
   await requirePrincipal(event, { kind: 'members' });
   const parsed = memberQuery.safeParse(getQuery(event));

@@ -11,7 +11,7 @@ afterEach(() => w.close());
 const CHANNELS = ['day-staff', 'head-judges', 'lc-floor', 'lc-penalties', 'vgc-floor', 'vgc-penalties'];
 const sorted = (...ids: string[]) => [...ids].sort();
 
-/** The AC-14 day on the fake: LC (Ash head judge, Brock judge), VGC (Misty judge), Dawn on the day with the head-judge role. */
+/** The October LC day on the fake: LC (Ash head judge, Brock judge), VGC (Misty judge), Dawn on the day with the head-judge role. */
 function octoberDay() {
   const ash = w.directory.create({ displayName: 'Ash', discordUserId: PEOPLE.ash });
   const brock = w.directory.create({ displayName: 'Brock', discordUserId: PEOPLE.brock });

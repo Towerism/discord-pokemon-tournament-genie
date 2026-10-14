@@ -1,6 +1,6 @@
 import { staffPutBody } from '../../../../shared/schemas';
 
-/** Full replace; a change that takes access away from an open day queues a sync at once (FR-36). */
+/** Full replace; a change that takes access away from an open day queues a sync at once. */
 export default defineEventHandler(async (event) => {
   const id = idParam(event);
   const { principal } = await requireDay(event, id, 'edit');

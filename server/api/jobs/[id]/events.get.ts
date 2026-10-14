@@ -1,4 +1,4 @@
-/** The job's events as server-sent events, from `Last-Event-ID` on, ending once the job is done (FR-43). */
+/** The job's events as server-sent events, from `Last-Event-ID` on, ending once the job is done. */
 export default defineEventHandler(async (event) => {
   const job = await requireJob(event);
   const stream = createEventStream(event);

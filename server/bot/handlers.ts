@@ -32,7 +32,7 @@ export function createBotHandlers(opts: {
   directory: DirectoryService;
   provisioning: ProvisioningService;
   access: () => BotAccess;
-  /** `/link` calls per user (FR-15: 5 per 10 minutes). */
+  /** `/link` calls per user (5 per 10 minutes). */
   linkLimiter: FixedWindowLimiter;
   logger: Logger;
 }) {
@@ -62,7 +62,7 @@ export function createBotHandlers(opts: {
     const decision = decideAccess({ userId: interaction.userId, member, ownerId: a.ownerId, organizerRoleId: a.organizerRoleId, allowlist: a.allowlist, dayHeadJudge: false });
     const organizer = decision.allowed;
 
-    // Authorization first, so the day's state isn't revealed to anyone else (FR-42).
+    // Authorization first, so the day's state isn't revealed to anyone else.
     let allowed = organizer;
     if (!allowed && Number.isInteger(dayId)) {
       const principal: Principal = { userId: interaction.userId, grant: 'event_head_judge', holdsHeadJudgeRole };

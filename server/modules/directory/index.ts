@@ -38,7 +38,7 @@ export function createDirectoryService(opts: {
   logger: Logger;
   /**
    * Called inside the transaction when a member's linked Discord user changes; answers the sync job IDs it queued.
-   * Implemented by event-days, so the dependency stays one-way (FR-13).
+   * Implemented by event-days, so the dependency stays one-way.
    */
   onLinkChanged: (staffMemberId: number) => number[];
   /** Whether a day's staff refers to the member (a claim-created row is then kept, not deleted). */

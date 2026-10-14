@@ -223,7 +223,7 @@ export function revokesAccess(before: DesiredDay, after: DesiredDay): boolean {
   });
 }
 
-/** A unique slug from an event's name (FR-22): ASCII letters and digits, dashes between, at most 32. */
+/** A unique slug from an event's name: ASCII letters and digits, dashes between, at most 32. */
 export function deriveSlug(name: string, taken: readonly string[]): string {
   const strip = (s: string) => s.replace(/^-+|-+$/g, '');
   const base = strip(strip(name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 29)) || 'event';

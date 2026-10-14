@@ -1,4 +1,4 @@
-/** Answers the row, or `{ deleted: true }` when the claim had created it (FR-15). */
+/** Answers the row, or `{ deleted: true }` when the claim had created it. */
 export default defineEventHandler(async (event) => {
   await requirePrincipal(event, { kind: 'directory' });
   const id = idParam(event);

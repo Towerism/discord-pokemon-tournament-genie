@@ -45,6 +45,16 @@ export default defineConfig({
           hookTimeout: 60_000,
         },
       },
+      {
+        // S3's table against the discord.js adapter on a real test guild: run by a person before each release
+        // (`pnpm test:contract:discord`), never in CI; every case is skipped without its env vars.
+        test: {
+          name: 'contract-discord',
+          environment: 'node',
+          include: ['test/contract/**/*.contract.test.ts'],
+          testTimeout: 60_000,
+        },
+      },
     ],
   },
 });

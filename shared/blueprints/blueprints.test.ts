@@ -35,7 +35,7 @@ const LC = 11;
 const VGC = 12;
 const user = (n: number) => `10000000000000000${n}`;
 
-/** The AC-14 day: LC (A headjudge, B judge), VGC (C judge), D day staff only with the head-judge role, E claimed, F linked but gone. */
+/** The October LC day: LC (A headjudge, B judge), VGC (C judge), D day staff only with the head-judge role, E claimed, F linked but gone. */
 function octoberDay(): PlanInput {
   return {
     day: { id: 1, date: '2026-10-17', title: 'October LC' },
@@ -116,7 +116,7 @@ describe('validateBlueprint', () => {
 });
 
 describe('desiredChannels', () => {
-  it('builds the AC-14 day with the right names, order and audiences', () => {
+  it('builds the October LC day with the right names, order and audiences', () => {
     const day = desiredChannels(octoberDay(), DEFAULT_BLUEPRINT, ctx({ headJudgeRoleHolders: new Set([user(4)]), guildMemberIds: new Set([1, 2, 3, 4, 5].map(user)) }));
     expect(day.category.name).toBe('🏆 Sat Oct 17 · October LC');
     expect(day.channels.map((c) => c.name)).toEqual(['day-staff', 'head-judges', 'lc-floor', 'lc-penalties', 'vgc-floor', 'vgc-penalties']);

@@ -70,6 +70,11 @@ export interface SubjectWorld {
   cleanup(): Promise<void>;
 }
 
+/** Thrown by a subject that can't run a case's setup (say, no administrator token): the case is skipped, with the reason. */
+export class SkipCase extends Error {
+  override name = 'SkipCase';
+}
+
 export interface PermissionSubject {
   name: string;
   /** `null` when this subject can't run the case; the reason is printed as a skip. */
@@ -199,6 +204,9 @@ export function describePermissionContract(subject: PermissionSubject, cases: Pe
         try {
           if (c.kind === 'write') await runWrite(world, c);
           else await runEffective(world, c);
+        } catch (err) {
+          if (!(err instanceof SkipCase)) throw err;
+          ctx.skip(err.message);
         } finally {
           await world.cleanup();
         }

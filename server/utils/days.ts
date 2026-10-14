@@ -2,7 +2,7 @@ import type { H3Event } from 'h3';
 import { type Principal, canSee, isOrganizer } from '../../shared/access/access';
 import { DiscordAuthError, DiscordUnavailableError } from '../modules/discord/port';
 
-/** The day plan as the API answers it (FR-26): the plan, its latest job, Genie's channels and orphans, what the caller may do. */
+/** The day plan as the API answers it: the plan, its latest job, Genie's channels and orphans, what the caller may do. */
 export async function dayPlanView(dayId: number, principal: Principal) {
   const core = await handled(() => useEventDays().plan(dayId));
   const access = isOrganizer(principal.grant) ? null : useProvisioning().accessPlan(dayId, principal);
@@ -16,7 +16,7 @@ export async function dayPlanView(dayId: number, principal: Principal) {
   };
 }
 
-/** A job the caller may read: as its day (FR-43); a job without a day is organizer only. */
+/** A job the caller may read: as its day; a job without a day is organizer only. */
 export async function requireJob(event: H3Event) {
   const id = idParam(event);
   const { principal } = await requirePrincipal(event, { kind: 'website' });

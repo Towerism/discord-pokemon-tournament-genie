@@ -16,7 +16,7 @@ export type JobHandler = (ctx: JobContext) => Promise<void>;
 export interface Jobs {
   register(kind: JobKind, handler: JobHandler, opts?: { retryOnBoot?: boolean }): void;
   enqueue(job: { kind: JobKind; dayId?: number; payload?: unknown; dueAt?: number }): number;
-  /** A sync or provision for the day, unless one is already queued: then that one (FR-35). Atomic. */
+  /** A sync or provision for the day, unless one is already queued: then that one. Atomic. */
   enqueueUnlessQueued(job: { kind: 'provision' | 'sync'; dayId: number }): { jobId: number; coalesced: boolean };
   /** Claims every due job the per-day lease allows and resolves when they have all finished. */
   runDue(): Promise<void>;

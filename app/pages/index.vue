@@ -3,7 +3,7 @@ const { user } = useUserSession();
 const { data: me } = await useMe();
 const organizer = computed(() => me.value?.isOrganizer === true);
 
-// Organizers list every day; a head judge's days come with /api/me (FR-26, FR-45).
+// Organizers list every day; a head judge's days come with /api/me.
 const { data: list, refresh } = await useFetch<{ days: DaySummary[] }>('/api/days', { immediate: organizer.value, default: () => ({ days: [] }) });
 const days = computed(() => (organizer.value ? list.value.days : (me.value?.headJudgeDays ?? [])));
 

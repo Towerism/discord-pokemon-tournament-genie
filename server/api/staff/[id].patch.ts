@@ -1,6 +1,6 @@
 import { staffPatchBody } from '../../../shared/schemas';
 
-/** A relink or unlink of someone on an open day queues a removal sync (FR-13). */
+/** A relink or unlink of someone on an open day queues a removal sync. */
 export default defineEventHandler(async (event) => {
   await requirePrincipal(event, { kind: 'directory' });
   const id = idParam(event);

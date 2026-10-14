@@ -288,7 +288,7 @@ export function createProvisioningService(opts: {
       jobs.register('sync', apply, { retryOnBoot: true });
     },
 
-    /** FR-34: checks the preconditions, then opens the day and queues its provision job. */
+    /** checks the preconditions, then opens the day and queues its provision job. */
     async open(dayId: number): Promise<{ jobId: number }> {
       const plan = eventDays.plan(dayId);
       if (plan.day.state !== 'draft') throw new ServiceError(409, 'day_not_draft', 'This day has already been opened.');
@@ -307,13 +307,13 @@ export function createProvisioningService(opts: {
       return { jobId };
     },
 
-    /** FR-35: a sync, coalesced with one already queued. */
+    /** a sync, coalesced with one already queued. */
     sync(dayId: number): { jobId: number; coalesced: boolean } {
       if (eventDays.plan(dayId).day.state !== 'open') throw new ServiceError(409, 'day_not_open', 'Only an open day can be synced.');
       return jobs.enqueueUnlessQueued({ kind: 'sync', dayId });
     },
 
-    /** FR-29: the desired channels and audiences; a non-organizer sees only the channels `canSee` allows. */
+    /** the desired channels and audiences; a non-organizer sees only the channels `canSee` allows. */
     async preview(dayId: number, principal: Principal | null): Promise<Preview> {
       const plan = eventDays.plan(dayId);
       const blueprint = eventDays.blueprint(plan.day.blueprintId);
@@ -371,7 +371,7 @@ export function createProvisioningService(opts: {
       return store.orphans(dayId).map((o) => ({ discordChannelId: o.discordChannelId, kind: o.kind, name: o.name, foundAt: o.foundAt }));
     },
 
-    /** FR-41: records an orphan channel as the day's channel for a desired key that has none. */
+    /** records an orphan channel as the day's channel for a desired key that has none. */
     adoptOrphan(dayId: number, channelId: string, target: { key: string; eventId: number | null }): void {
       store.transaction(() => {
         const orphan = store.orphan(dayId, channelId);
@@ -390,7 +390,7 @@ export function createProvisioningService(opts: {
       });
     },
 
-    /** FR-41: deletes an orphan, but only while it is still in the day's category. */
+    /** deletes an orphan, but only while it is still in the day's category. */
     async deleteOrphan(dayId: number, channelId: string): Promise<void> {
       const orphan = store.orphan(dayId, channelId);
       if (!orphan) throw notFound('orphan');
@@ -419,7 +419,7 @@ export function createProvisioningService(opts: {
 
     alarms: () => eventDays.alarms(),
 
-    /** FR-39: after `jobs.recover()`, a sync for every open day whose removals may not have landed. */
+    /** after `jobs.recover()`, a sync for every open day whose removals may not have landed. */
     recoverOnBoot(): void {
       for (const dayId of eventDays.daysNeedingRevocation()) {
         const { jobId, coalesced } = jobs.enqueueUnlessQueued({ kind: 'sync', dayId });
