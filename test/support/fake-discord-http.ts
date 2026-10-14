@@ -270,7 +270,8 @@ async function answer(res: ServerResponse, fn: () => Promise<unknown>) {
 }
 
 function send(res: ServerResponse, status: number, json: unknown) {
-  res.writeHead(status, { 'content-type': 'application/json' });
+  // Like Discord, a 204 has no body and no content type (discord.js would parse one).
+  res.writeHead(status, status === 204 ? {} : { 'content-type': 'application/json' });
   res.end(status === 204 ? undefined : JSON.stringify(json));
 }
 

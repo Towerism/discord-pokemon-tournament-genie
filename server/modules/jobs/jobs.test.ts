@@ -113,6 +113,18 @@ describe('enqueueUnlessQueued', () => {
   });
 });
 
+describe('latestForDay', () => {
+  it('answers the day’s newest job, or nothing', () => {
+    jobs.register('sync', async () => {});
+    jobs.register('provision', async () => {});
+    expect(jobs.latestForDay(1)).toBeNull();
+    jobs.enqueue({ kind: 'provision', dayId: 1 });
+    const second = jobs.enqueue({ kind: 'sync', dayId: 1 });
+    jobs.enqueue({ kind: 'sync', dayId: 2 });
+    expect(jobs.latestForDay(1)?.id).toBe(second);
+  });
+});
+
 describe('the per-day lease', () => {
   it('runs at most one job per day at a time, while other days run alongside', async () => {
     const held = gate();

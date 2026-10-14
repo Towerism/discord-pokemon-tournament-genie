@@ -75,6 +75,9 @@ export const useSettings = once(() =>
   createSettingsService({ store: useStore(), setup: useSetup(), createDiscord: useCreateDiscord(), clock: systemClock, logger: useLogger('settings') }),
 );
 
+/** The guild this install serves, once setup bound it (§5.1). */
+export const useBoundGuildId = (): string | null => useStore().binding()?.guildId ?? null;
+
 /** The store's zone (`TZ`, §5.1): days are its calendar dates. */
 const storeTimeZone = () => process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
 

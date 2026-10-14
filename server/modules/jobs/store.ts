@@ -34,6 +34,7 @@ export interface JobEventView {
 export interface JobStore {
   insert(job: { kind: JobKind; dayId: number | null; payload: unknown; dueAt: number | null; createdAt: number }): number;
   get(id: number): JobView | null;
+  latestForDay(dayId: number): JobView | null;
   /** Queued jobs due at `now` (or with no due time), oldest first. */
   listDue(now: number): JobView[];
   listByState(state: JobState): JobView[];

@@ -24,6 +24,8 @@ export interface Jobs {
   recover(): void;
   retry(jobId: number): void;
   get(jobId: number): JobView | null;
+  /** The day's newest job, whatever its kind. */
+  latestForDay(dayId: number): JobView | null;
   events(jobId: number): JobEventView[];
   /** Resolves once no job is running in this process and no automatic run is pending. */
   idle(): Promise<void>;
@@ -168,6 +170,7 @@ export function createJobs(opts: {
       kick();
     },
     get: (jobId) => store.get(jobId),
+    latestForDay: (dayId) => store.latestForDay(dayId),
     events: (jobId) => store.events(jobId),
     async idle() {
       while (inflight.size > 0) await Promise.allSettled([...inflight]);

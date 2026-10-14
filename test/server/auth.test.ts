@@ -48,6 +48,7 @@ describe('logging in', () => {
       grant: 'organizer_role',
       isOwner: false,
       isOrganizer: true,
+      headJudgeDays: [],
     });
     expect((await auditRows()).at(-1)).toEqual({ user: IDS.organizer, grant: 'organizer_role' });
   });
