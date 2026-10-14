@@ -73,15 +73,26 @@ limit organizers with the allowlist in **Settings**.
 
 ## 4. Caddy
 
-1. Create a Docker network that only Caddy and Genie join:
+1. **A dedicated network** that only Caddy and Genie share, with a subnet you choose (Genie trusts forwarded
+   headers only from it):
 
    ```sh
-   docker network create genie
+   docker network create --subnet 172.31.53.0/24 genie
    ```
 
-   In Unraid, set both containers' **Network Type** to `genie`. This needs *Settings → Docker → Preserve
-   user defined networks: Yes*. Genie keeps its loopback port, so the tunnel still works.
-2. Caddyfile:
+   - Set Genie's **Network Type** to `genie`. This needs *Settings → Docker → Preserve user defined networks:
+     Yes*.
+   - If Caddy already serves other sites on another network, don't move it. Attach it to `genie` as well:
+     `docker network connect genie caddy`, and run that again whenever the Caddy container is recreated, or
+     add `--network genie` under its *Post Arguments*. A new Caddy can simply use `genie` as its network.
+   - In Genie's template, set **Trusted proxies** to `172.31.53.0/24` (or to Caddy's fixed address on it).
+     ADR-0013 asks Genie to believe `X-Forwarded-*` only from that network.
+2. **Caddy publishes the HTTPS port.** Caddy, not Genie, is what judges' devices reach: publish 443 on the
+   host (and 80 only for the HTTP-01 challenge below).
+3. **The name resolves to Unraid.** `<site>` must resolve to the Unraid server's LAN address on judges' devices:
+   - a public DNS record pointing at the LAN address (fine for a LAN-only site); or
+   - split DNS on your router.
+4. **Caddyfile:**
 
    ```caddyfile
    <site> {
@@ -89,22 +100,26 @@ limit organizers with the allowlist in **Settings**.
    }
    ```
 
-   Caddy sets `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-For`. Genie believes them only from a
-   trusted proxy. The default is loopback plus Docker's bridge pool (`172.16.0.0/12`). If your `genie` network
-   uses another range, set **Trusted proxies** to that network's subnet, or to Caddy's fixed address on it.
-   Genie rate-limits logins by the address Caddy appends (the rightmost `X-Forwarded-For` entry).
-3. **Certificates:**
-   - Recommended: a public domain with Caddy's ACME **DNS-01** challenge. It needs no inbound ports
-     (Caddy's DNS-provider module).
+   Caddy sets `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-For`. Genie rate-limits logins by the
+   address Caddy appends (the rightmost `X-Forwarded-For` entry), never one the client sent.
+5. **Certificates:**
+   - Recommended: a public domain with Caddy's ACME **DNS-01** challenge. It needs no inbound ports. The stock
+     `caddy` image has no DNS-provider modules, so use an image built with your provider's module (for
+     example with `xcaddy`, or a community image that includes it).
    - Not recommended: ACME HTTP-01. It needs ports 80 and 443 open to the internet.
    - Caddy's internal CA (`tls internal`) works only if every judge's device trusts its root. Installing a root
      CA on a device lets whoever holds its key intercept that device's HTTPS. Keep Caddy's data folder, which
      holds the key, out of shared backups, and tell judges how to remove the root afterwards.
-4. In Genie's template, set **Site URL** to `https://<site>`, with no path, and **Apply**. Genie refuses to
+6. In Genie's template, set **Site URL** to `https://<site>`, with no path, and **Apply**. Genie refuses to
    start on an `http://` site URL.
 
 From now on the website is `https://<site>`. Secrets and logins are refused on any other address except
 `http://localhost:3001` through the tunnel.
+
+**The loopback port.** Docker Engine releases before 28.0 let other hosts on the same LAN segment reach ports
+published on `127.0.0.1`. Check yours with `docker version` on Unraid. On an older engine, or if you prefer,
+remove `-p 127.0.0.1:3001:3001` from *Extra Parameters* once Caddy works: the website no longer needs it, and
+for maintenance you can tunnel to Caddy's address instead.
 
 ## 5. Backups and restore
 
@@ -129,10 +144,21 @@ builds.
   - `edge`: the newest `main`;
   - `sha-<commit>`: one commit;
   - `pr-<n>`: a pull request, for trying it.
-- **Update:** click *Update* on the container in Unraid. Nothing changes on its own.
-- **Roll back:** set the template's *Repository* to the previous `ghcr.io/towerism/discord-pokemon-tournament-genie:X.Y.Z`
-  (or `sha-…`) and **Apply**. A bad release is also fixed upstream by reverting its commit, which releases a
-  new patch.
+- **Update:** take an Appdata Backup first, then click *Update* on the container in Unraid. Nothing changes on
+  its own. An update may migrate the database, and an older version doesn't know a newer schema.
+- **Roll back:**
+  - Set the template's *Repository* to the previous `ghcr.io/towerism/discord-pokemon-tournament-genie:X.Y.Z`
+    (or `sha-…`) and **Apply**.
+  - If the update changed the database, also restore the backup you took before updating (section 5), so the
+    old version runs on the schema it knows. Anything recorded since that backup is lost.
+- **A bad release upstream:** revert its commit, which releases a new patch. To move `latest` back by hand
+  until then:
+
+  ```sh
+  docker buildx imagetools create \
+    --tag ghcr.io/towerism/discord-pokemon-tournament-genie:latest \
+    ghcr.io/towerism/discord-pokemon-tournament-genie:<previous X.Y.Z>
+  ```
 
 ## 7. First-release checklist (the owner, before releases are turned on)
 
@@ -151,7 +177,9 @@ variables → Actions → Variables*). Images still publish, so run `edge` or a 
       - a DM to the bot is ignored, and the log shows `interaction_dropped` with `direct_message`.
 - [ ] **A real restore:** restore an Appdata Backup to a scratch folder, start a second container on it, and see
       `Vault key: loaded from`.
-- [ ] Set `RELEASES_ENABLED=true`. The next releasable commit on `main` is released as the first version.
+- [ ] Set `RELEASES_ENABLED=true`. Setting it starts nothing on its own. The next CI run on `main` releases:
+      push to `main`, or re-run the latest `main` run under *Actions*. There is no tag yet and `main` already
+      has `feat` commits, so that first release is **v1.0.0**, whatever type the triggering commit has.
 
 **If the Caddy round trip fails,** leave releases off and revisit ADR-0013 before anything else. It is the
 only supported way to log in to the website.

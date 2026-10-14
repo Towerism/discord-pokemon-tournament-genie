@@ -11,6 +11,7 @@ IMAGE="${1:-genie:test}"
 PUID=1234
 PGID=2345
 NAME="genie-litestream-$$"
+LOG_CONTAINER="$NAME"
 DATA="$(mktemp -d)"
 FRESH="$(mktemp -d)"
 REPLICA="$(mktemp -d)"
@@ -43,7 +44,11 @@ check "the replica receives data within 30 s" test "$replicated" = true
 KEY="$(docker exec "$NAME" cat /data/secrets/vault.key)"
 check "the vault key never reaches the replica" \
   test "$(docker run --rm -v "$REPLICA:/replica" --entrypoint sh "$IMAGE" -c "grep -rlF '$KEY' /replica | wc -l")" = 0
-docker stop "$NAME" >/dev/null; docker rm "$NAME" >/dev/null
+started=$(date +%s)
+docker stop "$NAME" >/dev/null
+check "stops within Docker's 10 s timeout under Litestream" test $(( $(date +%s) - started )) -lt 10
+check "the exit code is clean (not SIGKILL)" test "$(docker inspect -f '{{.State.ExitCode}}' "$NAME")" != 137
+docker rm "$NAME" >/dev/null
 
 echo "a fresh /data restores from the replica"
 start "$FRESH"

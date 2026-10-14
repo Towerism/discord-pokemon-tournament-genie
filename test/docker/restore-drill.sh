@@ -12,6 +12,7 @@ IMAGE="${1:-genie:test}"
 PUID=1234
 PGID=2345
 NAME="genie-restore-$$"
+LOG_CONTAINER="$NAME"
 DATA="$(mktemp -d)"
 BACKUP="$(mktemp -d)"
 PARTIAL="$(mktemp -d)"

@@ -11,6 +11,7 @@ IMAGE="${1:-genie:test}"
 PUID=1234
 PGID=2345
 NAME="genie-smoke-$$"
+LOG_CONTAINER="$NAME"
 DATA="$(mktemp -d)"
 
 cleanup() {
@@ -47,7 +48,8 @@ check "no secret value in the log" bash -c "
   ! docker logs '$NAME' 2>&1 | grep -qF \"\$(docker exec '$NAME' cat /data/secrets/session-password)\" &&
   ! docker logs '$NAME' 2>&1 | grep -qF \"\$(docker exec '$NAME' cat /data/secrets/vault.key)\""
 check "the log is human-readable by default: no JSON records" bash -c "! docker logs '$NAME' 2>&1 | grep -q '^{\"level\"'"
-check "TZ is honoured" test "$(in_container date +%Z)" != "UTC"
+check "TZ is honoured by the server's runtime" in_node "$NAME" \
+  "process.exit(Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/Chicago' && new Date('2026-01-15T12:00:00Z').getTimezoneOffset() === 360 ? 0 : 1)"
 check "the setup wizard answers on localhost" in_node "$NAME" "
   fetch('http://127.0.0.1:3001/api/setup', { headers: { host: 'localhost:3001' } })
     .then(r => process.exit(r.status === 200 ? 0 : 1), () => process.exit(1))"
@@ -94,5 +96,4 @@ start -e NUXT_LOG_FORMAT=json
 check "the setup-code line is a JSON record" \
   grep -Eq '^\{"level":30,.*"scope":"setup","msg":"Setup isn.t finished\. Open /setup and enter this setup code: [A-Z2-9]{4}-[A-Z2-9]{4}"' <(docker logs "$NAME" 2>&1)
 
-[ "$FAILURES" -gt 0 ] && docker logs "$NAME" 2>&1 | tail -40
 finish

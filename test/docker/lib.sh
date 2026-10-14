@@ -3,12 +3,18 @@
 
 FAILURES=0
 pass() { echo "  ok   $*"; }
-fail() { echo "  FAIL $*"; FAILURES=$((FAILURES + 1)); }
+# LOG_CONTAINER, when set, is the container whose log a failure prints (the one under test at that moment).
+fail() {
+  echo "  FAIL $*"
+  FAILURES=$((FAILURES + 1))
+  if [ -n "${LOG_CONTAINER:-}" ]; then docker logs "$LOG_CONTAINER" 2>&1 | tail -20 | sed 's/^/       | /'; fi
+}
 check() { local what="$1"; shift; if "$@"; then pass "$what"; else fail "$what"; fi; }
 
-# wipe <image> <dir>: empties a folder of PUID-owned files, then removes it.
+# wipe <image> <dir>: removes a folder whose contents (and the folder itself, after the entrypoint's chown) are
+# owned by PUID: empty it and hand it back to the caller from inside a container, then remove it.
 wipe() {
-  docker run --rm -v "$2:/data" --entrypoint sh "$1" -c 'rm -rf /data/* /data/.[!.]*' >/dev/null 2>&1 || true
+  docker run --rm -v "$2:/data" --entrypoint sh "$1" -c "rm -rf /data/* /data/.[!.]* && chown $(id -u):$(id -g) /data" >/dev/null 2>&1 || true
   rmdir "$2" 2>/dev/null || true
 }
 
