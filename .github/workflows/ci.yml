@@ -9,7 +9,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# No secrets: every Discord call in CI goes to a fake. Image and release jobs arrive with #12.
+# No secrets beyond GITHUB_TOKEN: every Discord call in CI goes to a fake.
 permissions:
   contents: read
 
@@ -61,3 +61,33 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+  # The image, through the kit's reusable workflow (ADR-0011): built once, smoke-tested, then published as
+  # edge / sha-… from main and pr-<n> from this repository's PRs. Fork PRs only build and smoke-test.
+  image:
+    needs: check
+    permissions:
+      contents: read
+      packages: write
+    uses: Towerism/selfhost-kit/.github/workflows/app-image.yml@4c453910482af10fad937ff27f3d72c8f31a3bf1 # v0.4.2
+    with:
+      # Must match deploy/unraid/tournament-genie.xml (test/unit/unraid-template.test.ts).
+      image-name: ghcr.io/towerism/discord-pokemon-tournament-genie
+      smoke-scripts: |
+        test/docker/smoke.sh
+        test/docker/restore-drill.sh
+        test/docker/litestream.sh
+
+  # X.Y.Z / X.Y / latest on the tested digest, then the git tag and Release (kit workflow). Off until the owner
+  # sets the repository variable RELEASES_ENABLED=true after the first-release checklist in docs/deploy.md
+  # (the Caddy round trip of ADR-0013 comes first). Rollback: pin the previous tag on Unraid.
+  release:
+    needs: [check, e2e, image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASES_ENABLED == 'true'
+    permissions:
+      contents: write
+      packages: write
+    uses: Towerism/selfhost-kit/.github/workflows/app-release.yml@4c453910482af10fad937ff27f3d72c8f31a3bf1 # v0.4.2
+    with:
+      image-name: ghcr.io/towerism/discord-pokemon-tournament-genie
+      digest: ${{ needs.image.outputs.digest }}

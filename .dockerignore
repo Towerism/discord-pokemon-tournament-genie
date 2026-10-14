@@ -1,0 +1,18 @@
+# Only what `pnpm build` needs reaches the build stage; nothing here may carry a secret.
+.git
+.github
+.claude
+**/node_modules
+.nuxt
+.output
+.data
+coverage
+playwright-report
+test-results
+**/.env
+**/.env.*
+spikes
+test
+docs
+deploy
+*.tsbuildinfo

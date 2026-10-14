@@ -28,8 +28,21 @@ describe('the Unraid template', () => {
     expect(container.Config.filter((c) => c.Required !== 'false').map((c) => c.Name)).toEqual([]);
   });
 
-  it('pulls the image the release publishes', () => {
+  it('pulls the image CI publishes', () => {
+    const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const imageNames = [...ci.matchAll(/image-name:\s*(\S+)/g)].map((m) => m[1]);
+    expect(imageNames.length).toBeGreaterThan(0);
+    expect(new Set(imageNames).size).toBe(1);
+    expect(container.Repository).toBe(`${imageNames[0]}:latest`);
     expect(container.Repository).toBe('ghcr.io/towerism/discord-pokemon-tournament-genie:latest');
+  });
+
+  it('offers the optional Litestream replica as advanced fields, with the keys masked', () => {
+    expect(config('LITESTREAM_REPLICA_URL')).toMatchObject({ Display: 'advanced', Required: 'false', Default: '', Mask: 'false' });
+    for (const key of ['LITESTREAM_ACCESS_KEY_ID', 'LITESTREAM_SECRET_ACCESS_KEY']) {
+      expect(config(key)).toMatchObject({ Display: 'advanced', Required: 'false', Default: '', Mask: 'true' });
+      expect(config(key).value ?? '').toBe('');
+    }
   });
 
   it('publishes port 3001 only on the host loopback, never to the LAN (ADR-0013)', () => {
