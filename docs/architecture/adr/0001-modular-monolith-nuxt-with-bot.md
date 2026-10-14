@@ -1,7 +1,7 @@
 # ADR-0001: Modular monolith on Nuxt 4, with the Discord bot in the same process
 
 - Status: Accepted (2026-10-13)
-- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
 - Date: 2026-10-13
 
 ## Context

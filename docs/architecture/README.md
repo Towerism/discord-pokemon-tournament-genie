@@ -1,6 +1,6 @@
 # Tournament Genie — System Architecture
 
-Status: **Accepted** (by the owner, 2026-10-13) · Amendment ADR-0011 proposed (2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
+Status: **Accepted** (by the owner, 2026-10-13) · amended by ADR-0011 (accepted 2026-10-13) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
 
 ## 1. Context
 
@@ -985,4 +985,4 @@ Answered by the owner on 2026-10-13:
 | [0008](adr/0008-attendance-integration.md) | Pull a day snapshot from attendance through a read-only token API | Accepted |
 | [0009](adr/0009-docker-on-unraid.md) | One Docker container on Unraid, beside attendance | Accepted |
 | [0010](adr/0010-one-audience-model.md) | One audience model for Discord and the website | Accepted |
-| [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Proposed |
+| [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Accepted |
