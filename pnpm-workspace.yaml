@@ -1,0 +1,31 @@
+# The app only. spikes/ is its own pnpm project with its own lockfile (M0).
+packages: []
+
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  '@parcel/watcher': true
+  '@tailwindcss/oxide': true
+  vue-demi: true
+  # Ships prebuilt binaries; its postinstall only re-checks them.
+  unrs-resolver: false
+
+# Exact versions newer than pnpm's minimum release age at install time (the kit pin, ADR-0011).
+minimumReleaseAgeExclude:
+  - '@iconify-json/lucide@1.2.144'
+  - '@playwright/test@1.64.1'
+  - '@towerism/selfhost-kit@0.4.2'
+  - playwright-core@1.64.1
+  - playwright@1.64.1
+
+# Advisories in Nuxt's build-time and dev-server dependencies (nuxt devtools' simple-git, listhen's node-forge,
+# nitropack's globby → braces). None of these packages is in the built server (.output/server/node_modules), so
+# `pnpm audit --prod` would otherwise fail on code the container never runs. Re-check on every Nuxt bump.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv # node-forge, via listhen (dev server TLS)
+    - GHSA-vfj7-8cjw-p6xm # braces, via nitropack's globby (build)
+    - GHSA-v5rq-49vh-5v5c # @simple-git/argv-parser, via @nuxt/devtools
+    - GHSA-x6jw-m9v5-85vh # simple-git, via @nuxt/devtools
+    - GHSA-g4wm-2vf7-vfgr # simple-git, via @nuxt/devtools
+    - GHSA-858h-whjf-mvg5 # simple-git, via @nuxt/devtools
