@@ -1,8 +1,11 @@
-# S1: OAuth redirect URIs on a LAN install
+# S1: OAuth redirect URIs for the website login
 
-Which redirect URIs does Discord accept for Genie's website login on a LAN install
+Which redirect URIs does Discord accept for Genie's website login, and which setups complete a login
 ([architecture §13](../architecture/README.md#13-spikes-before-building-timeboxed),
-[ADR-0004](../architecture/adr/0004-discord-login-and-roles.md)), and which setups complete a login?
+[ADR-0004](../architecture/adr/0004-discord-login-and-roles.md))? The spike was planned around reaching
+Genie directly on the LAN. Its result is why Genie isn't served that way: the website is reached only
+through Caddy as an HTTPS reverse proxy ([ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md)),
+so the production redirect URI is `https://<caddy-host>/auth/discord`.
 
 - **Recorded:** 2026-10-14, Discord API v10, the owner's browser: Chrome 154 on Linux. No other browser
   was tested.
@@ -19,9 +22,12 @@ Which redirect URIs does Discord accept for Genie's website login on a LAN insta
 | `http://localhost:3001` | yes | yes | **ok** | **ok** |
 | `http://<lan-ip>:3001` | yes | yes | `state_cookie_missing` | `state_cookie_missing` |
 | `http://<hostname>.local:3001` (mDNS) | yes | yes | `state_cookie_missing` | `state_cookie_missing` |
-| `http://<magicdns-name>:<port>` (Tailscale, plain HTTP) | not tested — Tailscale not installed on the test host | | | |
-| `https://<machine>.<tailnet>.ts.net` (Tailscale Serve) | not tested — Tailscale not installed on the test host | | | |
-| `https://<proxy-host>` (HTTPS reverse proxy) | not tested — no reverse proxy available | | | |
+| `http://<magicdns-name>:<port>` (Tailscale, plain HTTP) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
+| `https://<machine>.<tailnet>.ts.net` (Tailscale Serve) | not tested — Tailscale not installed on the test host; not a supported setup | | | |
+| `https://<caddy-host>` (Caddy HTTPS reverse proxy, **the supported setup**) | not tested — no Caddy available on the test host; required before M1's login work | | | |
+
+The plain-HTTP rows show why Genie isn't served directly: only `localhost` works, and that's for
+development on the host. The supported setup is the Caddy row.
 
 - Discord accepted every plain-HTTP redirect URI, both in the developer portal and at the authorize step.
   Discord itself doesn't require HTTPS.
@@ -58,8 +64,9 @@ doesn't hold for the website.
 The amendment is [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), **accepted by the
 owner on 2026-10-14**: the website login needs an HTTPS origin, and an HTTPS reverse proxy through Caddy
 is the only supported setup, with `http://localhost` only for development on the host itself. Tailscale
-Serve and other proxies are not supported, so their rows above stay `not tested`. The Caddy setup wasn't
-available here, so it must be tested before M1's login work.
+and other proxies are not supported, so their rows above stay `not tested`. The Caddy setup wasn't
+available here, so it must be tested before M1's login work: portal, authorize, and a full round trip with
+a `Secure` cookie at `https://<caddy-host>/auth/discord`.
 
 ## Timebox
 

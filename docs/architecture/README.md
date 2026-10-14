@@ -954,7 +954,9 @@ A case may only be added or changed together with a real-guild observation.
 ## 13. Spikes before building (timeboxed)
 
 - **S1 Discord OAuth on a LAN install.** Which redirect URIs Discord accepts (plain `http://<lan-ip>`,
-  Tailscale MagicDNS, HTTPS via a reverse proxy); document the supported setups.
+  Tailscale MagicDNS, HTTPS via a reverse proxy); document the supported setups. Outcome: plain-HTTP LAN
+  logins fail in Chrome, so the website is served only through Caddy as an HTTPS reverse proxy
+  ([ADR-0013](adr/0013-https-origin-for-website-login.md)).
 - **S2 Penalty form ergonomics.** Command options + modal vs. the newer select-in-modal components; time
   a judge recording a penalty on a phone.
 - **S3 Permissions in a real guild.** Bot role position vs. member overwrites, category vs. channel
