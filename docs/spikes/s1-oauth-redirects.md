@@ -8,8 +8,8 @@ through Caddy as an HTTPS reverse proxy ([ADR-0013](../architecture/adr/0013-htt
 so the production redirect URI is `https://<caddy-host>/auth/discord`.
 
 - **Recorded:** 2026-10-14, Discord API v10, the owner's browser: Chrome 154 on Linux. No other browser
-  was tested. The Caddy row is different: it was recorded later, from Genie itself rather than the harness
-  (see below the table).
+  was tested. The Caddy row is different: it was recorded later, from Genie itself rather than the harness,
+  in Firefox (see below the table).
 - **Harness:** `pnpm spike s1 serve` on the test host (port 3001, redirect path `/auth/discord`), one run
   per setup and cookie mode. Each login used the `identify` scope and a random 32-byte `state` set as an
   `HttpOnly; SameSite=Lax` cookie, `Secure` unless `--insecure-cookie`.
@@ -30,11 +30,16 @@ so the production redirect URI is `https://<caddy-host>/auth/discord`.
 **The Caddy row** was recorded on 2026-10-14, after M1 ([#15](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/15)),
 from the owner's report:
 - Genie itself ran behind Caddy over HTTPS (not the spike harness), and was set up through its wizard;
-- in Chrome (version not recorded), a "Log in with Discord" completed at `https://<caddy-host>/auth/discord`
+- in **Firefox 157.0.1 on Arch Linux**, a "Log in with Discord" completed at `https://<caddy-host>/auth/discord`
   (`<site>` in the deploy guide). The yes/yes cells follow from that: the redirect URI must have been
   registered in the portal and accepted at authorize for the login to complete;
 - the certificate chains to GTS Root R4 (Google Trust Services), so it is publicly trusted. How it was issued
   wasn't recorded.
+
+**Chrome through Caddy is not yet tested.** The plain-HTTP failures above were in Chrome, and the hypothesis
+for them (Chrome's local-network protections withholding the cookie on the redirect from `discord.com` to a
+private address) might also apply over HTTPS when `<caddy-host>` resolves to a LAN address. Judges will often
+use Chrome, so a Chrome login through Caddy should be recorded here before relying on it.
 
 Genie's session and state cookies are `Secure` by configuration (`runtimeConfig.session.cookie`, and the login
 route's state cookie), which is why the non-`Secure` column doesn't apply.
@@ -80,8 +85,8 @@ the only supported setup, with `http://localhost` only for development and for t
 (including over an SSH tunnel). Tailscale and other proxies are not supported, so their rows above stay `not
 tested`. The Caddy setup wasn't available during the spike. The owner moved its test to before the first
 release (#11). On 2026-10-14 the owner reported a completed login at `https://<caddy-host>/auth/discord`
-through Caddy in Chrome, which also shows that the redirect URI was registered and accepted (the Caddy row
-above). ADR-0013 holds.
+through Caddy in Firefox 157.0.1, which also shows that the redirect URI was registered and accepted (the
+Caddy row above). ADR-0013 holds for Firefox; Chrome through Caddy is still to be recorded.
 
 ## Timebox
 
