@@ -148,7 +148,8 @@ export function createDirectoryService(opts: {
           .where(eq(staffMember.id, id))
           .run();
         logger.info('Claim confirmed.', { staffMemberId: id });
-        return { staff: view(need(id)), syncJobIds: onLinkChanged(id) };
+        // A claimed row held no Discord user, so confirming only adds access: no removal sync.
+        return { staff: view(need(id)), syncJobIds: [] };
       });
     },
 

@@ -234,6 +234,42 @@ describe('more drift and refusals', () => {
   });
 });
 
+describe('Discord failing at the edges', () => {
+  it('answers 503 when the delete itself fails, and keeps the orphan listed', async () => {
+    w = provisioningWorld();
+    const { day } = seedDay();
+    await open(day.id);
+    const orphan = await w.discord.create(BOT_TOKEN).gateway.createChannel(IDS.guild, { name: 'random', parentId: w.days.plan(day.id).day.categoryId!, overwrites: [] });
+    w.provisioning.sync(day.id);
+    await w.jobs.runDue();
+    w.discord.failOn((call) => (call.method === 'deleteChannel' ? 'unavailable' : null));
+    await expect(w.provisioning.deleteOrphan(day.id, orphan)).rejects.toMatchObject({ status: 503 });
+    expect(w.provisioning.orphans(day.id)).toHaveLength(1);
+  });
+
+  it('posts a new intro when the recorded one was deleted by hand', async () => {
+    w = provisioningWorld();
+    const { day } = seedDay();
+    await open(day.id);
+    const intro = [...w.discord.messages.values()].find((m) => m.channelId === w.channel('day-staff').id)!;
+    w.discord.messages.delete(intro.id);
+    w.database.sqlite.prepare("UPDATE provisioned_channel SET message_pinned = 0 WHERE blueprint_channel_key = 'day-staff'").run();
+    // The fake answers a pin of a gone message the way Discord does.
+    w.discord.failOn((call) => {
+      if (call.method === 'pinMessage' && !w.discord.messages.has(call.target)) throw new Error('pinMessage failed: Unknown Message');
+      return null;
+    });
+    w.provisioning.sync(day.id);
+    await w.jobs.runDue();
+    w.discord.failOn(null);
+    w.provisioning.sync(day.id);
+    await w.jobs.runDue();
+    const intros = [...w.discord.messages.values()].filter((m) => m.channelId === w.channel('day-staff').id);
+    expect(intros).toHaveLength(1);
+    expect(intros[0]!.pinned).toBe(true);
+  });
+});
+
 describe('unexpected errors', () => {
   it('passes an unexpected error through instead of calling it Discord being down', async () => {
     w = provisioningWorld();

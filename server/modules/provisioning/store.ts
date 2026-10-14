@@ -19,8 +19,10 @@ export function createProvisioningStore(db: Db) {
         .orderBy(asc(provisionedChannel.id))
         .all();
     },
-    record(row: { dayId: number; guildId: string; eventId: number | null; key: string; channelId: string; hash: string; now: number }): void {
-      db.insert(provisionedChannel)
+    /** Records a channel Genie owns; answers the row's ID. */
+    record(row: { dayId: number; guildId: string; eventId: number | null; key: string; channelId: string; hash: string; now: number }): number {
+      return db
+        .insert(provisionedChannel)
         .values({
           dayId: row.dayId,
           guildId: row.guildId,
@@ -32,7 +34,8 @@ export function createProvisioningStore(db: Db) {
           createdAt: row.now,
           updatedAt: row.now,
         })
-        .run();
+        .returning({ id: provisionedChannel.id })
+        .get().id;
     },
     update(id: number, patch: Partial<Pick<ProvisionedRow, 'appliedOverwritesHash' | 'state' | 'messageId' | 'messagePinned'>>, now: number): void {
       db.update(provisionedChannel).set({ ...patch, updatedAt: now }).where(eq(provisionedChannel.id, id)).run();

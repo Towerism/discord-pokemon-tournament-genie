@@ -1,9 +1,13 @@
+import { createRedactor, silentLogger } from '@towerism/selfhost-kit';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { member } from '../../../shared/discord/overwrites';
 import { PERMISSION_BITS as P } from '../../../shared/discord/permissions';
-import { ALL_PERMISSIONS, IDS } from '../../../test/support/discord-world';
+import { ALL_PERMISSIONS, BOT_TOKEN, IDS } from '../../../test/support/discord-world';
 import { PEOPLE, type ProvisioningWorld, provisioningWorld } from '../../../test/support/provisioning-world';
 import { ServiceError } from '../errors';
+import { createJobs } from '../jobs/jobs';
+import { createSqliteJobStore } from '../jobs/sqlite-store';
+import { createProvisioningService, overwritesHash } from './index';
 
 let w: ProvisioningWorld;
 afterEach(() => w.close());
@@ -346,9 +350,97 @@ describe('crash safety', () => {
   });
 });
 
+describe('removals racing a sync', () => {
+  beforeEach(() => {
+    w = provisioningWorld();
+  });
+
+  it('keeps the alarm through a sync that read the plan before a removal, and clears it with the next', async () => {
+    const { day, vgc, staff, brock } = octoberDay();
+    await openAndRun(day.id);
+    const gary = w.directory.create({ displayName: 'Gary', discordUserId: PEOPLE.gary });
+    const withGary = staff([{ staffMemberId: gary.id, events: [{ eventId: vgc.id, role: 'judge' }] }]);
+    w.days.putStaff(day.id, withGary);
+    const first = w.provisioning.sync(day.id);
+    // The removal lands at the running sync's first write: it has already read the plan without it.
+    let second: number | null = null;
+    w.discord.failOn(() => {
+      if (second === null) second = w.days.putStaff(day.id, withGary.filter((s) => s.staffMemberId !== brock.id)).syncJobId;
+      return null;
+    });
+    await w.jobs.runDue();
+    w.discord.failOn(null);
+    expect(w.jobs.get(first.jobId)!.state).toBe('succeeded');
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first.jobId);
+    expect(w.provisioning.alarms()).toEqual([expect.objectContaining({ dayId: day.id })]);
+    await w.jobs.runDue();
+    expect(w.jobs.get(second!)!.state).toBe('succeeded');
+    expect(w.provisioning.alarms()).toEqual([]);
+    for (const name of CHANNELS) expect(w.viewers(name)).not.toContain(PEOPLE.brock);
+  });
+
+  it('records the full overwrites’ hash on a recreated channel’s new row', async () => {
+    const { day } = octoberDay();
+    await openAndRun(day.id);
+    w.discord.channels.delete(w.channel('lc-floor').id);
+    await sync(day.id);
+    const floor = w.channel('lc-floor');
+    const row = w.database.sqlite
+      .prepare("SELECT applied_overwrites_hash AS hash FROM provisioned_channel WHERE discord_channel_id = ? AND state = 'present'")
+      .get(floor.id) as { hash: string };
+    // The new row carries the hash of what Discord now holds (its audience), not the base overwrites it was created with.
+    expect(row.hash).toBe(overwritesHash(floor.overwrites));
+  });
+
+  it('warns, never fails, when the intro can’t be pinned, and pins it on the next sync', async () => {
+    const { day } = octoberDay();
+    w.discord.failOn((call) => (call.method === 'pinMessage' ? 'unavailable' : null));
+    const job = await openAndRun(day.id);
+    w.discord.failOn(null);
+    expect(job.state).toBe('succeeded');
+    expect(w.jobs.events(job.id).some((e) => e.level === 'warn' && e.message.startsWith("Couldn't post or pin the intro"))).toBe(true);
+    expect(w.days.plan(day.id).sync.inSync).toBe(true);
+    await sync(day.id);
+    expect([...w.discord.messages.values()].find((m) => m.channelId === w.channel('day-staff').id)!.pinned).toBe(true);
+    expect([...w.discord.messages.values()].filter((m) => m.channelId === w.channel('day-staff').id)).toHaveLength(1);
+  });
+});
+
 describe('boot recovery', () => {
   beforeEach(() => {
     w = provisioningWorld();
+  });
+
+  it('retries a removal sync the process stopped in the middle of, on a fresh jobs instance', async () => {
+    const { day, staff } = octoberDay();
+    await openAndRun(day.id);
+    // The process "stops" while the removal sync is held mid-run: it stays `running` in the database.
+    w.discord.writeGate = new Promise(() => {});
+    const { syncJobId } = w.days.putStaff(day.id, staff().slice(1));
+    void w.jobs.runDue();
+    await expect.poll(() => w.jobs.get(syncJobId!)!.state).toBe('running');
+    w.discord.writeGate = null;
+
+    const jobs = createJobs({ store: createSqliteJobStore(w.database.db), clock: w.clock, logger: silentLogger, redactor: createRedactor({ extraKeys: [] }) });
+    const provisioning = createProvisioningService({
+      db: w.database.db,
+      clock: w.clock,
+      logger: silentLogger,
+      eventDays: w.days,
+      jobs,
+      gateway: () => w.discord.create(BOT_TOKEN).gateway,
+      binding: () => ({ guildId: IDS.guild, organizerRoleId: IDS.organizerRole, headJudgeRoleId: IDS.headJudgeRole }),
+    });
+    provisioning.register();
+    jobs.recover();
+    provisioning.recoverOnBoot();
+    expect(jobs.get(syncJobId!)!.state).toBe('queued');
+    expect(provisioning.alarms()).toEqual([expect.objectContaining({ dayId: day.id, since: w.clock.now() })]);
+    await jobs.runDue();
+    expect(jobs.get(syncJobId!)!.state).toBe('succeeded');
+    expect(provisioning.alarms()).toEqual([]);
+    for (const name of CHANNELS) expect(w.viewers(name)).not.toContain(PEOPLE.ash);
   });
 
   it('queues a sync at boot for a day whose removal never landed, which then clears the alarm', async () => {

@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import { type Principal, canSee, isOrganizer } from '../../shared/access/access';
 import { DiscordAuthError, DiscordUnavailableError } from '../modules/discord/port';
+import type { JobEventView } from '../modules/jobs/jobs';
 
 /** The day plan as the API answers it: the plan, its latest job, Genie's channels and orphans, what the caller may do. */
 export async function dayPlanView(dayId: number, principal: Principal) {
@@ -16,7 +17,10 @@ export async function dayPlanView(dayId: number, principal: Principal) {
   };
 }
 
-/** A job the caller may read: as its day; a job without a day is organizer only. */
+/**
+ * A job the caller may read: as its day; a job without a day is organizer only. `visible` hides event data (user
+ * IDs, per-channel detail) from non-organizers, as the preview does.
+ */
 export async function requireJob(event: H3Event) {
   const id = idParam(event);
   const { principal } = await requirePrincipal(event, { kind: 'website' });
@@ -27,7 +31,9 @@ export async function requireJob(event: H3Event) {
   } else {
     await requireDay(event, job.dayId, 'read');
   }
-  return job;
+  const organizer = isOrganizer(principal.grant);
+  const visible = (e: JobEventView): JobEventView => (organizer ? e : { ...e, data: null });
+  return { job, visible };
 }
 
 /** A Discord call from a route: an outage is 503, never a 500. */

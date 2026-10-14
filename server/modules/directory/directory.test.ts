@@ -100,7 +100,8 @@ describe('claims (/link)', () => {
     directory.claim({ userId: U(2), playerId: '2220001', displayName: 'Misty' });
     const confirmed = directory.confirmClaim(organizerRow.id);
     expect(confirmed.staff).toMatchObject({ linkState: 'linked', discordUserId: U(2), claimedDiscordUserId: null });
-    expect(confirmed.syncJobIds).toEqual([100 + organizerRow.id]);
+    // Confirming only adds access: no removal sync.
+    expect(confirmed.syncJobIds).toEqual([]);
 
     directory.claim({ userId: U(4), playerId: '4440001', displayName: 'Gary' });
     const claimRow = directory.list().find((s) => s.playerId === '4440001')!;

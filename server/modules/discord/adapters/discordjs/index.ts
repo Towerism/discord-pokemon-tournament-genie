@@ -197,7 +197,7 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
             { type: ComponentType.ActionRow, components: msg.buttons.map((b) => ({ type: ComponentType.Button, style: ButtonStyle.Primary, label: b.label, custom_id: b.customId })) },
           ];
         }
-        const sent = await call<{ id: string }>(() => rest.post(Routes.channelMessages(channelId), { body }));
+        const sent = await call<{ id: string }>(() => rest.post(Routes.channelMessages(channelId), { body, reason: 'Tournament Genie: post the day intro or panel' }));
         return sent.id;
       },
       async pinMessage(channelId, messageId) {

@@ -275,6 +275,21 @@ describe('every M2 route', () => {
     }
   });
 
+  it('lets an organizer through every route: never 401 or 403, never a 500', async () => {
+    for (const r of routes().filter((x) => x.method === 'GET')) {
+      const res = await call(organizer, r);
+      expect(res.status, `${r.method} ${r.path}`).toBeLessThan(300);
+    }
+    // Writes with empty bodies are refused by validation or the day's state, never by authorization.
+    for (const r of routes().filter((x) => x.method !== 'GET' && !(x.method === 'DELETE' && x.path === day()))) {
+      const res = await call(organizer, r);
+      expect([401, 403], `${r.method} ${r.path}: ${res.text}`).not.toContain(res.status);
+      expect(res.status, `${r.method} ${r.path}: ${res.text}`).toBeLessThan(500);
+    }
+    expect(ok(await organizer.get('/api/me'))).toMatchObject({ isOrganizer: true, headJudgeDays: [] });
+    expect((await anonymous.get('/api/me')).status).toBe(401);
+  });
+
   it('answers 404 for an unknown day or job, whoever asks', async () => {
     expect((await organizer.get('/api/days/99999')).status).toBe(404);
     expect((await headJudge.get('/api/days/99999')).status).toBe(404);

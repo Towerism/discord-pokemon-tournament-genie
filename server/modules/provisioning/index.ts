@@ -9,7 +9,7 @@ import { type BlueprintInput, type DesiredContext, type DesiredDay, type PlanPro
 import { type Overwrite, canonical, overwritesEqual } from '../../../shared/discord/overwrites';
 import { PERMISSION_BITS, type PermissionName, missingPermissions } from '../../../shared/discord/permissions';
 import type { Db } from '../../db/client';
-import { type ChannelState, type DiscordGateway, DiscordPermissionError, DiscordUnavailableError, type GuildInfo } from '../discord/port';
+import { type ChannelState, DiscordAuthError, type DiscordGateway, DiscordPermissionError, DiscordUnavailableError, type GuildInfo } from '../discord/port';
 import { ServiceError, notFound } from '../errors';
 import type { EventDaysService } from '../event-days';
 import type { JobContext, Jobs } from '../jobs/jobs';
@@ -44,6 +44,12 @@ export interface Preview {
 export const overwritesHash = (o: readonly Overwrite[]): string => createHash('sha256').update(canonical(o).join('\n')).digest('hex');
 
 const unavailable = () => new ServiceError(503, 'discord_unavailable', 'Discord could not be reached. Try again in a moment.');
+
+/** A Discord failure an entry point answers with 503; anything else (a bug) passes through. */
+function rethrowUnreachable(err: unknown): never {
+  if (err instanceof DiscordUnavailableError || err instanceof DiscordAuthError) throw unavailable();
+  throw err;
+}
 
 /** The port with each failure naming the call that failed, so a job's error says what Discord refused. */
 function naming(discord: DiscordGateway): DiscordGateway {
@@ -185,11 +191,10 @@ export function createProvisioningService(opts: {
     }
     for (const want of toCreate) {
       const channelId = await discord.createChannel(b.guildId, { name: want.name, parentId, topic: want.topic, overwrites: base });
-      store.record({ dayId, guildId: b.guildId, eventId: want.eventId, key: want.key, channelId, hash: overwritesHash(base), now: now() });
+      const rowId = store.record({ dayId, guildId: b.guildId, eventId: want.eventId, key: want.key, channelId, hash: overwritesHash(base), now: now() });
       ctx.log('info', `Created #${want.name}.`, { channelId });
       await discord.setOverwrites(channelId, want.overwrites);
-      const row = rowFor(want.key, want.eventId) ?? store.present(dayId).find((r) => r.discordChannelId === channelId)!;
-      store.update(row.id, { appliedOverwritesHash: overwritesHash(want.overwrites) }, now());
+      store.update(rowId, { appliedOverwritesHash: overwritesHash(want.overwrites) }, now());
     }
 
     // 5. Orphans: channels in the category Genie didn't record.
@@ -256,14 +261,23 @@ export function createProvisioningService(opts: {
     }
     const discord = naming(gateway());
     const row = store.present(dayId).find((r) => r.blueprintChannelKey === key && r.eventId === null)!;
-    let messageId = row.messageId;
-    if (!messageId) {
-      messageId = await discord.postMessage(row.discordChannelId, { content: msg.content, ...(msg.buttons ? { buttons: msg.buttons } : {}) });
-      store.update(row.id, { messageId }, clock.now());
-    }
-    if (msg.pin && !row.messagePinned) {
-      await discord.pinMessage(row.discordChannelId, messageId);
-      store.update(row.id, { messagePinned: true }, clock.now());
+    // Access has landed and been audited by now: a message problem warns, it never fails the sync.
+    try {
+      let messageId = row.messageId;
+      if (!messageId) {
+        messageId = await discord.postMessage(row.discordChannelId, { content: msg.content, ...(msg.buttons ? { buttons: msg.buttons } : {}) });
+        store.update(row.id, { messageId, messagePinned: false }, clock.now());
+      }
+      if (msg.pin && !row.messagePinned) {
+        await discord.pinMessage(row.discordChannelId, messageId);
+        store.update(row.id, { messagePinned: true }, clock.now());
+      }
+    } catch (err) {
+      if (/Unknown Message/i.test(String(err))) {
+        // The message was deleted by hand: post a new one next time.
+        store.update(row.id, { messageId: null, messagePinned: false }, clock.now());
+      }
+      ctx.log('warn', `Couldn't post or pin the ${msg.pin ? 'intro' : 'panel'}; the next sync tries again.`, { error: String(err) });
     }
   }
 
@@ -277,8 +291,8 @@ export function createProvisioningService(opts: {
       const members = await discord.listMembers(b.guildId);
       return { guild, members, channelCount: guild.channelCount };
     } catch (err) {
-      if (err instanceof DiscordUnavailableError || err instanceof ServiceError) throw unavailable();
-      throw err;
+      if (err instanceof ServiceError) throw unavailable();
+      rethrowUnreachable(err);
     }
   }
 
@@ -288,7 +302,7 @@ export function createProvisioningService(opts: {
       jobs.register('sync', apply, { retryOnBoot: true });
     },
 
-    /** checks the preconditions, then opens the day and queues its provision job. */
+    /** Checks the preconditions, then opens the day and queues its provision job. */
     async open(dayId: number): Promise<{ jobId: number }> {
       const plan = eventDays.plan(dayId);
       if (plan.day.state !== 'draft') throw new ServiceError(409, 'day_not_draft', 'This day has already been opened.');
@@ -307,13 +321,13 @@ export function createProvisioningService(opts: {
       return { jobId };
     },
 
-    /** a sync, coalesced with one already queued. */
+    /** A sync, coalesced with one already queued. */
     sync(dayId: number): { jobId: number; coalesced: boolean } {
       if (eventDays.plan(dayId).day.state !== 'open') throw new ServiceError(409, 'day_not_open', 'Only an open day can be synced.');
       return jobs.enqueueUnlessQueued({ kind: 'sync', dayId });
     },
 
-    /** the desired channels and audiences; a non-organizer sees only the channels `canSee` allows. */
+    /** The desired channels and audiences; a non-organizer sees only the channels `canSee` allows. */
     async preview(dayId: number, principal: Principal | null): Promise<Preview> {
       const plan = eventDays.plan(dayId);
       const blueprint = eventDays.blueprint(plan.day.blueprintId);
@@ -326,6 +340,7 @@ export function createProvisioningService(opts: {
           ...ctx,
           botUserId: guild.botUserId,
           headJudgeRoleHolders: new Set(b.headJudgeRoleId ? members.filter((m) => m.roleIds.includes(b.headJudgeRoleId!)).map((m) => m.userId) : []),
+          guildMemberIds: new Set(members.map((m) => m.userId)),
         };
       } catch (err) {
         if (!(err instanceof ServiceError)) throw err;
@@ -371,7 +386,7 @@ export function createProvisioningService(opts: {
       return store.orphans(dayId).map((o) => ({ discordChannelId: o.discordChannelId, kind: o.kind, name: o.name, foundAt: o.foundAt }));
     },
 
-    /** records an orphan channel as the day's channel for a desired key that has none. */
+    /** Records an orphan channel as the day's channel for a desired key that has none. */
     adoptOrphan(dayId: number, channelId: string, target: { key: string; eventId: number | null }): void {
       store.transaction(() => {
         const orphan = store.orphan(dayId, channelId);
@@ -387,10 +402,12 @@ export function createProvisioningService(opts: {
         store.record({ dayId, guildId: orphan.guildId, eventId: target.eventId, key: target.key, channelId, hash: '', now: clock.now() });
         store.dropOrphan(channelId);
         eventDays.touch(dayId);
+        // The adopted channel may carry access someone added by hand: correct it now, not at the next click.
+        jobs.enqueueUnlessQueued({ kind: 'sync', dayId });
       });
     },
 
-    /** deletes an orphan, but only while it is still in the day's category. */
+    /** Deletes an orphan, but only while it is still in the day's category. */
     async deleteOrphan(dayId: number, channelId: string): Promise<void> {
       const orphan = store.orphan(dayId, channelId);
       if (!orphan) throw notFound('orphan');
@@ -399,18 +416,26 @@ export function createProvisioningService(opts: {
       try {
         state = await discord.getChannel(channelId);
       } catch (err) {
-        if (err instanceof DiscordUnavailableError) throw unavailable();
-        throw err;
+        rethrowUnreachable(err);
       }
       const categoryId = eventDays.plan(dayId).day.categoryId;
       if (state) {
-        const children = orphan.kind === 'category' ? (await discord.listChannels(orphan.guildId)).filter((c) => c.parentId === channelId) : [];
+        let children: ChannelState[] = [];
+        try {
+          if (orphan.kind === 'category') children = (await discord.listChannels(orphan.guildId)).filter((c) => c.parentId === channelId);
+        } catch (err) {
+          rethrowUnreachable(err);
+        }
         const stillOurs = orphan.kind === 'channel' ? state.parentId === categoryId : children.length === 0;
         if (!stillOurs) {
           store.dropOrphan(channelId);
           throw new ServiceError(409, 'orphan_moved', 'That channel has moved or filled up since it was found; Genie left it alone.');
         }
-        await discord.deleteChannel(channelId, 'delete a channel found in a day category');
+        try {
+          await discord.deleteChannel(channelId, 'delete a channel found in a day category');
+        } catch (err) {
+          rethrowUnreachable(err);
+        }
       }
       store.dropOrphan(channelId);
       eventDays.touch(dayId);
@@ -419,7 +444,7 @@ export function createProvisioningService(opts: {
 
     alarms: () => eventDays.alarms(),
 
-    /** after `jobs.recover()`, a sync for every open day whose removals may not have landed. */
+    /** After `jobs.recover()`, a sync for every open day whose removals may not have landed. */
     recoverOnBoot(): void {
       for (const dayId of eventDays.daysNeedingRevocation()) {
         const { jobId, coalesced } = jobs.enqueueUnlessQueued({ kind: 'sync', dayId });

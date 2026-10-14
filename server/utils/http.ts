@@ -29,6 +29,13 @@ export function idParam(event: H3Event, name = 'id'): number {
   return id;
 }
 
+/** A route's Discord ID parameter; anything else is an unknown resource. */
+export function snowflakeParam(event: H3Event, name: string): string {
+  const raw = getRouterParam(event, name) ?? '';
+  if (!/^\d{17,20}$/.test(raw)) throw apiError(404, 'not_found', 'Not found.');
+  return raw;
+}
+
 /**
  * The principal, if they may act on the day (ADR-0010). An unknown day is 404 for everyone; an existing day a
  * non-organizer can't use is 403 (§11's auth matrix). Organizers pass without building the plan.
