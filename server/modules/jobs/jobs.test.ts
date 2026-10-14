@@ -30,6 +30,9 @@ const build = () =>
 
 beforeEach(() => {
   database = freshDb();
+  // `job.day_id` refers to `event_day`: days 1–10 exist for the jobs these tests enqueue.
+  const day = database.sqlite.prepare("INSERT INTO event_day (id, guild_id, date, title, blueprint_id, created_at, updated_at) VALUES (?, 'g', '2026-10-17', 'T', 1, 0, 0)");
+  for (let id = 1; id <= 10; id++) day.run(id);
   clock = fakeClock(1_000_000);
   jobs = build();
 });
