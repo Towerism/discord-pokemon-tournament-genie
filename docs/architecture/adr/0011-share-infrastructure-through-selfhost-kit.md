@@ -1,6 +1,6 @@
 # ADR-0011: Share platform infrastructure through `@towerism/selfhost-kit`
 
-- Status: Proposed (2026-10-13)
+- Status: Accepted (2026-10-13)
 - Date: 2026-10-13
 
 ## Context

@@ -1,7 +1,7 @@
 # ADR-0004: Website login with Discord OAuth; access from guild roles and day roles
 
 - Status: Accepted (2026-10-13)
-- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (proposed 2026-10-13)
+- Amended by [ADR-0011](0011-share-infrastructure-through-selfhost-kit.md) (accepted 2026-10-13)
 - Date: 2026-10-13
 
 ## Context
