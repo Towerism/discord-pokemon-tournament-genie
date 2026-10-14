@@ -78,7 +78,8 @@ export function canSnapshot(ledgers: Ledger[], kind: SnapshotKind): boolean {
   return !ledgers.some((l) => hasUnrestored(l, kind));
 }
 
-export async function readLedgers(dir: string): Promise<Ledger[]> {
+/** Only this guild's ledgers: another guild's snapshots or resource IDs must never be applied here. */
+export async function readLedgers(dir: string, guildId: string): Promise<Ledger[]> {
   let names: string[];
   try {
     names = await readdir(dir);
@@ -86,7 +87,8 @@ export async function readLedgers(dir: string): Promise<Ledger[]> {
     return [];
   }
   const files = names.filter((n) => /^ledger-.+\.json$/.test(n)).sort();
-  return Promise.all(files.map(async (f) => JSON.parse(await readFile(join(dir, f), 'utf8')) as Ledger));
+  const all = await Promise.all(files.map(async (f) => JSON.parse(await readFile(join(dir, f), 'utf8')) as Ledger));
+  return all.filter((l) => l.guildId === guildId);
 }
 
 export async function openLedger(dir: string, runId: string): Promise<LedgerHandle | undefined> {

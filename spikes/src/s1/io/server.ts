@@ -52,7 +52,10 @@ export async function s1Serve(c: Config, opts: { redirect: string; host: string;
   });
   await new Promise<void>((resolve) => server.listen(opts.port, opts.host, resolve));
   log(`S1 listening on http://${opts.host}:${opts.port}/ (redirect ${opts.redirect}, ${opts.cookieMode} cookie). Ctrl-C to stop.`);
-  await new Promise<void>((resolve) => process.once('SIGINT', () => server.close(() => resolve())));
+  await new Promise<void>((resolve) => process.once('SIGINT', () => {
+      server.close(() => resolve());
+      server.closeAllConnections(); // a browser's keep-alive socket would otherwise hold the close open
+    }));
 }
 
 /** Outcomes Discord shows on its own pages (portal or authorize rejection). */

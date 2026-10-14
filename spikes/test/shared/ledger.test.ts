@@ -33,7 +33,7 @@ describe('ledger', () => {
       }),
     ).rejects.toThrow('Discord 500');
 
-    const [onDisk] = await readLedgers(dir);
+    const [onDisk] = await readLedgers(dir, guildId);
     expect(onDisk?.resources).toEqual([{ kind: 'category', id: '1300000000000000100', name: `spike-${runId}-cat` }]);
   });
 
@@ -53,29 +53,39 @@ describe('ledger', () => {
     await recordSnapshot(first, 'everyone', '1024');
     const second = await createLedger(dir, { runId: '20261013130000-beef', guildId, kept: false });
 
-    expect(canSnapshot(await readLedgers(dir), 'everyone')).toBe(false);
-    expect(canSnapshot(await readLedgers(dir), 'genieRole')).toBe(true);
+    expect(canSnapshot(await readLedgers(dir, guildId), 'everyone')).toBe(false);
+    expect(canSnapshot(await readLedgers(dir, guildId), 'genieRole')).toBe(true);
 
     await markRestored(first, 'everyone');
-    expect(canSnapshot(await readLedgers(dir), 'everyone')).toBe(true);
+    expect(canSnapshot(await readLedgers(dir, guildId), 'everyone')).toBe(true);
     await recordSnapshot(second, 'everyone', '2048');
-    expect(canSnapshot(await readLedgers(dir), 'everyone')).toBe(false);
+    expect(canSnapshot(await readLedgers(dir, guildId), 'everyone')).toBe(false);
+  });
+
+  it('ignores ledgers recorded in another guild, so their snapshots and resources never reach this one', async () => {
+    const other = await createLedger(dir, { runId: '20261013110000-0b0b', guildId: '1300000000000000999', kept: true });
+    await recordSnapshot(other, 'everyone', '8');
+    await createLedger(dir, { runId, guildId, kept: false });
+
+    const ledgers = await readLedgers(dir, guildId);
+    expect(ledgers.map((l) => l.runId)).toEqual([runId]);
+    expect(canSnapshot(ledgers, 'everyone')).toBe(true);
   });
 
   it('reads no ledgers from an empty directory', async () => {
-    expect(await readLedgers(dir)).toEqual([]);
+    expect(await readLedgers(dir, guildId)).toEqual([]);
   });
 
   it('snapshots genie\'s role separately from @everyone', async () => {
     const l = await createLedger(dir, { runId, guildId, kept: false });
     await recordSnapshot(l, 'genieRole', '4096');
-    const [onDisk] = await readLedgers(dir);
+    const [onDisk] = await readLedgers(dir, guildId);
     expect(onDisk?.genieRoleSnapshot).toBe('4096');
     expect(canSnapshot([onDisk!], 'genieRole')).toBe(false);
   });
 
   it('reads no ledgers when the output directory does not exist yet', async () => {
-    expect(await readLedgers(join(dir, 'missing'))).toEqual([]);
+    expect(await readLedgers(join(dir, 'missing'), guildId)).toEqual([]);
   });
 
   it('reopens a run\'s ledger by id, and finds nothing for an unknown run', async () => {

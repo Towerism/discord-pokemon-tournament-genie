@@ -41,7 +41,7 @@ async function identities(b: Bots): Promise<Ids> {
 
 type Role = { id: string; name: string; position: number; permissions: string; tags?: { bot_id?: string } };
 
-/** Genie's managed role is exactly §4.1, nobody's Administrator but the arranger's, role order right. */
+/** Genie's managed role is exactly the invite set, nobody's Administrator but the arranger's, role order right. */
 export async function preflight(b: Bots, guildId: string, ids: Ids, printInvite?: string): Promise<{ genieRolePermissions: string[] }> {
   const roles = await b.arranger.must<Role[]>('get', `/guilds/${guildId}/roles`);
   const member = (userId: string) => b.arranger.must<{ roles: string[] }>('get', `/guilds/${guildId}/members/${userId}`);
@@ -71,7 +71,7 @@ export async function preflight(b: Bots, guildId: string, ids: Ids, printInvite?
   });
   problems.push(...order.problems);
 
-  for (const l of await readLedgers(OUT_DIR)) {
+  for (const l of await readLedgers(OUT_DIR, guildId)) {
     if (l.kept && (hasUnrestored(l, 'everyone') || hasUnrestored(l, 'genieRole'))) {
       warn(`warning: kept ledger ${l.runId} holds an unrestored snapshot; run \`pnpm spike cleanup --run ${l.runId}\` when done`);
     }
@@ -93,7 +93,7 @@ async function loginGenie(token: string): Promise<Client> {
 }
 
 async function snapshotEveryone(b: Bots, guildId: string, ledger: LedgerHandle) {
-  if (!canSnapshot(await readLedgers(OUT_DIR), 'everyone')) {
+  if (!canSnapshot(await readLedgers(OUT_DIR, guildId), 'everyone')) {
     throw new ExitError(8, 'unrestored_snapshot: a ledger still holds an unrestored @everyone snapshot; run cleanup --run <id> first');
   }
   const everyone = await b.arranger.must<Role>('get', `/guilds/${guildId}/roles/${guildId}`);
@@ -101,7 +101,7 @@ async function snapshotEveryone(b: Bots, guildId: string, ledger: LedgerHandle) 
 }
 
 async function endOfRun(b: Bots, guildId: string, ids: Ids, ledger: LedgerHandle) {
-  const ledgers = await readLedgers(OUT_DIR);
+  const ledgers = await readLedgers(OUT_DIR, guildId);
   const plan = planCleanup({ kind: 'end-of-run', runId: ledger.data.runId }, ledgers, { channels: [], roles: [] });
   const result = await applyCleanup(plan, new CleanupAdapter(b.arranger, guildId, ids.genie));
   if (plan.restoreEveryone !== undefined) await markRestored(ledger, 'everyone');
@@ -235,7 +235,7 @@ export async function cleanupCommand(c: Config, scope: { run?: string; orphans?:
   const arranger = new Api(c.GENIE_SPIKE_ARRANGER_TOKEN!);
   await guarded(arranger, guildId);
   const genie = await whoAmI(new Api(c.GENIE_SPIKE_GENIE_TOKEN!));
-  const ledgers = await readLedgers(OUT_DIR);
+  const ledgers = await readLedgers(OUT_DIR, guildId);
   const channels = await arranger.must<{ id: string; name: string; type: number }[]>('get', `/guilds/${guildId}/channels`);
   const roles = await arranger.must<Role[]>('get', `/guilds/${guildId}/roles`);
   const active = await arranger.must<{ threads: { id: string; name: string }[] }>('get', `/guilds/${guildId}/threads/active`);

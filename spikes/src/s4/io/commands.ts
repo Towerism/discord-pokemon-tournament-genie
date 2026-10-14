@@ -38,8 +38,8 @@ type Seed = {
 
 const seedFile = (runId: string) => join(OUT_DIR, `s4-seed-${runId}.json`);
 
-async function latestSeed(): Promise<Seed> {
-  const ledgers = (await readLedgers(OUT_DIR)).filter((l) => l.kept).map((l) => l.runId).sort().reverse();
+async function latestSeed(guildId: string): Promise<Seed> {
+  const ledgers = (await readLedgers(OUT_DIR, guildId)).filter((l) => l.kept).map((l) => l.runId).sort().reverse();
   for (const id of ledgers) {
     const raw = await readFile(seedFile(id), 'utf8').catch(() => undefined);
     if (raw) return JSON.parse(raw) as Seed;
@@ -148,7 +148,7 @@ export async function s4Seed(c: Config, opts: { channels: number; messages: numb
 }
 
 async function endOfRun(arranger: Api, guildId: string, genieId: string, ledger: LedgerHandle) {
-  const plan = planCleanup({ kind: 'end-of-run', runId: ledger.data.runId }, await readLedgers(OUT_DIR), { channels: [], roles: [] });
+  const plan = planCleanup({ kind: 'end-of-run', runId: ledger.data.runId }, await readLedgers(OUT_DIR, guildId), { channels: [], roles: [] });
   await applyCleanup(plan, new CleanupAdapter(arranger, guildId, genieId));
   if (plan.restoreGenieRole !== undefined) await markRestored(ledger, 'genieRole');
   if (plan.restoreEveryone !== undefined) await markRestored(ledger, 'everyone');
@@ -184,7 +184,7 @@ export async function s4Measure(c: Config, opts: { contentProbe: boolean }) {
   const arranger = new Api(c.GENIE_SPIKE_ARRANGER_TOKEN!);
   const genie = new Api(c.GENIE_SPIKE_GENIE_TOKEN!);
   await guarded(arranger, guildId);
-  const seed = await latestSeed();
+  const seed = await latestSeed(guildId);
   const genieUser = await whoAmI(genie);
   const report: Record<string, unknown> = { seedRunId: seed.runId, seedMs: seed.seedMs };
 
@@ -217,7 +217,7 @@ export async function s4Measure(c: Config, opts: { contentProbe: boolean }) {
   const ledger = await createLedger(OUT_DIR, { runId: newRun(), guildId, kept: false });
   let withoutManageThreads;
   try {
-    if (!canSnapshot((await readLedgers(OUT_DIR)).filter((l) => l.runId !== ledger.data.runId), 'genieRole')) {
+    if (!canSnapshot((await readLedgers(OUT_DIR, guildId)).filter((l) => l.runId !== ledger.data.runId), 'genieRole')) {
       throw new ExitError(8, "unrestored_snapshot: a ledger still holds an unrestored snapshot of genie's role");
     }
     const roleId = await genieRoleId(arranger, guildId, genieUser.id);
@@ -271,7 +271,7 @@ export async function s4Measure(c: Config, opts: { contentProbe: boolean }) {
 /** After the recorded expiry, try the original URL and a freshly re-resolved one. */
 export async function s4CheckExpired(c: Config, file?: string) {
   const genie = new Api(c.GENIE_SPIKE_GENIE_TOKEN!);
-  const seed = file ? (JSON.parse(await readFile(file, 'utf8')) as Seed) : await latestSeed();
+  const seed = file ? (JSON.parse(await readFile(file, 'utf8')) as Seed) : await latestSeed(c.GENIE_SPIKE_GUILD_ID!);
   const rows = [];
   for (const a of seed.attachments.filter((x) => x.url)) {
     const old = await fetch(a.url!);
