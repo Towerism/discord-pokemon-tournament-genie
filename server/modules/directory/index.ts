@@ -3,7 +3,7 @@
  * only records a claim, which never grants channel access until the organizer confirms it.
  */
 import type { Clock, Logger } from '@towerism/selfhost-kit';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client';
 import { staffMember } from '../../db/schema';
 import { ServiceError, notFound } from '../errors';
@@ -94,6 +94,27 @@ export function createDirectoryService(opts: {
     byDiscordUser(userId: string): StaffMember | null {
       const r = byUser(userId);
       return r ? view(r) : null;
+    },
+    byPlayerIds(playerIds: readonly string[]): StaffMember[] {
+      const wanted = [...new Set(playerIds)];
+      return wanted.length ? db.select().from(staffMember).where(inArray(staffMember.playerId, wanted)).all().map(view) : [];
+    },
+
+    /**
+     * The directory row for an imported staffer (§5.3): the existing one, untouched, or a new `unlinked` row named
+     * after attendance's name. Attendance's names only ever seed a row; they never rename one.
+     */
+    ensureForImport(playerId: string, name: string): StaffMember {
+      const existing = byPlayer(playerId);
+      if (existing) return view(existing);
+      const now = clock.now();
+      const created = db
+        .insert(staffMember)
+        .values({ displayName: name.trim().slice(0, 64).trim() || `Player ${playerId}`, playerId, linkState: 'unlinked', createdAt: now, updatedAt: now })
+        .returning()
+        .get();
+      logger.info('Staff member created from attendance.', { staffMemberId: created.id });
+      return view(created);
     },
 
     create(input: { displayName: string; playerId?: string | null; discordUserId?: string | null }): StaffMember {
