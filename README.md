@@ -10,3 +10,5 @@ Design (accepted 2026-10-13): [`docs/architecture/`](docs/architecture/README.md
 Its platform infrastructure (vault, secret bootstrap, logging, security middleware, Docker assets, image
 and release workflows) comes from the shared
 [`@towerism/selfhost-kit`](https://github.com/Towerism/selfhost-kit) (ADR-0011).
+
+Install on Unraid: [`docs/deploy.md`](docs/deploy.md).
