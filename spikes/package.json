@@ -1,0 +1,25 @@
+{
+  "name": "@genie/spikes",
+  "private": true,
+  "description": "M0 spike harnesses (architecture §13): OAuth on a LAN, penalty form, real-guild permission cases, transcript export",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "spike": "tsx --env-file-if-exists=.env src/cli.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "discord.js": "14.27.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@vitest/coverage-v8": "^5.0.4",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.4"
+  }
+}
