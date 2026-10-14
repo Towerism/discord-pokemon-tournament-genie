@@ -51,3 +51,14 @@ export async function mintCodeOutsideGenie(discord: FakeDiscordHttp, genie: Geni
   const href = /id="authorize" href="([^"]+)"/.exec(consent)![1]!.replace(/&amp;/g, '&');
   return new URL(href).searchParams.get('code')!;
 }
+
+/** An attacker starts a real login in their own browser and stops at the callback: a genuine state and code. */
+export async function attackerCallback(discord: FakeDiscordHttp, genie: Genie, attackerId: string): Promise<{ code: string; state: string }> {
+  const { browser } = await import('./http-client');
+  const attacker = browser(genie.url);
+  discord.loginAs(attackerId);
+  const start = await attacker.get('/auth/discord');
+  const consent = await (await fetch(start.location!)).text();
+  const href = new URL(/id="authorize" href="([^"]+)"/.exec(consent)![1]!.replace(/&amp;/g, '&'));
+  return { code: href.searchParams.get('code')!, state: href.searchParams.get('state')! };
+}

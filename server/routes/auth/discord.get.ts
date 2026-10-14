@@ -1,4 +1,5 @@
-import { getCookie, getQuery } from 'h3';
+import { randomBytes } from 'node:crypto';
+import { deleteCookie, getQuery, setCookie } from 'h3';
 
 /**
  * Website login with Discord OAuth (ADR-0004), on an allowed origin only (ADR-0013). The client ID and secret
@@ -13,26 +14,39 @@ export default defineEventHandler(async (event) => {
   rateLimit(event, callback ? 'callback' : 'login');
 
   const log = useLogger('login');
-  // nuxt-auth-utils compares `state` with its cookie and treats a missing state and a missing cookie as equal
-  // (undefined === undefined). A callback without either would let anyone hand a victim a code minted for
-  // their own account: a login CSRF that, during setup, binds the attacker as owner. Refuse it here.
-  if (query.code !== undefined) {
-    const state = typeof query.state === 'string' ? query.state : '';
-    if (!state || !getCookie(event, 'nuxt-auth-state')) {
-      log.warn('Discord login callback without its state; refused.');
-      return sendRedirect(event, '/login?error=login_failed');
-    }
-  }
-
   const client = await handled(() => useSetup().oauthClient());
   if (!client) return sendRedirect(event, '/setup');
-
   const { discord } = useRuntimeConfig(event);
+  const redirectURL = oauthRedirectUrl(origin, originConfig());
+
+  if (query.code === undefined && query.error === undefined) {
+    // Genie starts the login itself so the expected state lives in the sealed session. nuxt-auth-utils keeps it
+    // only in a plain cookie, which a sibling subdomain or another localhost port can plant (login CSRF). The
+    // same value goes into the library's cookie, so its own check on the callback still applies.
+    const state = randomBytes(32).toString('base64url');
+    await setUserSession(event, { oauthState: state });
+    setCookie(event, 'nuxt-auth-state', state, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' });
+    const authorize = new URL(discord.authorizeUrl);
+    for (const [key, value] of Object.entries({ response_type: 'code', client_id: client.clientId, redirect_uri: redirectURL, scope: 'identify', state })) {
+      authorize.searchParams.set(key, value);
+    }
+    return sendRedirect(event, authorize.toString());
+  }
+
+  // A callback must carry the state of the login this browser started. Anything else is someone else's code.
+  const session = await getUserSession(event);
+  const state = typeof query.state === 'string' ? query.state : '';
+  if (!session.oauthState || state !== session.oauthState) {
+    log.warn('Discord login callback that this browser did not start; refused.');
+    deleteCookie(event, 'nuxt-auth-state', { path: '/' });
+    return sendRedirect(event, '/login?error=login_failed');
+  }
+
   const login = defineOAuthDiscordEventHandler({
     config: {
       clientId: client.clientId,
       clientSecret: client.clientSecret,
-      redirectURL: oauthRedirectUrl(origin, originConfig()),
+      redirectURL,
       scope: ['identify'],
       authorizationURL: discord.authorizeUrl,
       tokenURL: discord.tokenUrl,

@@ -13,6 +13,8 @@ declare module '#auth-utils' {
     grant?: Grant;
     checkedAt?: number;
     setup?: { bootId: string };
+    /** The OAuth state of the login this browser started; sealed, so no other site can plant it. */
+    oauthState?: string;
   }
 }
 

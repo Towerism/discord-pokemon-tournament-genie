@@ -5,7 +5,7 @@ import { type FakeDiscordHttp, startFakeDiscordHttp } from '../support/fake-disc
 import { IDS, storeWorld } from '../support/discord-world';
 import { type Genie, startGenie } from '../support/genie-process';
 import { browser } from '../support/http-client';
-import { completeSetup, credentials, expectNoSecrets, loginThroughDiscord, mintCodeOutsideGenie, replyTexts, unlock } from '../support/flows';
+import { attackerCallback, completeSetup, credentials, expectNoSecrets, loginThroughDiscord, mintCodeOutsideGenie, replyTexts, unlock } from '../support/flows';
 
 let fake: ReturnType<typeof createFakeDiscord>;
 let discord: FakeDiscordHttp;
@@ -156,6 +156,25 @@ describe('the guild, owner and roles steps', () => {
     const res = await victim.get(link(code));
     expect(res.location).toBe('/login?error=login_failed');
     expect((await victim.get('/api/setup')).json()).toMatchObject({ ownerId: ownerBefore });
+  });
+
+  it("never binds an attacker who hands over their own login's state and code", async () => {
+    const victim = browser(genie.url);
+    await unlock(victim, genie);
+    const ownerBefore = (await victim.get('/api/setup')).json<{ ownerId: string | null }>().ownerId;
+    const { code, state } = await attackerCallback(discord, genie, IDS.member);
+
+    // The victim never started a login.
+    expect((await victim.get(`/auth/discord?code=${code}&state=${state}`)).location).toBe('/login?error=login_failed');
+    // A sibling site planted the state cookie (cookies ignore ports and can be set for a parent domain).
+    victim.cookies.set('nuxt-auth-state', state);
+    expect((await victim.get(`/auth/discord?code=${code}&state=${state}`)).location).toBe('/login?error=login_failed');
+    // The victim started a login of their own, then followed the attacker's link.
+    await victim.get('/auth/discord');
+    const second = await attackerCallback(discord, genie, IDS.member);
+    expect((await victim.get(`/auth/discord?code=${second.code}&state=${second.state}`)).location).toBe('/login?error=login_failed');
+
+    expect((await victim.get('/api/setup')).json()).toMatchObject({ ownerId: ownerBefore, unlocked: true });
   });
 
   it('maps roles for the owner only', async () => {
