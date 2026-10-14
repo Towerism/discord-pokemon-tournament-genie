@@ -194,7 +194,8 @@ server/
   bootstrap/
     secrets.ts                the secret specs (kit `sessionPassword()` + `aes256Key` for vault.key); no side effects
     launcher.ts               kit `runLauncher` + `prepareRuntimeEnv`; runs before Nitro; imports secrets.ts
-  utils/                      kit wiring: builds the vault, logger (redactor + `secretKeyNames`), limiters
+  utils/                      kit wiring: builds the vault, logger (redactor; imports secrets.ts for
+                              `secretKeyNames`), limiters
   middleware/                 one line each: the kit's `jsonOnly`, `bodySizeLimit`
   api/                        thin Nitro routes (§7)
   bot/                        interaction router: slash commands, buttons, modals → module services
@@ -819,7 +820,8 @@ logged (§4.1).
   replicates only the database, never `secrets/`. Restore `secrets/` with `app.db`.
 - **Logs:** structured, through the kit's logger. Redaction is the kit's base key list (credentials such
   as token, secret, clientSecret, authorization, cookie) plus Genie's extras: `content`, `notes`,
-  `botToken`, `attendanceToken` and the env names of Genie's secrets (`secretKeyNames`).
+  `botToken`, `attendanceToken` and the env names of Genie's secrets (`secretKeyNames`). Keys match by
+  name, so a secret logged under any other property name needs its own entry.
 
 ## 11. Testing strategy (outline)
 

@@ -58,8 +58,9 @@ Option 1.
   website login is written to `login_audit` with the grant that admitted it (`owner`, `organizer_role`,
   `allowlist`, `event_head_judge`). The allowlist is there for owners who don't trust everyone with
   Manage Roles.
-- Sealed session cookies; the JSON-only CSRF guard, rate limits and security headers come from
-  `@towerism/selfhost-kit`'s `jsonOnly`, `enforceRateLimit` and `securityHeadersPlugin` (ADR-0011).
+- Session cookies are sealed by `nuxt-auth-utils`. The JSON-only CSRF guard, rate limits and security
+  headers come from `@towerism/selfhost-kit`'s `jsonOnly`, `enforceRateLimit` and `securityHeadersPlugin`
+  (ADR-0011).
 
 ## Consequences
 
