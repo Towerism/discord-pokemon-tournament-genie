@@ -10,7 +10,7 @@ const ATTEMPTS = join(OUT_DIR, 's1-attempts.jsonl');
 
 const append = (a: S1Attempt) => appendFile(ATTEMPTS, `${JSON.stringify(a)}\n`);
 
-/** FR-8: two routes. Binds to 127.0.0.1 unless --host is given (FR-8a). */
+/** Two routes. Binds to 127.0.0.1 unless --host is given. */
 export async function s1Serve(c: Config, opts: { redirect: string; host: string; port: number; cookieMode: CookieMode }) {
   const redirectPath = new URL(opts.redirect).pathname;
   const server = createServer(async (req, res) => {
@@ -55,7 +55,7 @@ export async function s1Serve(c: Config, opts: { redirect: string; host: string;
   await new Promise<void>((resolve) => process.once('SIGINT', () => server.close(() => resolve())));
 }
 
-/** EC-7: outcomes Discord shows on its own pages (portal or authorize rejection). */
+/** Outcomes Discord shows on its own pages (portal or authorize rejection). */
 export async function s1Note(opts: { redirect: string; outcome: S1Outcome; cookieMode: CookieMode; detail?: string }) {
   const a: S1Attempt = {
     at: new Date().toISOString(),

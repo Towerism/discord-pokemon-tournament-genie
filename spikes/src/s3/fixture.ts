@@ -138,7 +138,7 @@ function sortKeys(value: unknown): unknown {
   return value;
 }
 
-/** Deterministic: sorted keys, catalog order, two-space indent, trailing newline (NFR-2). */
+/** Deterministic: sorted keys, catalog order, two-space indent, trailing newline. */
 export function serializeFixture(f: Fixture): string {
   return `${JSON.stringify(sortKeys(FixtureSchema.parse(f)), null, 2)}\n`;
 }
@@ -147,7 +147,7 @@ export function fixtureJsonSchema(): string {
   return `${JSON.stringify(sortKeys(z.toJSONSchema(FixtureSchema)), null, 2)}\n`;
 }
 
-/** Case IDs whose recorded content differs; meta (recordedAt, passIds) is ignored (EC-14). */
+/** Case IDs whose recorded content differs; meta (recordedAt, passIds) is ignored. */
 export function changedCases(existingText: string | undefined, next: Fixture): string[] {
   if (existingText === undefined) return [];
   const old = JSON.parse(existingText) as Fixture;

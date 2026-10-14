@@ -17,7 +17,7 @@ export interface ArrangePort {
   setEveryoneBase(perms: PermissionName[]): Promise<void>;
   /** Creates the case's `spike-` roles (ledgered) and returns key → ID. */
   ensureRoles(roles: RoleSpec[]): Promise<Record<string, string>>;
-  /** Sets the member's `spike-` roles to exactly these, removing leftovers (EC-5). */
+  /** Sets the member's `spike-` roles to exactly these, removing leftovers. */
   ensureMemberRoles(userId: string, roleIds: string[]): Promise<void>;
   createTarget(spec: TargetSpec): Promise<{ channelId: string; categoryId?: string }>;
   createParentCategory(name: string, overwrites: ResolvedOverwrite[]): Promise<string>;

@@ -5,7 +5,7 @@ const MISSING_PERMISSIONS = 50013;
 const UNKNOWN_CHANNEL = 10003;
 const ARCHIVED_THREAD = 50083;
 
-/** Maps one attempt's HTTP outcome to what it says about the subject's ability (FR-19). */
+/** Maps one attempt's HTTP outcome to what it says about the subject's ability. */
 export function interpret(action: Action, outcome: Outcome, seededMessageId: string): Observation {
   if (outcome.kind === 'network') return 'inconclusive';
   const { status, code, body } = outcome;

@@ -41,7 +41,7 @@ async function identities(b: Bots): Promise<Ids> {
 
 type Role = { id: string; name: string; position: number; permissions: string; tags?: { bot_id?: string } };
 
-/** FR-16: genie's managed role is exactly §4.1, nobody's Administrator but the arranger's, role order right. */
+/** Genie's managed role is exactly §4.1, nobody's Administrator but the arranger's, role order right. */
 export async function preflight(b: Bots, guildId: string, ids: Ids, printInvite?: string): Promise<{ genieRolePermissions: string[] }> {
   const roles = await b.arranger.must<Role[]>('get', `/guilds/${guildId}/roles`);
   const member = (userId: string) => b.arranger.must<{ roles: string[] }>('get', `/guilds/${guildId}/members/${userId}`);
@@ -146,7 +146,7 @@ export async function s3Record(c: Config, opts: { acceptChanges: boolean; keep: 
         if (pass.stop) {
           throw new ExitError(7, `profile_unwritable: ${pass.stop.caseIds.join(', ')}\n${JSON.stringify(pass.writes, null, 2)}`);
         }
-        for (const id of pass.amendmentRequired) warn(`create path unwritable (${id}): an FR-33 amendment to §6.3 is required`);
+        for (const id of pass.amendmentRequired) warn(`create path unwritable (${id}): an architecture amendment to §6.3 is required`);
       } finally {
         await endOfRun(b, guildId, ids, ledger);
       }

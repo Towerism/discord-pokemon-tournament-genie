@@ -36,7 +36,7 @@ function orphans(ledgers: Ledger[], guild: GuildSnapshot): ResourceRef[] {
   ];
 }
 
-/** Plans deletions and restores. Nothing without the `spike-` prefix is ever planned for deletion (NFR-1). */
+/** Plans deletions and restores. Nothing without the `spike-` prefix is ever planned for deletion. */
 export function planCleanup(scope: CleanupScope, ledgers: Ledger[], guild: GuildSnapshot): CleanupPlan {
   let resources: ResourceRef[] = [];
   let restores: Pick<CleanupPlan, 'restoreEveryone' | 'restoreGenieRole'> = {};

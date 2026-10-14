@@ -47,7 +47,7 @@ async function latestSeed(): Promise<Seed> {
   throw new ExitError(1, 'no kept S4 seed found; run `pnpm spike s4 seed` first');
 }
 
-/** FR-26: a busy day across channels and six threads, with attachments at the upload cap's edges. */
+/** A busy day across channels and six threads, with attachments at the upload cap's edges. */
 export async function s4Seed(c: Config, opts: { channels: number; messages: number; keep: boolean }) {
   const guildId = c.GENIE_SPIKE_GUILD_ID!;
   const arranger = new Api(c.GENIE_SPIKE_ARRANGER_TOKEN!);
@@ -76,7 +76,7 @@ export async function s4Seed(c: Config, opts: { channels: number; messages: numb
     for (let i = 0; i < opts.channels; i++) channels.push(await create(`${prefix}-s4-${i + 1}`, ChannelType.GuildText, category));
 
     const plan = planSeed(opts);
-    // One sequential loop per author (NFR-5), round-robin over channels.
+    // One sequential loop per author, round-robin over channels.
     const jobs = plan.perChannel.flatMap((count, ch) => Array.from({ length: count }, (_, i) => ({ ch: channels[ch]!, i })));
     await Promise.all(
       authors.map(async (api, a) => {
@@ -178,7 +178,7 @@ async function listing(genie: Api, route: `/${string}`, pick: (b: unknown) => st
 
 const threadIds = (b: unknown) => ((b as { threads?: { id: string }[] }).threads ?? []).map((t) => t.id);
 
-/** FR-27–FR-30. Reads as genie; Manage Threads is removed and restored around listing (b). */
+/** Reads as genie; Manage Threads is removed and restored around listing (b). */
 export async function s4Measure(c: Config, opts: { contentProbe: boolean }) {
   const guildId = c.GENIE_SPIKE_GUILD_ID!;
   const arranger = new Api(c.GENIE_SPIKE_ARRANGER_TOKEN!);
@@ -268,7 +268,7 @@ export async function s4Measure(c: Config, opts: { contentProbe: boolean }) {
   log(`wrote ${join(OUT_DIR, `s4-report-${seed.runId}.json`)}`);
 }
 
-/** FR-29: after the recorded expiry, try the original URL and a freshly re-resolved one. */
+/** After the recorded expiry, try the original URL and a freshly re-resolved one. */
 export async function s4CheckExpired(c: Config, file?: string) {
   const genie = new Api(c.GENIE_SPIKE_GENIE_TOKEN!);
   const seed = file ? (JSON.parse(await readFile(file, 'utf8')) as Seed) : await latestSeed();

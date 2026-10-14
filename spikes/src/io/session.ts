@@ -25,7 +25,7 @@ let redact: (s: string) => string = (s) => s;
 export const log = (...parts: unknown[]) => console.log(redact(parts.map(String).join(' ')));
 export const warn = (...parts: unknown[]) => console.error(redact(parts.map(String).join(' ')));
 
-/** Validates config (FR-2), makes `spikes/out/` writable (EC-13), and installs the redactor (FR-7). */
+/** Validates config, makes `spikes/out/` writable, and installs the redactor. */
 export async function startSession(needed: ConfigKey[]) {
   const result = loadConfig(process.env, needed);
   if (!result.ok) throw new ExitError(1, result.message);
@@ -41,7 +41,7 @@ export async function startSession(needed: ConfigKey[]) {
 
 export const runId = () => newRunId(new Date(), (n) => randomBytes(n));
 
-/** FR-3: refuse with exit 2 unless this is the configured, marked test guild. */
+/** Refuse with exit 2 unless this is the configured, marked test guild. */
 export async function guarded(api: Api, guildId: string): Promise<{ id: string; name: string; owner_id: string }> {
   const guild = await api.must<{ id: string; name: string; owner_id: string }>('get', `/guilds/${guildId}`);
   const g = guard(guild, guildId);

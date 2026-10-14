@@ -9,7 +9,7 @@ export type Ledger = {
   runId: string;
   guildId: string;
   kept: boolean;
-  /** Bitfields captured before the harness changed them (FR-6). */
+  /** Bitfields captured before the harness changed them. */
   everyoneBaseSnapshot?: string;
   genieRoleSnapshot?: string;
   restored: SnapshotKind[];
@@ -73,7 +73,7 @@ export function hasUnrestored(ledger: Ledger, kind: SnapshotKind): boolean {
   return snapshotOf(ledger, kind) !== undefined && !ledger.restored.includes(kind);
 }
 
-/** A new snapshot would capture already-modified state while an older one is unrestored (FR-6). */
+/** A new snapshot would capture already-modified state while an older one is unrestored. */
 export function canSnapshot(ledgers: Ledger[], kind: SnapshotKind): boolean {
   return !ledgers.some((l) => hasUnrestored(l, kind));
 }

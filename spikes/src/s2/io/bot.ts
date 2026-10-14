@@ -11,7 +11,7 @@ import { RunTracker, summarize, type S2Outcome, type S2Run } from '../timing.js'
 const RUNS = join(OUT_DIR, 's2-runs.jsonl');
 const record = (r: S2Run) => appendFile(RUNS, `${JSON.stringify(r)}\n`);
 
-/** FR-11–FR-13. The device label is fixed for the session, outside every timed window. */
+/** The device label is fixed for the session, outside every timed window. */
 export async function s2Bot(c: Config, opts: { device: string }) {
   const guildId = c.GENIE_SPIKE_GUILD_ID!;
   const api = new Api(c.GENIE_SPIKE_GENIE_TOKEN!);
@@ -65,7 +65,7 @@ export async function s2Bot(c: Config, opts: { device: string }) {
   await new Promise<void>((resolve) => process.once('SIGINT', () => resolve()));
   clearInterval(timer);
   for (const r of tracker.close()) await record(r);
-  // NFR-1: the two guild commands go away with the bot; the channel goes with `cleanup --run`.
+  // The two guild commands go away with the bot; the channel goes with `cleanup --run`.
   await api.call('put', `/applications/${appId}/guilds/${guildId}/commands`, { body: [] });
   await api.call('delete', `/channels/${channelId}`);
   await client.destroy();
@@ -84,7 +84,7 @@ export async function s2Summarize() {
   }
 }
 
-/** EC-10: a run that never reached the bot (e.g. the client can't show Variant B's modal). */
+/** A run that never reached the bot (e.g. the client can't show Variant B's modal). */
 export async function s2Note(opts: { variant: Variant; device: string; outcome: S2Outcome; note?: string }) {
   await record({ variant: opts.variant, device: opts.device, startId: 'manual', outcome: opts.outcome, ...(opts.note ? { note: opts.note } : {}) });
   log(`noted ${opts.variant} ${opts.outcome}`);

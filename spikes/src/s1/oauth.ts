@@ -9,7 +9,7 @@ export type S1Outcome =
   | 'token_exchange_failed'
   | 'user_fetch_failed';
 
-/** One line of `spikes/out/s1-attempts.jsonl`. Never holds the code, a token or the secret (FR-9). */
+/** One line of `spikes/out/s1-attempts.jsonl`. Never holds the code, a token or the secret. */
 export type S1Attempt = {
   at: string;
   redirectUri: string;

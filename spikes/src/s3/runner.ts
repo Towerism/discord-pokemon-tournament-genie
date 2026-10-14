@@ -61,7 +61,7 @@ export type Prepared =
   | { ok: true; result: CaseResult; targetId: string; threadId?: string; seededMessageId: string }
   | { ok: false; result: CaseResult };
 
-/** Arrange and write (FR-18 steps 1–3). `s3 stage` stops here; the recorder goes on to observe. */
+/** Arrange and write. `s3 stage` stops here; the recorder goes on to observe. */
 export async function prepareCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunContext): Promise<Prepared> {
   const result = emptyResult(c);
   const ids = await arrangeMembers(c, ports, ctx);
@@ -99,7 +99,7 @@ export async function prepareCase(c: EffectiveCase, ports: RunnerPorts, ctx: Run
   return { ok: true, result, targetId, seededMessageId, ...(threadId ? { threadId } : {}) };
 }
 
-/** Arrange → write → observe for one effective-permission case (FR-18). */
+/** Arrange → write → observe for one effective-permission case. */
 export async function runCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunContext): Promise<CaseResult> {
   const prepared = await prepareCase(c, ports, ctx);
   if (!prepared.ok) return prepared.result;
@@ -128,7 +128,7 @@ export async function runCase(c: EffectiveCase, ports: RunnerPorts, ctx: RunCont
   return result;
 }
 
-/** One write case: arrange its context, let genie attempt the write, read back what Discord stored (FR-21). */
+/** One write case: arrange its context, let genie attempt the write, read back what Discord stored. */
 export async function runWriteCase(c: WriteCase, ports: RunnerPorts, ctx: RunContext): Promise<WriteCaseRecord> {
   const ids = await arrangeMembers(c, ports, ctx);
   const name = caseName(ctx, c);
@@ -173,7 +173,7 @@ export function isUnwritable(c: WriteCase, r: WriteCaseRecord): boolean {
   return r.result === 'refused' || !r.stored || !sameOverwrites(r.stored, c.attempted);
 }
 
-/** FR-22's rules: an unwritable edit path stops; a create path stops only if the fallback is unwritable too. */
+/** The stop rules: an unwritable edit path stops; a create path stops only if the fallback is unwritable too. */
 export function evaluateProduction(
   cases: WriteCase[],
   records: WriteCaseRecord[],

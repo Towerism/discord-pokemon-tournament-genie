@@ -9,7 +9,7 @@ const observationKey = (r: CaseResult) =>
 
 const writeKey = (w: WriteCaseRecord) => JSON.stringify([w.result, w.code ?? null, w.stored ?? null]);
 
-/** Two passes on fresh resources must agree on every observation and write outcome (FR-22). */
+/** Two passes on fresh resources must agree on every observation and write outcome. */
 export function checkStability(a: PassResult, b: PassResult): { stable: true } | { stable: false; caseIds: string[] } {
   const failing = new Set<string>();
   if (a.stop) a.stop.caseIds.forEach((id) => failing.add(id));

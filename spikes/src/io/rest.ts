@@ -10,7 +10,7 @@ export class Api {
     this.rest = new REST({ version: '10' }).setToken(token);
   }
 
-  /** Never throws on an HTTP error: the outcome is data (FR-19). */
+  /** Never throws on an HTTP error: the outcome is data. */
   async call(
     method: 'get' | 'post' | 'patch' | 'put' | 'delete',
     route: Route,

@@ -26,7 +26,7 @@ export function s2Duration(startId: string, submitId: string): { ms: number } | 
 type Event = { variant: Variant; userId: string; id: string };
 type Open = { startId: string; commandId?: string };
 
-/** Pairs each judge's Start press with their next submit of the same variant (FR-13). */
+/** Pairs each judge's Start press with their next submit of the same variant. */
 export class RunTracker {
   private readonly open = new Map<string, Open>();
 

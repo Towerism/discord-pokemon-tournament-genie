@@ -5,7 +5,7 @@ export type StagePlan = {
   caseDef: EffectiveCase;
   subjectUserId: string;
   actions: readonly Action[];
-  /** A staged case stays up, with its base, until `cleanup --run` (FR-6, FR-24). */
+  /** A staged case stays up, with its base, until `cleanup --run`. */
   kept: true;
   restoreAtEnd: false;
 };

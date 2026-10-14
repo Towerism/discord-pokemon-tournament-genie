@@ -38,7 +38,7 @@ const CAN_FIND: Record<ThreadKind, ListingName[]> = {
 export type ThreadListingRow = { id: string; kind: ThreadKind; foundBy: ListingName[]; missed: boolean; undetermined?: true };
 export type ThreadListingReport = { rows: ThreadListingRow[]; errors: Partial<Record<ListingName, ListingError>> };
 
-/** A thread is `missed` only if a listing that should return it succeeded and didn't (FR-28, EC-11). */
+/** A thread is `missed` only if a listing that should return it succeeded and didn't. */
 export function threadListingReport(seeded: SeededThread[], listings: Partial<Record<ListingName, Listing>>): ThreadListingReport {
   const errors: ThreadListingReport['errors'] = {};
   const found = new Map<ListingName, Set<string>>();

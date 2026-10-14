@@ -40,7 +40,7 @@ export function checkGenieRole(rolePermissions: string[], anyRoleGrantsAdministr
 
 export type RoleOrder = { arranger: number; arrangerAdmin: boolean; genie: number; spikeRoles: number[]; probes: number[] };
 
-/** arranger > genie > every `spike-` role > the probes, and the arranger is an Administrator (FR-16). */
+/** arranger > genie > every `spike-` role > the probes, and the arranger is an Administrator. */
 export function checkRoleOrder(o: RoleOrder): { ok: boolean; problems: string[] } {
   const problems: string[] = [];
   if (!o.arrangerAdmin) problems.push('arranger lacks Administrator');
