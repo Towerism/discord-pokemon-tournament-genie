@@ -517,24 +517,25 @@ export function createEventDaysService(opts: {
 
         const before = staffEntries(dayId);
         const desiredBefore = desiredFor(dayId);
-        // A full replace keeps the imported flags of what survives it: a refresh may only take back what it brought.
+        // A full replace keeps the imported flags of what survives it unchanged: a refresh may only take back what it
+        // brought. A role the organizer changed by hand is theirs from then on.
         const importedDay = new Set(
           db.select().from(dayStaff).where(and(eq(dayStaff.dayId, dayId), eq(dayStaff.imported, true))).all().map((r) => r.staffMemberId),
         );
-        const importedRoles = new Set(
+        const importedRoles = new Map(
           db
-            .select({ eventId: eventStaff.eventId, staffMemberId: eventStaff.staffMemberId })
+            .select({ eventId: eventStaff.eventId, staffMemberId: eventStaff.staffMemberId, role: eventStaff.role })
             .from(eventStaff)
             .where(and(inArray(eventStaff.eventId, [...eventIds, -1]), eq(eventStaff.imported, true)))
             .all()
-            .map((r) => `${r.eventId}:${r.staffMemberId}`),
+            .map((r) => [`${r.eventId}:${r.staffMemberId}`, r.role]),
         );
         db.delete(eventStaff).where(inArray(eventStaff.eventId, [...eventIds, -1])).run();
         db.delete(dayStaff).where(eq(dayStaff.dayId, dayId)).run();
         for (const s of staff) {
           db.insert(dayStaff).values({ dayId, staffMemberId: s.staffMemberId, imported: importedDay.has(s.staffMemberId) }).run();
           for (const e of s.events) {
-            const imported = importedRoles.has(`${e.eventId}:${s.staffMemberId}`);
+            const imported = importedRoles.get(`${e.eventId}:${s.staffMemberId}`) === e.role;
             db.insert(eventStaff).values({ eventId: e.eventId, staffMemberId: s.staffMemberId, role: e.role, imported }).run();
           }
         }

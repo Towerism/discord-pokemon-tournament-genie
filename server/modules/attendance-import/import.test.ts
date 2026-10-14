@@ -182,6 +182,28 @@ describe('a refresh of an open day', () => {
     expect(again.diff.notRefreshed).toEqual([]);
   });
 
+  it('removes a staffer from a kept event and revokes their access at once', async () => {
+    const { dayId, oak } = await openDayWithOakEvent();
+    serve({
+      tournaments: [
+        tournament('oak-t', { name: 'Oak Cup', organizer: { playerId: 'oak', name: 'Prof. Oak' }, staff: [] }),
+        tournament('elm-t', { name: 'Elm Cup', organizer: { playerId: 'elm', name: 'Prof. Elm' }, staff: [['1003', 'judge']] }),
+      ],
+      professors: [professor.read('oak'), professor.read('elm')],
+    });
+
+    const pulled = await imports.pull(dayId, ORGANIZER);
+    expect(pulled.dayState).toBe('open');
+    const brock = w.directory.list().find((s) => s.playerId === '1002')!;
+    expect(keysOf(pulled.diff)).toEqual([`staff-:${oak.id}:${brock.id}`]);
+    const accepted = imports.accept(dayId, { snapshotId: pulled.snapshotId, planRevision: pulled.planRevision, keys: keysOf(pulled.diff) });
+
+    expect(accepted.syncJobId).not.toBeNull();
+    await w.jobs.runDue();
+    expect(w.staffViewers('oak-cup-floor')).toEqual([]);
+    expect(w.staffViewers('day-staff')).toEqual([PEOPLE.misty]);
+  });
+
   it('refuses an accept made against the draft day once the day has been opened', async () => {
     w.directory.create({ displayName: 'Brock', playerId: '1002', discordUserId: PEOPLE.brock });
     const dayId = newDay();
@@ -279,10 +301,26 @@ describe('accepting', () => {
     throw new Error('expected a refusal');
   });
 
-  it('refuses edits made after the pull', async () => {
+  it('refuses edits made after the pull, even when the caller sends the new revision', async () => {
     const { dayId, pulled } = await pulledDay();
     w.days.patchDay(dayId, { title: 'Edited' });
     expect(await refusal(() => imports.accept(dayId, { snapshotId: pulled.snapshotId, planRevision: pulled.planRevision, keys: [] }))).toBe('409 plan_changed');
+    expect(await refusal(() => imports.accept(dayId, { snapshotId: pulled.snapshotId, planRevision: planRevision(dayId), keys: [] }))).toBe('409 plan_changed');
+  });
+
+  it('treats a role the organizer changed by hand as theirs: a refresh flags it and never removes it', async () => {
+    const dayId = newDay();
+    serve({ tournaments: [tournament('t', { staff: [['901', 'judge']] })] });
+    await pullAndAcceptAll(dayId);
+    const plan = w.days.plan(dayId);
+    const [event] = plan.events;
+    w.days.putStaff(dayId, [{ staffMemberId: plan.staff[0]!.staffMemberId, events: [{ eventId: event!.id, role: 'headjudge' }] }]);
+
+    const unchanged = await imports.pull(dayId, ORGANIZER);
+    expect(unchanged.diff.items).toEqual([expect.objectContaining({ kind: 'role_changed', from: 'headjudge', to: 'judge', setByHand: true })]);
+
+    serve({ tournaments: [tournament('t', { staff: [] })] });
+    expect((await imports.pull(dayId, ORGANIZER)).diff.items).toEqual([]);
   });
 });
 

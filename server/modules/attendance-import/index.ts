@@ -31,6 +31,8 @@ export const SNAPSHOT_TTL_MS = 60 * 60_000;
 export interface Pulled {
   snapshotId: string;
   planRevision: number;
+  /** The day's state the diff was made against: what its removals mean (delete or retire, revoking at once). */
+  dayState: 'draft' | 'open';
   fetchedAt: number;
   diff: ImportDiff;
 }
@@ -123,7 +125,7 @@ export function createAttendanceImportService(opts: {
         items: diff.items.length,
         unreadProfessors: diff.unreadProfessors.map((p) => p.playerId),
       });
-      return { snapshotId, planRevision, fetchedAt, diff };
+      return { snapshotId, planRevision, dayState, fetchedAt, diff };
     },
 
     accept(dayId: number, input: { snapshotId: string; planRevision: number; keys: string[] }): { plan: DayPlanCore; applied: number; syncJobId: number | null } {
@@ -134,7 +136,7 @@ export function createAttendanceImportService(opts: {
           throw new ServiceError(409, 'snapshot_stale', 'This import is out of date. Refresh from attendance again.');
         }
         // Opening the day doesn't bump the revision, but a removal means something else on an open day.
-        if (input.planRevision !== state.planRevision || snapshot.dayState !== state.dayState) {
+        if (input.planRevision !== state.planRevision || snapshot.planRevision !== state.planRevision || snapshot.dayState !== state.dayState) {
           throw new ServiceError(409, 'plan_changed', 'The plan changed since the import was pulled. Refresh from attendance again.');
         }
         const day = JSON.parse(snapshot.payload) as AttendanceDay;

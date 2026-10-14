@@ -194,7 +194,6 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
       <AttendanceImport
         v-if="importable"
         :day-id="dayId"
-        :day-state="plan.day.state"
         :source="plan.day.attendance.source"
         :refreshed-at="plan.day.attendance.refreshedAt"
         :event-name="(id: number) => eventName(id)"

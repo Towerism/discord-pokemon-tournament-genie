@@ -29,18 +29,19 @@ type Item =
 interface Pulled {
   snapshotId: string;
   planRevision: number;
+  /** The state the diff was made against: the page's own copy of the day may be stale. */
+  dayState: 'draft' | 'open';
   fetchedAt: number;
   diff: {
     items: Item[];
     notRefreshed: { eventId: number; name: string; organizer: { name: string | null; playerId: string }; status: string }[];
-    unreadProfessors: { name: string; reason: string }[];
+    unreadProfessors: { playerId: string; name: string; reason: string }[];
     skipped: { tournamentId: string; playerId: string; reason: string }[];
   };
 }
 
 const props = defineProps<{
   dayId: number;
-  dayState: string;
   source: 'manual' | 'attendance';
   refreshedAt: number | null;
   eventName: (id: number) => string;
@@ -68,8 +69,8 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
 const gameLabel = (g: Game) => (g === 'other' ? 'other' : g.toUpperCase());
 
 /** Whether an item starts checked: never one that may revoke access on an open day or undo a hand edit. */
-function startsChecked(item: Item): boolean {
-  const open = props.dayState === 'open';
+function startsChecked(item: Item, dayState: string): boolean {
+  const open = dayState === 'open';
   if (item.kind === 'event_removed') return !open && item.rolesEnded.byHand === 0 && !item.uncertain;
   if (item.kind === 'staff_removed') return !open;
   if (item.kind === 'role_changed') return !open && !item.setByHand;
@@ -107,7 +108,7 @@ function describe(item: Item): string {
 
 function warnings(item: Item): string[] {
   const out: string[] = [];
-  const open = props.dayState === 'open';
+  const open = pulled.value?.dayState === 'open';
   if (open && (item.kind === 'event_removed' || item.kind === 'staff_removed' || item.kind === 'role_changed')) out.push('Accepting may revoke access at once.');
   if (item.kind === 'event_removed' && item.byHandStaff.length) out.push(`Also ends roles you added by hand: ${item.byHandStaff.join(', ')}.`);
   if (item.kind === 'event_removed' && item.uncertain) out.push('A professor couldn’t be read: this tournament may have moved to them.');
@@ -152,7 +153,7 @@ async function pull() {
   busy.value = true;
   try {
     pulled.value = await apiFetch<Pulled>(`/api/days/${props.dayId}/import`, { method: 'POST' });
-    checked.value = Object.fromEntries(pulled.value.diff.items.map((i) => [i.key, startsChecked(i)]));
+    checked.value = Object.fromEntries(pulled.value.diff.items.map((i) => [i.key, startsChecked(i, pulled.value!.dayState)]));
     isOpen.value = true;
   } catch (err) {
     error.value = explain(err);
@@ -212,7 +213,7 @@ const ago = computed(() => {
         <div v-if="pulled" class="space-y-4 text-sm">
           <UAlert
             v-for="p in pulled.diff.unreadProfessors"
-            :key="p.name"
+            :key="p.playerId"
             color="warning"
             :title="`${p.name} ${REASONS[p.reason] ?? p.reason}: their tournaments weren't refreshed.`"
           />

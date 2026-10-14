@@ -197,7 +197,13 @@ export const dayTemplateEvent = sqliteTable(
   (t) => [check('day_template_event_game', sql`${t.game} in ('tcg', 'vgc', 'go', 'other')`)],
 );
 
-/** An event day. The state never moves backwards (§5.2); revisions drive sync state and the revocation alarm. */
+/**
+ * An event day. The state never moves backwards (§5.2); revisions drive sync state and the revocation alarm.
+ *
+ * Migrations: never let drizzle-kit rebuild this table (or `event`, `day_staff`, `event_staff`). The migrator runs in
+ * a transaction, where PRAGMA foreign_keys=OFF does nothing, so dropping it cascade-deletes every event and its staff.
+ * Hand-write column additions instead (see 0002_m3_attendance_import.sql).
+ */
 export const eventDay = sqliteTable(
   'event_day',
   {

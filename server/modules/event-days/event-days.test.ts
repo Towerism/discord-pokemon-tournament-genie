@@ -293,21 +293,30 @@ describe('staff and revisions', () => {
     expect(dayRow(day.id).planRevision).toBe(before + 1);
   });
 
-  it('keeps the imported flags of every role and day staffer a replace keeps', () => {
+  it('keeps the imported flags of every unchanged role and day staffer a replace keeps; a role changed by hand is the organizer’s', () => {
     const { a, b, c, day, lc, vgc } = staffedDay();
     database.sqlite.prepare('UPDATE event_staff SET imported = 1').run();
     database.sqlite.prepare('UPDATE day_staff SET imported = 1').run();
+    const flags = () => database.sqlite.prepare('SELECT event_id AS e, role, imported FROM event_staff ORDER BY event_id').all();
+
+    days.putStaff(day.id, [
+      { staffMemberId: a.id, events: [{ eventId: lc.id, role: 'judge' }, { eventId: vgc.id, role: 'judge' }] },
+      { staffMemberId: b.id, events: [] },
+      { staffMemberId: c.id, events: [] },
+    ]);
+    expect(flags()).toEqual([
+      { e: lc.id, role: 'judge', imported: 1 },
+      { e: vgc.id, role: 'judge', imported: 0 },
+    ]);
 
     days.putStaff(day.id, [
       { staffMemberId: a.id, events: [{ eventId: lc.id, role: 'headjudge' }, { eventId: vgc.id, role: 'judge' }] },
       { staffMemberId: b.id, events: [] },
       { staffMemberId: c.id, events: [] },
     ]);
-
-    const flags = database.sqlite.prepare('SELECT event_id AS e, imported FROM event_staff ORDER BY event_id').all();
-    expect(flags).toEqual([
-      { e: lc.id, imported: 1 },
-      { e: vgc.id, imported: 0 },
+    expect(flags()).toEqual([
+      { e: lc.id, role: 'headjudge', imported: 0 },
+      { e: vgc.id, role: 'judge', imported: 0 },
     ]);
     const dayFlags = database.sqlite.prepare('SELECT staff_member_id AS s, imported FROM day_staff ORDER BY staff_member_id').all();
     expect(dayFlags).toEqual([

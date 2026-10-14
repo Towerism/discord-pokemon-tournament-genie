@@ -183,6 +183,8 @@ describe('refreshDiff: event fields', () => {
 
   it('proposes name and time changes, but never a game attendance doesn’t know or a display ID it can’t give', () => {
     const day = attendanceDay({ tournaments: [tournament('lc', { name: 'October LC', startsAt: chicago('10:00'), game: null, displayId: null })] });
+    const malformed = attendanceDay({ tournaments: [tournament('lc', { name: 'October LC', startsAt: chicago('10:00'), game: null, displayId: '25-10-1050' })] });
+    expect(refreshDiff(base(), malformed)).toEqual(refreshDiff(base(), day));
     expect(refreshDiff(base(), day).items).toEqual([
       {
         kind: 'event_changed',
