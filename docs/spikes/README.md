@@ -7,8 +7,8 @@ issue #7).
 | Spike | Question | Findings | Status |
 | ----- | -------- | -------- | ------ |
 | S1 | Which OAuth redirect URIs does Discord accept for a LAN install? | [s1-oauth-redirects.md](s1-oauth-redirects.md) | recorded 2026-10-14 (localhost, `<lan-ip>`, `<hostname>.local`; Tailscale and proxy not tested); amendment [ADR-0013](../architecture/adr/0013-https-origin-for-website-login.md), Proposed |
-| S2 | How fast can a judge record a penalty on a phone, and with which form? | [s2-penalty-form.md](s2-penalty-form.md) | not yet run |
-| S3 | Do Genie's open and locked overwrites behave as designed on a real guild? | [s3-permissions.md](s3-permissions.md), fixtures in [`test/fixtures/discord-permissions/`](../../test/fixtures/discord-permissions/) | recorded 2026-10-14 against the candidate profile ([ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), Proposed); human cross-check pending |
+| S2 | How fast can a judge record a penalty on a phone, and with which form? | [s2-penalty-form.md](s2-penalty-form.md) | recorded 2026-10-14 (one iPhone, 5 runs per form); amendment [ADR-0014](../architecture/adr/0014-penalty-form-selects-in-modal.md), Proposed |
+| S3 | Do Genie's open and locked overwrites behave as designed on a real guild? | [s3-permissions.md](s3-permissions.md), fixtures in [`test/fixtures/discord-permissions/`](../../test/fixtures/discord-permissions/) | recorded 2026-10-14 against the candidate profile ([ADR-0012](../architecture/adr/0012-genie-overwrite-without-manage-roles.md), Proposed); human cross-check done, all four cases agree |
 | S4 | Can transcripts (threads included) be exported completely enough for the purge gate? | [s4-transcript-export.md](s4-transcript-export.md) | recorded 2026-10-14; expired-URL check pending (after 2026-10-15 07:46 UTC) |
 
 The harnesses live in [`spikes/`](../../spikes/), a self-contained pnpm package (Node ≥ 22, discord.js 14.27.0
@@ -62,7 +62,7 @@ For each setup in the table in `s1-oauth-redirects.md` that your network offers:
 2. Start the server where that URI points, for example on the Unraid box or your laptop:
 
    ```sh
-   pnpm spike s1 serve --redirect http://<lan-ip>:3001/auth/discord --host 0.0.0.0
+   pnpm spike s1 serve --redirect http://<lan-ip>:3001/auth/discord --host <lan-ip>
    ```
 
 3. Open `<base>/` in a browser and log in. The result is appended to `spikes/out/s1-attempts.jsonl`.
@@ -125,7 +125,7 @@ pnpm spike cleanup --run <seed runId>
 | Spike | Date | discord.js | API | Run IDs |
 | ----- | ---- | ---------- | --- | ------- |
 | S1 | 2026-10-14 | n/a (Chrome 154) | v10 | `spikes/out/s1-attempts.jsonl`: 6 attempts + 1 diagnostic |
-| S2 | — | 14.27.0 | v10 | — |
+| S2 | 2026-10-14 | 14.27.0 | v10 | bot session `20261014080922-0dc5` (`iphone-17-pro-max`), `spikes/out/s2-runs.jsonl` |
 | S3 | 2026-10-14 | 14.27.0 | v10 | `20261014075104-8020`, `20261014075549-c6a7` (original profile, stopped with exit 7: `20261014073111-0567`) |
 | S4 | 2026-10-14 | 14.27.0 | v10 | seed `20261014073319-9a00` |
 

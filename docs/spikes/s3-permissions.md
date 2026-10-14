@@ -135,21 +135,20 @@ disagreement.
 
 ## Human cross-check
 
-**Pending.** The owner hasn't yet tried the staged cases with an alt account. For each case below:
+**Done, 2026-10-14: all four cases agree with the recording.** The owner staged each case for an alt
+account with `pnpm spike s3 stage --case <id> --subject-user <alt account's user ID>`, tried the printed
+actions in order as the alt account in the Discord client, and the harness cleaned up each run afterwards
+(`pnpm spike cleanup --run <runId>`).
 
-```sh
-pnpm spike s3 stage --case <id> --subject-user <alt account's user ID>
-```
+| Case | Agrees with the recording? | What the alt account could do |
+| ---- | -------------------------- | ----------------------------- |
+| `R1-nosend-open-outsider` | yes | Couldn't see the channel, so no other action was possible. Recorded: all seven denied. |
+| `R2-default-open-staffer` | yes | All seven actions worked. Recorded: all allowed. |
+| `R4-nosend-locked-staffer` | yes | View, read history and react with the existing 👍 worked; a new reaction, both thread kinds and sending didn't. Recorded: the same. |
+| `R11-default-open-staffer-private-notadded` | yes | Couldn't see the private thread; none of the five thread actions worked. Recorded: all denied. |
 
-Try the printed actions as the alt account, record agreement or disagreement here, then run the printed
-`pnpm spike cleanup --run <runId>`.
-
-| Case | Agrees with the recording? | Notes |
-| ---- | -------------------------- | ----- |
-| `R1-nosend-open-outsider` | pending | |
-| `R2-default-open-staffer` | pending | |
-| `R4-nosend-locked-staffer` | pending | |
-| `R11-default-open-staffer-private-notadded` | pending | |
+So the bot-probe method held for every action the cross-check covered, and no case needs dropping or
+re-recording.
 
 A disagreement means the bot-probe method is unsound for that action, and the case must be dropped or
 corrected (and the fixture re-recorded) before M0 merges.

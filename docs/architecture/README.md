@@ -598,6 +598,10 @@ sequenceDiagram
   DPC, QPC, GL, DQ, limited to those valid for the event's game: no prize penalties outside TCG). The modal
   takes only the free-text fields: the competitor's player ID (validated as digits) and the notes. The
   judge's player ID comes from the directory, so a judge without one is told to `/link` first.
+  **Proposed** ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md), M0 finding, awaiting owner
+  acceptance): `category`, `severity` and `penalty` move into the modal as string selects, next to the
+  player ID and notes; `round` (and `event` in a day-wide channel) stay command options. S2 timed this
+  form at a 35.8 s median on a phone against 43.3 s for the options + 2-field modal.
 - **Recorded once.** Each penalty carries an `idempotency_key`: the interaction ID for `/penalty`, or a
   UUID the website form generates. A repeated submission (a double tap, a replay) returns the existing
   penalty instead of creating a second one.
@@ -939,7 +943,7 @@ A case may only be added or changed together with a real-guild observation.
 | The website widens access past Discord | One `canSee()` for both ([ADR-0010](adr/0010-one-audience-model.md)) |
 | A removed staffer keeps access | Removals queue a sync at once; a failure raises an alarm and is retried at boot (§6.3) |
 | Bot role below a staffer's role can't manage overwrites in some setups | Setup and every job check the bot's position and permissions first and fail with a clear fix |
-| Discord limits: 500 channels per guild, 50 per category, 5 inputs per modal | Day size checked against limits before opening; the penalty form uses command options + a 2-field modal (S2) |
+| Discord limits: 500 channels per guild, 50 per category, 5 inputs per modal | Day size checked against limits before opening; the penalty form uses command options + a 2-field modal (S2); **Proposed** ([ADR-0014](adr/0014-penalty-form-selects-in-modal.md)): three selects + two text inputs, all five modal components |
 | Privileged intents revoked or not enabled | Checked at boot and setup; transcripts degrade to "bot messages only" with a warning rather than failing |
 | Attendance endpoint not ready | Manual entry path; import ships behind its own milestone |
 | Penalty guideline changes each season | Catalog is data with a `season`; seeded, editable |
@@ -1014,3 +1018,4 @@ Answered by the owner on 2026-10-13:
 | [0011](adr/0011-share-infrastructure-through-selfhost-kit.md) | Share platform infrastructure through `@towerism/selfhost-kit` | Accepted |
 | [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Proposed (M0 finding, awaiting owner acceptance) |
 | [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin | Proposed (M0 finding, awaiting owner acceptance) |
+| [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Proposed (M0 finding, awaiting owner acceptance) |
