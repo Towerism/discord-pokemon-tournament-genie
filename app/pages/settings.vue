@@ -5,6 +5,7 @@ interface Settings {
   headJudgeRole: { id: string; name: string | null } | null;
   ownerId: string;
   organizerAllowlistEnabled: boolean;
+  currentSeason: string;
 }
 
 const { user } = useUserSession();
@@ -60,6 +61,8 @@ const roleName = (r: { id: string; name: string | null } | null) => (r ? (r.name
     />
 
     <AttendanceCard />
+
+    <PenaltyCatalogCard />
 
     <form v-if="isOwner" class="space-y-2" @submit.prevent="saveAllowlist">
       <h2 class="font-semibold">Organizer allowlist</h2>

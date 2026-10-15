@@ -37,7 +37,7 @@ interface DayPlan {
   latestJob: JobView | null;
   channels: { key: string; eventId: number | null; discordChannelId: string; state: string }[];
   orphans: { discordChannelId: string; kind: string; name: string }[];
-  can: { edit: boolean; open: boolean; sync: boolean };
+  can: { edit: boolean; open: boolean; sync: boolean; penalties: boolean };
 }
 interface Preview {
   category: { name: string };
@@ -177,6 +177,7 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
       <div class="flex gap-2 pt-2">
         <UButton v-if="plan.can.open && plan.day.state === 'draft'" @click="open">Open the day</UButton>
         <UButton v-if="plan.can.sync && plan.day.state === 'open'" @click="sync">Sync</UButton>
+        <UButton v-if="plan.can.penalties && plan.day.state !== 'draft'" :to="`/days/${dayId}/penalties`" variant="outline">Penalties</UButton>
       </div>
       <UAlert v-if="error" color="error" :title="error" />
     </div>
