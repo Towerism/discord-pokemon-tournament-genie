@@ -62,7 +62,7 @@ export function createPenaltyHandlers(opts: {
     return { userId: i.userId, grant: decision.allowed ? decision.grant : 'event_head_judge', holdsHeadJudgeRole };
   }
 
-  /** The open day a channel belongs to, or `null` (FR-17's "Run this in a day's channel."). */
+  /** The open day a channel belongs to, or `null` ("Run this in a day's channel."). */
   function dayOfChannel(channelId: string | null) {
     const owner = channelId === null ? null : provisioning.channelOwner(channelId);
     if (!owner) return null;
@@ -70,7 +70,7 @@ export function createPenaltyHandlers(opts: {
     return plan.day.state === 'open' ? { owner, plan } : null;
   }
 
-  /** FR-17: the event from the channel, or from the `event` option in a day-wide channel. A string answers the caller. */
+  /** The event from the channel, or from the `event` option in a day-wide channel. A string answers the caller. */
   function locate(i: InboundInteraction, principal: Principal, eventOption: string | null): Located | string {
     const found = dayOfChannel(i.channelId);
     if (!found) return NOT_A_DAY;
@@ -93,7 +93,7 @@ export function createPenaltyHandlers(opts: {
     return v === undefined ? null : String(v);
   };
 
-  /** FR-18's checks, in order; a string answers the caller. */
+  /** Who may record here, in order: on the event's staff, a player ID, something to offer. A string answers the caller. */
   function recordCheck(i: InboundInteraction, principal: Principal, at: Located): string | null {
     const staffer = at.access.staff.find((s) => s.discordUserId === i.userId);
     const onStaff = staffer?.staffOf.includes(at.event.id) ?? false;
@@ -109,7 +109,7 @@ export function createPenaltyHandlers(opts: {
     return null;
   }
 
-  /** The penalties channel of the event when the caller can see it, for FR-17's redirect from another per-event channel. */
+  /** The event's penalties channel when the caller can see it, to send them there from another of the event's channels. */
   function redirect(at: Located, userId: string): string | null {
     if (at.channel.eventId === null) return null;
     const here = at.access.channels.find((c) => c.key === at.channel.key && c.eventId === at.event.id);
@@ -122,7 +122,7 @@ export function createPenaltyHandlers(opts: {
 
   function recordModal(customId: string, title: string, dayId: number, eventId: number, current?: PenaltyView): ModalSpec {
     const offered = penalties.options(dayId, eventId);
-    // An unchanged choice stays selectable even when it is no longer offered (FR-23); FR-5 leaves a slot for it.
+    // An unchanged choice stays selectable even when it is no longer offered; the catalog leaves a select slot for it.
     const withCurrent = (list: { id: number; label: string }[], chosen?: { id: number; label: string }) => (chosen && !list.some((o) => o.id === chosen.id) ? [chosen, ...list] : list);
     const options = (list: { id: number; label: string }[], chosen?: { id: number }) => list.map((o) => ({ value: String(o.id), label: o.label, default: o.id === chosen?.id }));
     return {

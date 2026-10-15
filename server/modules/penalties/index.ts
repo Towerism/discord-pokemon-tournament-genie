@@ -367,7 +367,7 @@ export function createPenaltiesService(opts: {
       });
     },
 
-    /** What `/penalty` and the website offer for an event (FR-6's options). */
+    /** What `/penalty` and the website offer for an event. */
     options(dayId: number, eventId: number) {
       const { day, event: ev } = dayEvent(dayId, eventId);
       const offered = catalogOptions(catalogOf(day.day.season), day.day.season, ev.game);
