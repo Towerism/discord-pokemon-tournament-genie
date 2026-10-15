@@ -116,7 +116,7 @@ export function createPenaltiesService(opts: {
   // ---- catalog
 
   const toRow = (r: typeof penaltyCategory.$inferSelect): CatalogRow => ({ id: r.id, season: r.season, label: r.label, games: JSON.parse(r.games) as Game[], rank: r.rank, active: r.active });
-  const rowsOf = (table: CatalogTable, s?: string) => (s === undefined ? db.select().from(table).all() : db.select().from(table).where(eq(table.season, s)).all()).map(toRow);
+  const rowsOf = (table: CatalogTable, s: string) => db.select().from(table).where(eq(table.season, s)).all().map(toRow);
   const catalogOf = (s: string): Catalog => ({ categories: rowsOf(penaltyCategory, s), types: rowsOf(penaltyType, s) });
   const byRank = (a: CatalogRow, b: CatalogRow) => a.rank - b.rank || a.id - b.id;
   const strip = ({ season: _season, ...rest }: CatalogRow) => rest;

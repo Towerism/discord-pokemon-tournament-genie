@@ -11,6 +11,10 @@ export function createProvisioningStore(db: Db) {
     channels(dayId: number): ProvisionedRow[] {
       return db.select().from(provisionedChannel).where(eq(provisionedChannel.dayId, dayId)).orderBy(asc(provisionedChannel.id)).all();
     },
+    /** The present channel Genie owns under this Discord ID, on whichever day. */
+    byDiscordChannel(channelId: string): ProvisionedRow | null {
+      return db.select().from(provisionedChannel).where(and(eq(provisionedChannel.discordChannelId, channelId), eq(provisionedChannel.state, 'present'))).get() ?? null;
+    },
     present(dayId: number): ProvisionedRow[] {
       return db
         .select()

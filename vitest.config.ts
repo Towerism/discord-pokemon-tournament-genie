@@ -22,6 +22,9 @@ export default defineConfig({
         'server/modules/attendance/**': { branches: 85 },
         'server/modules/setup/**': { branches: 90 },
         'server/modules/jobs/**': { branches: 85 },
+        // M4: a wrong or doubled penalty lands in the submitted CSV; a leaked one exposes a (often minor) player.
+        'server/modules/penalties/**': { branches: 90 },
+        'shared/penalties/**': { branches: 90 },
         'server/bot/**': { branches: 85 },
       },
     },

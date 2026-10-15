@@ -276,6 +276,16 @@ describe('editing and voiding', () => {
     });
   });
 
+  it('edits the competitor and the category, and leaves a card that was never posted alone', async () => {
+    w = await penaltyWorld();
+    w.discord.failNext('unavailable');
+    const { penalty } = await w.penalties.record(w.recordInput());
+    const posts = w.discord.mutations.length;
+    const edited = await w.penalties.edit(w.dayId, penalty.id, { competitorPlayerId: '42', categoryId: w.categoryId('Procedural') }, { expectedRevision: 1, by: PEOPLE.brock });
+    expect(edited.penalty).toMatchObject({ competitorPlayerId: '42', category: { label: 'Procedural' }, cardState: 'failed' });
+    expect(w.discord.mutations.length).toBe(posts);
+  });
+
   it('refuses a void reason that is empty or too long', async () => {
     w = await penaltyWorld();
     const { penalty } = await w.penalties.record(w.recordInput());
@@ -289,6 +299,29 @@ describe('editing and voiding', () => {
     const { penalty } = await w.penalties.record(w.recordInput());
     const { day } = w.days.createDay({ date: '2026-10-18', title: 'Other' });
     expect(await refusal(w.penalties.edit(day.id, penalty.id, { severity: 'Major' }, { expectedRevision: 1, by: PEOPLE.brock }))).toMatchObject({ status: 404 });
+  });
+});
+
+describe('who can be named the judge', () => {
+  it('lists the event’s staff with a player ID that isn’t merely claimed, and refuses a claimed one', async () => {
+    w = await penaltyWorld();
+    w.directory.claim({ userId: PEOPLE.outsider, playerId: '5555', displayName: 'Outsider' });
+    const claimed = w.directory.list().find((s) => s.linkState === 'claimed')!;
+    const plan = w.days.plan(w.dayId);
+    w.days.putStaff(w.dayId, [...plan.staff.map((s) => ({ staffMemberId: s.staffMemberId, events: s.events })), { staffMemberId: claimed.id, events: [{ eventId: w.tcg.id, role: 'judge' }] }]);
+    expect(w.penalties.judges(w.dayId, w.tcg.id)).toEqual([
+      { staffMemberId: w.people.ash.id, name: 'Ash', playerId: '00123' },
+      { staffMemberId: w.people.brock.id, name: 'Brock', playerId: '00456' },
+    ]);
+    expect(await refusal(w.penalties.record(w.recordInput({ judgeStaffMemberId: claimed.id })))).toMatchObject({ code: 'judge_without_player_id' });
+  });
+
+  it('offers the event’s options and lists nothing for an event of another day', async () => {
+    w = await penaltyWorld();
+    expect(w.penalties.options(w.dayId, w.vgc.id).types.map((t) => t.label)).toEqual(['Warning', 'GL', 'DQ']);
+    expect(w.penalties.list(w.dayId, [999_999])).toEqual([]);
+    expect(w.penalties.get(999_999)).toBeNull();
+    expect(w.penalties.locate(999_999)).toBeNull();
   });
 });
 
@@ -332,6 +365,25 @@ describe('the catalog and the season', () => {
     const foreign = w.penalties.catalog('2027-28').types[0]!;
     expect(await put([...asInput(current.types), { ...asInput([foreign])[0]!, label: 'Moved' }])).toMatchObject({ code: 'unknown_row', data: { ids: [foreign.id] } });
     expect(w.penalties.catalog('2026-27').types).toEqual(current.types);
+  });
+
+  it('refuses a bad label, games or rank, and a season name outside the pattern', async () => {
+    w = await penaltyWorld();
+    const { categories, types } = view();
+    const put = (change: (t: CatalogRowInput) => CatalogRowInput) => refusal(() => w.penalties.putCatalog('2026-27', { categories: asInput(categories), types: asInput(types).map((t, i) => (i === 0 ? change(t) : t)) }));
+    for (const change of [
+      (t: CatalogRowInput) => ({ ...t, label: '   ' }),
+      (t: CatalogRowInput) => ({ ...t, label: 'x'.repeat(101) }),
+      (t: CatalogRowInput) => ({ ...t, games: [] }),
+      (t: CatalogRowInput) => ({ ...t, games: ['chess' as never] }),
+      (t: CatalogRowInput) => ({ ...t, rank: -1 }),
+      (t: CatalogRowInput) => ({ ...t, rank: 1000 }),
+    ]) {
+      expect(await put(change)).toMatchObject({ status: 422, code: 'invalid_field', data: { field: 'types' } });
+    }
+    const longest = w.penalties.putCatalog('2026-27', { categories: asInput(categories), types: asInput(types).map((t, i) => (i === 0 ? { ...t, label: 'x'.repeat(100) } : t)) });
+    expect(longest.types.find((t) => t.id === types[0]!.id)?.label).toHaveLength(100);
+    expect(await refusal(() => w.penalties.setSeason(' bad'))).toMatchObject({ code: 'invalid_field', data: { field: 'season' } });
   });
 
   it('answers not found for a season without rows', async () => {
