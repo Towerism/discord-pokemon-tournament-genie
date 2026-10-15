@@ -72,6 +72,72 @@ const openAndApply = (dayId: number) => {
   database.sqlite.prepare('DELETE FROM job').run();
 };
 
+describe('close-out states', () => {
+  const openDay = () => {
+    const { day } = days.createDay({ date: '2026-10-17', title: 'Saturday' });
+    const ash = directory.create({ displayName: 'Ash', discordUserId: U(1), playerId: '1' });
+    const ev = days.addEvent(day.id, { name: 'LC', game: 'tcg', startTime: '10:00' });
+    days.putStaff(day.id, [{ staffMemberId: ash.id, events: [{ eventId: ev.id, role: 'headjudge' }] }]);
+    openAndApply(day.id);
+    return { dayId: day.id, eventId: ev.id, ash };
+  };
+
+  it('moves open → closing → closed → purged with its times, never backwards', () => {
+    const { dayId } = openDay();
+    let enqueued = 0;
+    days.markClosing(dayId, U(1), () => ++enqueued);
+    expect(enqueued).toBe(1);
+    expect(days.plan(dayId).day).toMatchObject({ state: 'closing', closedBy: U(1), closingAt: 1_000, closedAt: null });
+    expect(refusal(() => days.markClosing(dayId, U(1), () => 0))).toBe('409 day_not_open');
+    clock.advance(10);
+    days.markClosed(dayId, clock.now() + 7);
+    expect(days.plan(dayId).day).toMatchObject({ state: 'closed', closedAt: 1_010, graceUntil: 1_017 });
+    days.setGraceUntil(dayId, 1_011);
+    expect(days.plan(dayId).day.graceUntil).toBe(1_011);
+    days.markPurged(dayId);
+    expect(days.plan(dayId).day).toMatchObject({ state: 'purged', purgedAt: 1_010 });
+    expect(() => days.markClosed(dayId, 0)).toThrow();
+    expect(days.closedDays().map((d) => [d.id, d.state, d.closedAt])).toEqual([[dayId, 'purged', 1_010]]);
+  });
+
+  it('freezes the plan from closing on, keeping the codes earlier milestones gave', () => {
+    const { dayId, eventId, ash } = openDay();
+    days.markClosing(dayId, U(1), () => 0);
+    const revision = dayRow(dayId).planRevision;
+    expect(refusal(() => days.putStaff(dayId, []))).toBe('409 day_closed');
+    expect(refusal(() => days.addEvent(dayId, { name: 'VGC', game: 'vgc', startTime: '11:00' }))).toBe('409 day_closed');
+    expect(refusal(() => days.patchEvent(dayId, eventId, { name: 'Cup' }))).toBe('409 day_closed');
+    expect(refusal(() => days.patchEvent(dayId, eventId, { tournamentId: '26-10-000123' }))).toBe('409 day_closing');
+    expect(refusal(() => days.patchDay(dayId, { title: 'Sunday' }))).toBe('409 day_closed');
+    expect(refusal(() => days.deleteEvent(dayId, eventId))).toBe('409 day_not_draft');
+    expect(refusal(() => days.requirePlanOpen(dayId))).toBe('409 day_closed');
+    expect(dayRow(dayId).planRevision).toBe(revision);
+    expect(days.plan(dayId).staff.map((s) => s.staffMemberId)).toEqual([ash.id]);
+  });
+
+  it('takes only a Tournament ID on a closed or purged day', () => {
+    const { dayId, eventId } = openDay();
+    days.markClosing(dayId, U(1), () => 0);
+    days.markClosed(dayId, 5_000);
+    expect(days.patchEvent(dayId, eventId, { tournamentId: '26-10-000123' }).tournamentId).toBe('26-10-000123');
+    expect(refusal(() => days.patchEvent(dayId, eventId, { tournamentId: '26-10-000124', name: 'Cup' }))).toBe('409 day_closed');
+    days.markPurged(dayId);
+    expect(days.patchEvent(dayId, eventId, { tournamentId: null }).tournamentId).toBeNull();
+  });
+
+  it('keeps the access alarm and boot recovery through closing until the lock records the plan applied', () => {
+    const { dayId } = openDay();
+    days.putStaff(dayId, []);
+    database.sqlite.prepare('DELETE FROM job').run();
+    days.markClosing(dayId, U(1), () => 0);
+    expect(days.alarms().map((a) => [a.kind, a.dayId])).toEqual([['access_not_revoked', dayId]]);
+    expect(days.daysNeedingRevocation()).toEqual([dayId]);
+    days.recordApplied(dayId, dayRow(dayId).planRevision);
+    expect(days.alarms()).toEqual([]);
+    expect(days.daysNeedingRevocation()).toEqual([]);
+  });
+});
+
 describe('blueprints', () => {
   it('lists the seeded default with its channels', () => {
     const [standard] = days.listBlueprints();
