@@ -2,6 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Date: 2026-10-13
+- Updated 2026-10-15 (#34): the **Pin** paragraph, now that the kit is on 1.x. The decision is unchanged; it said 0.x
+  only until 1.0.
 
 ## Context
 
@@ -78,8 +80,8 @@ Option 3.
 - the `jobs` module, written so it can move into the kit later (selfhost-kit ADR-0002);
 - the DB, auth and all domain code.
 
-**Pin.** Genie pins an **exact** 0.x version until the kit reaches 1.0. Renovate proposes every bump
-(architecture §9).
+**Pin.** Genie pins an **exact** kit version, on 1.x since the kit's 1.0 (2026-10-15). Renovate proposes every
+bump (architecture §9). Patches and minors automerge on green CI, and majors are upgraded by hand.
 
 **No copying.** If the kit lacks a piece Genie needs, Genie waits for it or contributes it to the kit.
 It never copies a piece from attendance "for now".

@@ -1,14 +1,8 @@
-import { type Logger, createLogger, createRedactor, secretKeyNames } from '@towerism/selfhost-kit';
-import { SECRETS } from '../bootstrap/secrets';
+import { type Logger, createLogger } from '@towerism/selfhost-kit';
+import { redactor } from '../bootstrap/logging';
 
-/**
- * Redaction (architecture §10): the kit's base credential keys plus message content, penalty notes, competitors'
- * player IDs, void reasons, attachment file names and thread names, any request body a library attaches to its errors, Genie's tokens and the env names of
- * its secrets.
- */
-export const redactor = createRedactor({
-  extraKeys: ['content', 'notes', 'competitorPlayerId', 'voidReason', 'requestBody', 'filename', 'threadName', 'botToken', 'attendanceToken', 'clientSecret', ...secretKeyNames(SECRETS)],
-});
+/** Genie's redactor, shared with the launcher (see ../bootstrap/logging). */
+export { redactor };
 
 let root: Logger | undefined;
 

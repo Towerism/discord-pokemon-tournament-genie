@@ -15,8 +15,8 @@ importers:
         specifier: ^4.11.3
         version: 4.11.3(5a8f416556ba16d000b63ceddc0d9f72)
       '@towerism/selfhost-kit':
-        specifier: 0.4.2
-        version: 0.4.2(@semantic-release/exec@7.1.0(semantic-release@25.0.9(supports-color@10.2.2)(typescript@5.9.3))(supports-color@10.2.2))(conventional-changelog-conventionalcommits@9.3.1)(h3@1.15.11)(semantic-release@25.0.9(supports-color@10.2.2)(typescript@5.9.3))(vitest@5.0.4)
+        specifier: 1.0.0
+        version: 1.0.0(h3@1.15.11)
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -2253,26 +2253,14 @@ packages:
       y-protocols: ^1.0.1
       yjs: ^13.5.38
 
-  '@towerism/selfhost-kit@0.4.2':
-    resolution: {integrity: sha512-bcnbpfoeQIqN7JhePERPVIrO7JeeUUaYgPVhPB2woJxy03mnMMJRZxhIUxku3gnuSZkPrGOUbNBw91fD7ypSWA==}
+  '@towerism/selfhost-kit@1.0.0':
+    resolution: {integrity: sha512-lFoQwY9rPONdNIcyI5JdwYuDh5X7Z8p6p8iDa+Qbc7rEYlJDLD8wbFNTMvvhbHs7aHG2srpwJFHfvJ/S9IsE6A==}
     engines: {node: '>=24.11'}
     hasBin: true
     peerDependencies:
-      '@semantic-release/exec': ^7
-      conventional-changelog-conventionalcommits: ^9
       h3: ^1.15
-      semantic-release: ^24 || ^25
-      vitest: ^3.2 || ^4 || ^5
     peerDependenciesMeta:
-      '@semantic-release/exec':
-        optional: true
-      conventional-changelog-conventionalcommits:
-        optional: true
       h3:
-        optional: true
-      semantic-release:
-        optional: true
-      vitest:
         optional: true
 
   '@tybys/wasm-util@0.10.4':
@@ -9265,16 +9253,12 @@ snapshots:
       y-protocols: 1.0.7(yjs@13.6.33)
       yjs: 13.6.33
 
-  '@towerism/selfhost-kit@0.4.2(@semantic-release/exec@7.1.0(semantic-release@25.0.9(supports-color@10.2.2)(typescript@5.9.3))(supports-color@10.2.2))(conventional-changelog-conventionalcommits@9.3.1)(h3@1.15.11)(semantic-release@25.0.9(supports-color@10.2.2)(typescript@5.9.3))(vitest@5.0.4)':
+  '@towerism/selfhost-kit@1.0.0(h3@1.15.11)':
     dependencies:
       pino: 10.4.0
       pino-pretty: 13.2.0
     optionalDependencies:
-      '@semantic-release/exec': 7.1.0(semantic-release@25.0.9(supports-color@10.2.2)(typescript@5.9.3))(supports-color@10.2.2)
-      conventional-changelog-conventionalcommits: 9.3.1
       h3: 1.15.11
-      semantic-release: 25.0.9(supports-color@10.2.2)(typescript@5.9.3)
-      vitest: 5.0.4(@types/node@24.19.2)(@vitest/coverage-v8@5.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
