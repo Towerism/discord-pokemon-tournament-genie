@@ -146,3 +146,14 @@ export const catalogPutBody = z.strictObject({ categories: z.array(catalogRow).m
 export const catalogQuery = z.strictObject({ season: season.optional() });
 export const seasonParam = season;
 export const seasonPutBody = z.strictObject({ season, copyFrom: season.optional() });
+
+// ---- M5 (spec #24): close-out. A missing or false `confirm` is the route's 422, not a malformed body.
+
+export const confirmBody = z.strictObject({ confirm: z.boolean().optional() });
+export const discardBody = z.strictObject({ attachmentIds: z.array(id).min(1).max(500), confirm: z.boolean().optional() });
+const retentionDays = z.number().int().min(1).max(3650);
+export const closeOutSettingsBody = z.strictObject({
+  transcriptRetentionDays: retentionDays,
+  penaltyRetentionDays: retentionDays,
+  attachmentCapMb: z.number().int().min(1).max(500),
+});

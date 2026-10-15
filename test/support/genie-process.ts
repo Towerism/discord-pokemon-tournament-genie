@@ -42,6 +42,9 @@ export async function startGenie(opts: { discordUrl: string; port?: number; env?
         NUXT_DISCORD_AUTHORIZE_URL: `${opts.discordUrl}/oauth2/authorize`,
         NUXT_DISCORD_TOKEN_URL: `${opts.discordUrl}/api/oauth2/token`,
         GENIE_TEST_DISCORD_URL: opts.discordUrl,
+        // The fake serves Discord's CDN too, over plain http.
+        NUXT_DISCORD_CDN_HOSTS: new URL(opts.discordUrl).host,
+        NUXT_DISCORD_CDN_ALLOW_HTTP: 'true',
         NO_COLOR: '1',
         ...opts.env,
       },

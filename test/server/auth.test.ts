@@ -149,6 +149,7 @@ describe('route authorization', () => {
       ownerId: IDS.owner,
       organizerAllowlistEnabled: false,
       currentSeason: '2026-27',
+      closeOut: { transcriptRetentionDays: 90, penaltyRetentionDays: 365, attachmentCapMb: 25, purgeGraceHours: 168 },
     });
     expectNoSecrets([...replyTexts(owner), ...replyTexts(organizer), genie.log()]);
   });

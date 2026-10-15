@@ -1,9 +1,12 @@
 /**
- * Names for downloaded files. Files on disk are named from IDs only (NFR-4); the name a browser offers comes from
+ * Names for downloaded files. Files on disk are named from IDs only; the name a browser offers comes from
  * what staff uploaded, so it is cleaned of anything a filesystem or a header could misread.
  */
 
 const MAX_NAME = 100;
+
+/** The HTML transcript's policy (§6.5): an opaque, script-less page that may style itself and load nothing. */
+export const CSP_TRANSCRIPT = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
 
 /** Discord IDs as they may appear in a path. */
 export const SNOWFLAKE = /^\d{1,20}$/;

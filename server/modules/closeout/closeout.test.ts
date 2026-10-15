@@ -501,7 +501,7 @@ describe('the purge', () => {
   });
 
   it('never deletes a channel holding a message newer than its mark, whichever call crashes (enumerated)', async () => {
-    // A post into the channel whose delete is in flight is the one window no design closes (NFR-5): post into the next.
+    // A post into the channel whose delete is in flight is the one window no design closes: post into the next.
     for (let crashAt = 0; crashAt < 5; crashAt++) {
       w = await closeoutWorld();
       await w.closeAndExport();

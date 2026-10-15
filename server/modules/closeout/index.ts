@@ -142,7 +142,7 @@ export function createCloseoutService(opts: {
   }
 
   const csvLocks = new Map<number, Promise<unknown>>();
-  /** One CSV write per event at a time (§6.5 corrections, FR-31's lock). */
+  /** One CSV write per event at a time, so corrections and re-exports of an event never interleave (§6.4). */
   function withCsvLock<T>(eventId: number, work: () => Promise<T>): Promise<T> {
     const previous = csvLocks.get(eventId) ?? Promise.resolve();
     const next = previous.then(work, work);
@@ -876,6 +876,11 @@ export function createCloseoutService(opts: {
       const path = folder.inside(file.path);
       if (!path) logger.error('An export file’s stored path leaves the exports folder.', { fileId });
       return { file, path, resource: resourceOf(file, plan(file.dayId).day.state === 'purged'), dayId: file.dayId };
+    },
+
+    /** Retention deleted the day's penalties (§15 Q3). */
+    penaltiesSwept(dayId: number): boolean {
+      return store.closeout(dayId).penaltiesSweptAt !== null;
     },
 
     alarms(): CloseoutAlarm[] {
