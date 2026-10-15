@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.28
 #
 # Tournament Genie's image (ADR-0009, ADR-0011): the Nuxt server behind the kit's entrypoint (PUID/PGID, gosu,
 # UMASK, optional Litestream). The entrypoint, litestream.yml and the Litestream installer come from
