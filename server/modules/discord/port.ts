@@ -60,9 +60,39 @@ export interface ChannelState {
   overwrites: Overwrite[];
 }
 
+/** One embed, in Genie's terms (the penalty card). */
+export interface Embed {
+  title: string;
+  fields: { name: string; value: string }[];
+  footer?: string;
+}
+
+export interface MessageButton {
+  customId: string;
+  label: string;
+  style?: 'primary' | 'danger';
+}
+
+/** Always sent with no allowed mentions: nothing Genie posts pings anyone. */
 export interface OutboundMessage {
   content: string;
-  buttons?: { customId: string; label: string }[];
+  embed?: Embed;
+  buttons?: MessageButton[];
+}
+
+/** A modal of up to five `Label` components (ADR-0014): string selects and text inputs. */
+export interface ModalSpec {
+  customId: string;
+  title: string;
+  components: (
+    | { kind: 'select'; customId: string; label: string; options: { value: string; label: string; default?: boolean }[] }
+    | { kind: 'text'; customId: string; label: string; style: 'short' | 'paragraph'; minLength: number; maxLength: number; required: boolean; value?: string }
+  )[];
+}
+
+export interface AutocompleteChoice {
+  name: string;
+  value: string;
 }
 
 export interface DiscordGateway {
@@ -90,33 +120,53 @@ export interface DiscordGateway {
   listChannels(guildId: Snowflake): Promise<ChannelState[]>;
   deleteChannel(channelId: Snowflake, reason: string): Promise<'deleted' | 'already_gone'>;
   postMessage(channelId: Snowflake, msg: OutboundMessage): Promise<Snowflake>;
+  /** Replaces the message's content, embed and buttons. `gone` when the message or its channel no longer exists. */
+  editMessage(channelId: Snowflake, messageId: Snowflake, msg: OutboundMessage): Promise<'edited' | 'gone'>;
+  /** The bot's own message. `already_gone` when it no longer exists. */
+  deleteMessage(channelId: Snowflake, messageId: Snowflake): Promise<'deleted' | 'already_gone'>;
   pinMessage(channelId: Snowflake, messageId: Snowflake): Promise<void>;
 }
 
 /** An interaction in Genie's terms; the adapter builds it from discord.js's. */
 export interface InboundInteraction {
   id: Snowflake;
-  kind: 'command' | 'component' | 'modal';
+  kind: 'command' | 'component' | 'modal' | 'autocomplete';
+  /** The command's name, or the component's or modal's custom ID. */
   name: string;
   guildId: Snowflake | null;
   channelId: Snowflake | null;
   userId: Snowflake;
   /** The command's options by name (empty for components and modals). */
   options: Record<string, string | number | boolean>;
+  /** A modal's values by component custom ID: a text input's string, a select's chosen values. */
+  fields?: Record<string, string | string[]>;
+  /** The option being typed, for autocomplete. */
+  focused?: { name: string; value: string };
   /** The caller's roles in the guild (empty in DMs). */
   memberRoleIds: Snowflake[];
   userDisplayName: string;
 }
 
 export interface InteractionReply {
+  /** After `deferEphemeral`, this edits the deferred reply. */
   ephemeral(text: string): Promise<void>;
+  /** Acknowledges now (Discord's 3-second window) and answers later with `ephemeral`. */
+  deferEphemeral(): Promise<void>;
+  /** Only as the first answer to a command or a component. */
+  showModal(modal: ModalSpec): Promise<void>;
+  /** The only valid answer to an autocomplete interaction, at most 25 choices. */
+  autocomplete(choices: AutocompleteChoice[]): Promise<void>;
 }
 
 export interface CommandOption {
   name: string;
   description: string;
-  type: 'string';
+  type: 'string' | 'integer';
   required: boolean;
+  minValue?: number;
+  maxValue?: number;
+  /** String options only: Discord asks the bot for choices as the user types. */
+  autocomplete?: boolean;
 }
 
 export interface CommandDefinition {

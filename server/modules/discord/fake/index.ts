@@ -12,7 +12,11 @@ import { effectivePermissions } from '../../../../shared/discord/resolve';
 import { writeRefusal } from '../../../../shared/discord/write-rules';
 import {
   type ApplicationInfo,
+  type AutocompleteChoice,
   type ChannelState,
+  type Embed,
+  type MessageButton,
+  type ModalSpec,
   type CommandDefinition,
   type CreateDiscord,
   type DisconnectReason,
@@ -69,8 +73,17 @@ export interface FakeMessage {
   id: string;
   channelId: string;
   content: string;
-  buttons: { customId: string; label: string }[];
+  embed: Embed | null;
+  buttons: MessageButton[];
   pinned: boolean;
+}
+
+/** Everything a handler answered to one interaction. */
+export interface InteractionOutcome {
+  ephemeral: string[];
+  deferred: boolean;
+  modal: ModalSpec | null;
+  choices: AutocompleteChoice[] | null;
 }
 
 export type ConnectFailure = 'invalid_token' | 'disallowed_intents' | 'unavailable';
@@ -94,6 +107,8 @@ export interface FakeDiscord {
   readonly commands: Map<string, readonly CommandDefinition[]>;
   /** Every mutating call that reached the fake, applied or refused, in order. */
   readonly mutations: MutationRecord[];
+  /** Every REST call that reached the fake, reads and writes alike. */
+  restCalls: number;
   /** Every REST call fails as if Discord were down. */
   unavailable: boolean;
   /** While set, every REST read waits for it: lets a test hold a request mid-flight. */
@@ -130,6 +145,8 @@ export interface FakeDiscord {
   dropConnection(reason: DisconnectReason): void;
   /** Sends an interaction to the connected bot; resolves with its ephemeral replies. */
   dispatch(interaction: InboundInteraction): Promise<string[]>;
+  /** Sends an interaction to the connected bot; resolves with everything it answered. */
+  interact(interaction: InboundInteraction): Promise<InteractionOutcome>;
   create: CreateDiscord;
 }
 
@@ -157,6 +174,7 @@ export function createFakeDiscord(): FakeDiscord {
     messages,
     commands,
     mutations,
+    restCalls: 0,
     unavailable: false,
     readGate: null,
     writeGate: null,
@@ -256,11 +274,19 @@ export function createFakeDiscord(): FakeDiscord {
       current?.onDisconnected?.(reason);
     },
     async dispatch(interaction) {
+      return (await fake.interact(interaction)).ephemeral;
+    },
+    async interact(interaction) {
       if (!handlers) throw new Error('The bot is not connected.');
-      const sent: string[] = [];
-      const reply: InteractionReply = { ephemeral: async (text) => void sent.push(text) };
+      const outcome: InteractionOutcome = { ephemeral: [], deferred: false, modal: null, choices: null };
+      const reply: InteractionReply = {
+        ephemeral: async (text) => void outcome.ephemeral.push(text),
+        deferEphemeral: async () => void (outcome.deferred = true),
+        showModal: async (modal) => void (outcome.modal = structuredClone(modal)),
+        autocomplete: async (choices) => void (outcome.choices = [...choices]),
+      };
       await handlers.onInteraction(interaction, reply);
-      return sent;
+      return outcome;
     },
     create(token) {
       const appOf = (): FakeApplication => {
@@ -270,6 +296,7 @@ export function createFakeDiscord(): FakeDiscord {
         return need(applications.get(id));
       };
       const read = async () => {
+        fake.restCalls += 1;
         await fake.readGate;
         return appOf();
       };
@@ -285,6 +312,7 @@ export function createFakeDiscord(): FakeDiscord {
        * at that moment and applies `apply`. A `lost_answer` applies and then throws.
        */
       async function write<T>(method: string, target: string, guildId: string, overwrites: readonly Overwrite[] | null, existing: readonly Overwrite[] | null, apply: () => T): Promise<T> {
+        fake.restCalls += 1;
         await fake.writeGate;
         const app = appOf();
         const call = { method, target };
@@ -398,8 +426,36 @@ export function createFakeDiscord(): FakeDiscord {
           if (!channel) throw new DiscordUnavailableError('Unknown channel (fake).');
           return write('postMessage', channelId, channel.guildId, null, null, () => {
             const id = snowflake();
-            messages.set(id, { id, channelId, content: msg.content, buttons: [...(msg.buttons ?? [])], pinned: false });
+            messages.set(id, { id, channelId, content: msg.content, embed: msg.embed ? structuredClone(msg.embed) : null, buttons: (msg.buttons ?? []).map((b) => ({ ...b })), pinned: false });
             return id;
+          });
+        },
+        async editMessage(channelId, messageId, msg) {
+          const channel = channels.get(channelId);
+          if (!channel) {
+            await read();
+            return 'gone';
+          }
+          return write('editMessage', messageId, channel.guildId, null, null, () => {
+            const message = messages.get(messageId);
+            if (!message || message.channelId !== channelId) return 'gone' as const;
+            message.content = msg.content;
+            message.embed = msg.embed ? structuredClone(msg.embed) : null;
+            message.buttons = (msg.buttons ?? []).map((b) => ({ ...b }));
+            return 'edited' as const;
+          });
+        },
+        async deleteMessage(channelId, messageId) {
+          const channel = channels.get(channelId);
+          if (!channel) {
+            await read();
+            return 'already_gone';
+          }
+          return write('deleteMessage', messageId, channel.guildId, null, null, () => {
+            const message = messages.get(messageId);
+            if (!message || message.channelId !== channelId) return 'already_gone' as const;
+            messages.delete(messageId);
+            return 'deleted' as const;
           });
         },
         async pinMessage(channelId, messageId) {

@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import type { Overwrite } from '../../shared/discord/overwrites';
 import type { FakeDiscord } from '../../server/modules/discord/fake';
-import { type ChannelState, DiscordPermissionError, DiscordUnavailableError } from '../../server/modules/discord/port';
+import { type ChannelState, type OutboundMessage, DiscordPermissionError, DiscordUnavailableError } from '../../server/modules/discord/port';
 
 export interface FakeDiscordHttp {
   url: string;
@@ -198,9 +198,20 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
     }
     m = /^\/api\/channels\/(\d+)\/messages$/.exec(path);
     if (req.method === 'POST' && m) {
-      const msg = JSON.parse(await body(req)) as { content: string; components?: { components: { custom_id: string; label: string }[] }[] };
-      const buttons = (msg.components ?? []).flatMap((row) => row.components.map((b) => ({ customId: b.custom_id, label: b.label })));
-      return answer(res, async () => ({ id: await gateway.postMessage(m![1]!, { content: msg.content, ...(buttons.length ? { buttons } : {}) }) }));
+      const msg = outbound(JSON.parse(await body(req)) as ApiMessageBody);
+      return answer(res, async () => ({ id: await gateway.postMessage(m![1]!, msg) }));
+    }
+    m = /^\/api\/channels\/(\d+)\/messages\/(\d+)$/.exec(path);
+    if (req.method === 'PATCH' && m) {
+      const msg = outbound(JSON.parse(await body(req)) as ApiMessageBody);
+      const edited = await gateway.editMessage(m[1]!, m[2]!, msg);
+      if (edited === 'gone') return send(res, 404, { message: 'Unknown Message', code: 10008 });
+      return send(res, 200, { id: m[2] });
+    }
+    if (req.method === 'DELETE' && m) {
+      const deleted = await gateway.deleteMessage(m[1]!, m[2]!);
+      if (deleted === 'already_gone') return send(res, 404, { message: 'Unknown Message', code: 10008 });
+      return send(res, 204, null);
     }
     m = /^\/api\/channels\/(\d+)\/pins\/(\d+)$/.exec(path);
     if (req.method === 'PUT' && m) {
@@ -218,6 +229,23 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   state.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   return state;
+}
+
+interface ApiMessageBody {
+  content: string;
+  embeds?: { title: string; fields?: { name: string; value: string }[]; footer?: { text: string } }[];
+  components?: { components: { custom_id: string; label: string; style: number }[] }[];
+}
+
+/** A Discord message body back into the port's terms (style 4 is Danger). */
+function outbound(msg: ApiMessageBody): OutboundMessage {
+  const buttons = (msg.components ?? []).flatMap((row) => row.components.map((b) => ({ customId: b.custom_id, label: b.label, ...(b.style === 4 ? { style: 'danger' as const } : {}) })));
+  const embed = msg.embeds?.[0];
+  return {
+    content: msg.content,
+    ...(embed ? { embed: { title: embed.title, fields: embed.fields ?? [], ...(embed.footer ? { footer: embed.footer.text } : {}) } } : {}),
+    ...(buttons.length ? { buttons } : {}),
+  };
 }
 
 interface ApiOverwrite {

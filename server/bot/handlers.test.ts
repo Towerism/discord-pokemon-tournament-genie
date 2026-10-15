@@ -35,7 +35,7 @@ beforeEach(() => {
         userDisplayName: 'Ash Ketchum',
         ...over,
       },
-      { ephemeral: async (text) => void sent.push(text) },
+      { ephemeral: async (text) => void sent.push(text), deferEphemeral: async () => undefined, showModal: async () => undefined, autocomplete: async () => undefined },
     );
     return sent;
   };

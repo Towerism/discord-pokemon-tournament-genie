@@ -13,9 +13,16 @@ export function createInteractionRouter(opts: {
   commands: Readonly<Record<string, CommandHandler>>;
   /** Buttons and other components, by custom-ID prefix (`genie:day-sync:`). */
   components?: Readonly<Record<string, CommandHandler>>;
+  /** Modal submits, by custom-ID prefix (`genie:penalty:`). */
+  modals?: Readonly<Record<string, CommandHandler>>;
+  /** Autocomplete, by command name. */
+  autocomplete?: Readonly<Record<string, CommandHandler>>;
 }) {
-  const { boundGuildId, logger, commands, components = {} } = opts;
-  const componentFor = (customId: string) => Object.entries(components).find(([prefix]) => customId.startsWith(prefix))?.[1];
+  const { boundGuildId, logger, commands, components = {}, modals = {}, autocomplete = {} } = opts;
+  const byPrefix = (table: Readonly<Record<string, CommandHandler>>, customId: string) => Object.entries(table).find(([prefix]) => customId.startsWith(prefix))?.[1];
+  const byName = (table: Readonly<Record<string, CommandHandler>>, name: string) => (Object.hasOwn(table, name) ? table[name] : undefined);
+  const unavailable = { command: "This command isn't available.", component: "This button isn't available.", modal: "This form isn't available." } as const;
+
   return {
     async route(interaction: InboundInteraction, reply: InteractionReply): Promise<void> {
       const bound = boundGuildId();
@@ -27,11 +34,22 @@ export function createInteractionRouter(opts: {
         });
         return;
       }
-      const isComponent = interaction.kind === 'component';
-      const handler = isComponent ? componentFor(interaction.name) : Object.hasOwn(commands, interaction.name) ? commands[interaction.name] : undefined;
+      if (interaction.kind === 'autocomplete') {
+        // Discord accepts only choices here; a failure answers none rather than an error message.
+        const handler = byName(autocomplete, interaction.name);
+        try {
+          if (handler) return await handler(interaction, reply);
+        } catch (err) {
+          logger.error(`Autocomplete ${interaction.name} failed.`, { command: interaction.name, interactionId: interaction.id, err });
+        }
+        await reply.autocomplete([]).catch((err: unknown) => logger.error('Could not send the empty choices.', { interactionId: interaction.id, err }));
+        return;
+      }
+      const handler =
+        interaction.kind === 'component' ? byPrefix(components, interaction.name) : interaction.kind === 'modal' ? byPrefix(modals, interaction.name) : byName(commands, interaction.name);
       try {
         if (!handler) {
-          await reply.ephemeral(isComponent ? "This button isn't available." : "This command isn't available.");
+          await reply.ephemeral(unavailable[interaction.kind]);
           return;
         }
         await handler(interaction, reply);

@@ -24,10 +24,15 @@ import {
   Events,
   GatewayCloseCodes,
   GatewayIntentBits,
+  LabelBuilder,
   MessageFlags,
+  ModalBuilder,
   OverwriteType,
   REST,
   Routes,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from 'discord.js';
 import type { Member } from '../../../../../shared/access/access';
 import {
@@ -38,6 +43,9 @@ import {
   type GuildInfo,
   type GuildMember,
   type InboundInteraction,
+  type InteractionReply,
+  type ModalSpec,
+  type OutboundMessage,
   type Overwrite,
   DisallowedIntentsError,
   DiscordAuthError,
@@ -52,6 +60,7 @@ const UNKNOWN_MEMBER = 10007;
 const MISSING_ACCESS = 50001;
 const MISSING_PERMISSIONS = 50013;
 const UNKNOWN_CHANNEL = 10003;
+const UNKNOWN_MESSAGE = 10008;
 const MEMBER_PAGE = 1000;
 
 /** Distinct tokens kept (the stored one, plus a few the setup wizard tried). */
@@ -191,14 +200,16 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
         return gone === null ? 'already_gone' : 'deleted';
       },
       async postMessage(channelId, msg) {
-        const body: Record<string, unknown> = { content: msg.content, allowed_mentions: { parse: [] } };
-        if (msg.buttons?.length) {
-          body.components = [
-            { type: ComponentType.ActionRow, components: msg.buttons.map((b) => ({ type: ComponentType.Button, style: ButtonStyle.Primary, label: b.label, custom_id: b.customId })) },
-          ];
-        }
-        const sent = await call<{ id: string }>(() => rest.post(Routes.channelMessages(channelId), { body, reason: 'Tournament Genie: post the day intro or panel' }));
+        const sent = await call<{ id: string }>(() => rest.post(Routes.channelMessages(channelId), { body: messageBody(msg), reason: 'Tournament Genie: post a message' }));
         return sent.id;
+      },
+      async editMessage(channelId, messageId, msg) {
+        const edited = await orNull(() => rest.patch(Routes.channelMessage(channelId, messageId), { body: messageBody(msg) }), [UNKNOWN_MESSAGE, UNKNOWN_CHANNEL]);
+        return edited === null ? 'gone' : 'edited';
+      },
+      async deleteMessage(channelId, messageId) {
+        const gone = await orNull(() => rest.delete(Routes.channelMessage(channelId, messageId)), [UNKNOWN_MESSAGE, UNKNOWN_CHANNEL]);
+        return gone === null ? 'already_gone' : 'deleted';
       },
       async pinMessage(channelId, messageId) {
         await call(() => rest.put(Routes.channelPin(channelId, messageId), { reason: 'Tournament Genie: pin the day intro' }));
@@ -264,7 +275,15 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
         const body = commands.map((c) => ({
           name: c.name,
           description: c.description,
-          options: (c.options ?? []).map((o) => ({ name: o.name, description: o.description, required: o.required, type: ApplicationCommandOptionType.String })),
+          options: (c.options ?? []).map((o) => ({
+            name: o.name,
+            description: o.description,
+            required: o.required,
+            type: o.type === 'integer' ? ApplicationCommandOptionType.Integer : ApplicationCommandOptionType.String,
+            ...(o.minValue === undefined ? {} : { min_value: o.minValue }),
+            ...(o.maxValue === undefined ? {} : { max_value: o.maxValue }),
+            ...(o.autocomplete ? { autocomplete: true } : {}),
+          })),
         }));
         await call(() => rest.put(Routes.applicationGuildCommands(appId, guildId), { body }));
       },
@@ -334,17 +353,84 @@ function guildInfo(guild: APIGuild, botRoleIds: readonly string[], botUserId: st
   };
 }
 
-async function dispatch(interaction: Interaction, onInteraction: (i: InboundInteraction, reply: { ephemeral(text: string): Promise<void> }) => Promise<void>, logger: Logger) {
+/** A message body: never pings anyone (`allowed_mentions: none`), whatever its content or embed holds. */
+function messageBody(msg: OutboundMessage): Record<string, unknown> {
+  const body: Record<string, unknown> = { content: msg.content, allowed_mentions: { parse: [] }, embeds: [], components: [] };
+  if (msg.embed) {
+    body.embeds = [
+      {
+        title: msg.embed.title,
+        fields: msg.embed.fields.map((f) => ({ name: f.name, value: f.value })),
+        ...(msg.embed.footer ? { footer: { text: msg.embed.footer } } : {}),
+      },
+    ];
+  }
+  if (msg.buttons?.length) {
+    body.components = [
+      {
+        type: ComponentType.ActionRow,
+        components: msg.buttons.map((b) => ({ type: ComponentType.Button, style: b.style === 'danger' ? ButtonStyle.Danger : ButtonStyle.Primary, label: b.label, custom_id: b.customId })),
+      },
+    ];
+  }
+  return body;
+}
+
+/** The modal as spike S2 built it (ADR-0014): every component in a `Label`. */
+function modalBuilder(spec: ModalSpec): ModalBuilder {
+  const modal = new ModalBuilder().setCustomId(spec.customId).setTitle(spec.title);
+  for (const c of spec.components) {
+    const label = new LabelBuilder().setLabel(c.label);
+    if (c.kind === 'select') {
+      label.setStringSelectMenuComponent(
+        new StringSelectMenuBuilder().setCustomId(c.customId).addOptions(c.options.map((o) => ({ label: o.label, value: o.value, default: o.default ?? false }))),
+      );
+    } else {
+      const input = new TextInputBuilder()
+        .setCustomId(c.customId)
+        .setStyle(c.style === 'paragraph' ? TextInputStyle.Paragraph : TextInputStyle.Short)
+        .setRequired(c.required)
+        .setMaxLength(c.maxLength);
+      if (c.minLength > 0) input.setMinLength(c.minLength);
+      if (c.value) input.setValue(c.value);
+      label.setTextInputComponent(input);
+    }
+    modal.addLabelComponents(label);
+  }
+  return modal;
+}
+
+async function dispatch(interaction: Interaction, onInteraction: (i: InboundInteraction, reply: InteractionReply) => Promise<void>, logger: Logger) {
   let inbound: InboundInteraction;
   if (interaction.isChatInputCommand()) inbound = base(interaction, 'command', interaction.commandName);
-  else if (interaction.isMessageComponent()) inbound = base(interaction, 'component', interaction.customId);
-  else if (interaction.isModalSubmit()) inbound = base(interaction, 'modal', interaction.customId);
-  else return;
-  const reply = {
-    async ephemeral(text: string) {
+  else if (interaction.isAutocomplete()) {
+    const focused = interaction.options.getFocused(true);
+    inbound = { ...base(interaction, 'autocomplete', interaction.commandName), focused: { name: focused.name, value: String(focused.value) } };
+  } else if (interaction.isMessageComponent()) inbound = base(interaction, 'component', interaction.customId);
+  else if (interaction.isModalSubmit()) {
+    const fields: Record<string, string | string[]> = {};
+    for (const [customId, data] of interaction.fields.fields) {
+      if ('values' in data) fields[customId] = [...data.values];
+      else if ('value' in data && typeof data.value === 'string') fields[customId] = data.value;
+    }
+    inbound = { ...base(interaction, 'modal', interaction.customId), fields };
+  } else return;
+  const reply: InteractionReply = {
+    async ephemeral(text) {
       if (!interaction.isRepliable()) return;
-      if (interaction.replied || interaction.deferred) await interaction.followUp({ content: text, flags: MessageFlags.Ephemeral });
-      else await interaction.reply({ content: text, flags: MessageFlags.Ephemeral });
+      const body = { content: text, allowedMentions: { parse: [] } };
+      if (interaction.deferred && !interaction.replied) await interaction.editReply(body);
+      else if (interaction.replied) await interaction.followUp({ ...body, flags: MessageFlags.Ephemeral });
+      else await interaction.reply({ ...body, flags: MessageFlags.Ephemeral });
+    },
+    async deferEphemeral() {
+      if (interaction.isRepliable() && !interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    },
+    async showModal(spec) {
+      if (interaction.isChatInputCommand() || interaction.isMessageComponent()) await interaction.showModal(modalBuilder(spec));
+    },
+    async autocomplete(choices) {
+      if (interaction.isAutocomplete()) await interaction.respond(choices.slice(0, 25));
     },
   };
   try {
