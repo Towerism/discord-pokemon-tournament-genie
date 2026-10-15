@@ -43,6 +43,8 @@ export interface DaySummary {
   date: string;
   title: string;
   state: DayRow['state'];
+  /** Selects the penalty catalog; copied from the current season when the day was created. */
+  season: string;
   eventCount: number;
   staffCount: number;
 }
@@ -156,8 +158,10 @@ export function createEventDaysService(opts: {
   directory: DirectoryService;
   /** Queues a sync for the day, coalesced with one already queued; answers the job ID. */
   enqueueSync: (dayId: number) => number;
+  /** Settings' current season, which a new day copies (§5.2). */
+  currentSeason: () => string;
 }) {
-  const { db, clock, logger, timeZone, guildId, directory, enqueueSync } = opts;
+  const { db, clock, logger, timeZone, guildId, directory, enqueueSync, currentSeason } = opts;
 
   // ---- reads
 
@@ -217,6 +221,7 @@ export function createEventDaysService(opts: {
     date: day.date,
     title: day.title,
     state: day.state,
+    season: day.season,
     eventCount: db.select({ n: sql<number>`count(*)` }).from(event).where(eq(event.dayId, day.id)).get()!.n,
     staffCount: db.select({ n: sql<number>`count(*)` }).from(dayStaff).where(eq(dayStaff.dayId, day.id)).get()!.n,
   });
@@ -423,7 +428,11 @@ export function createEventDaysService(opts: {
         const blueprintId = template?.blueprintId ?? input.blueprintId ?? db.select({ id: blueprint.id }).from(blueprint).where(eq(blueprint.isDefault, true)).get()!.id;
         requireBlueprint(blueprintId);
         const now = clock.now();
-        const day = db.insert(eventDay).values({ guildId: guild, date: input.date, title: input.title.trim(), blueprintId, createdAt: now, updatedAt: now }).returning().get();
+        const day = db
+          .insert(eventDay)
+          .values({ guildId: guild, date: input.date, title: input.title.trim(), blueprintId, season: currentSeason(), createdAt: now, updatedAt: now })
+          .returning()
+          .get();
         for (const e of template?.events ?? []) insertEvent(day, e);
         logger.info('Day created.', { dayId: day.id });
         return plan(day.id);
@@ -695,6 +704,12 @@ export function createEventDaysService(opts: {
         if (jobId !== null) jobIds.push(jobId);
       }
       return jobIds;
+    },
+    /** The day an event belongs to. */
+    dayOfEvent(eventId: number): number {
+      const row = db.select({ dayId: event.dayId }).from(event).where(eq(event.id, eventId)).get();
+      if (!row) throw notFound('event');
+      return row.dayId;
     },
     isReferenced(staffMemberId: number): boolean {
       return db.select({ dayId: dayStaff.dayId }).from(dayStaff).where(eq(dayStaff.staffMemberId, staffMemberId)).get() !== undefined;

@@ -21,6 +21,8 @@ export const VOID_REASON_MAX = 500;
 export const LABEL_MAX = 100;
 /** Play! Pokémon player IDs: digits only, leading zeros kept (the directory's rule). */
 export const PLAYER_ID = /^\d{1,10}$/;
+/** A season's name in Settings (`2026-27`). */
+export const SEASON = /^[0-9A-Za-z][0-9A-Za-z ._-]{0,31}$/;
 /** The play-tools display ID the CSV's first column needs (`25-12-001050`). */
 export const TOURNAMENT_ID = /^\d{2}-\d{2}-\d{6}$/;
 

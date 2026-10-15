@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client';
-import { type SealedSecretName, attendanceConnection, guildBinding, install, loginAudit, organizerAllowlist, sealedSecret } from '../../db/schema';
+import { type SealedSecretName, appSetting, attendanceConnection, guildBinding, install, loginAudit, organizerAllowlist, sealedSecret } from '../../db/schema';
 import type { Grant } from '../../../shared/access/access';
 
 export type Install = typeof install.$inferSelect;
@@ -19,6 +19,14 @@ export function createSetupStore(db: Db) {
     },
     updateInstall(patch: Partial<Omit<Install, 'id' | 'createdAt'>>): void {
       db.update(install).set(patch).where(eq(install.id, 1)).run();
+    },
+
+    /** The season new days copy (§5.2); the M4 migration seeds the row. */
+    currentSeason(): string {
+      return db.select().from(appSetting).where(eq(appSetting.id, 1)).get()!.currentSeason;
+    },
+    putCurrentSeason(season: string, now: number): void {
+      db.update(appSetting).set({ currentSeason: season, updatedAt: now }).where(eq(appSetting.id, 1)).run();
     },
 
     sealed(name: SealedSecretName): Buffer | null {

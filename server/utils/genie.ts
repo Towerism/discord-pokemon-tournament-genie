@@ -107,6 +107,7 @@ export const useEventDays = once((): EventDaysService =>
     guildId: () => useStore().binding()?.guildId ?? null,
     directory: useDirectory(),
     enqueueSync: (dayId) => useJobs().enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+    currentSeason: () => useStore().currentSeason(),
   }),
 );
 

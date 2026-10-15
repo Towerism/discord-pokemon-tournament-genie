@@ -8,6 +8,7 @@ import { type EventDaysService, createEventDaysService } from '../../server/modu
 import { type Jobs, createJobs } from '../../server/modules/jobs/jobs';
 import { createSqliteJobStore } from '../../server/modules/jobs/sqlite-store';
 import { type ProvisioningService, createProvisioningService } from '../../server/modules/provisioning';
+import { createSetupStore } from '../../server/modules/setup/store';
 import { freshDb } from './db';
 import { ALL_PERMISSIONS, BOT_TOKEN, IDS } from './discord-world';
 
@@ -81,6 +82,7 @@ export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPe
     guildId: () => IDS.guild,
     directory,
     enqueueSync: (dayId) => jobs.enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+    currentSeason: () => createSetupStore(database.db).currentSeason(),
   });
   const provisioning = createProvisioningService({
     db: database.db,

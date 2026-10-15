@@ -42,6 +42,7 @@ beforeEach(() => {
     guildId: () => GUILD,
     directory,
     enqueueSync: (dayId) => jobs.enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+    currentSeason: () => '2026-27',
   });
 });
 afterEach(() => database.close());
@@ -181,7 +182,7 @@ describe('edges', () => {
   });
 
   it('refuses a day before setup binds a guild', () => {
-    const unbound = createEventDaysService({ db: database.db, clock, logger: silentLogger, timeZone: TZ, guildId: () => null, directory, enqueueSync: () => 0 });
+    const unbound = createEventDaysService({ db: database.db, clock, logger: silentLogger, timeZone: TZ, guildId: () => null, directory, enqueueSync: () => 0, currentSeason: () => '2026-27' });
     expect(refusal(() => unbound.createDay({ date: '2026-10-17', title: 'T' }))).toBe('409 setup_incomplete');
   });
 
