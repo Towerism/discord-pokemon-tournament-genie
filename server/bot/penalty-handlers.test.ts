@@ -166,6 +166,14 @@ describe('/penalty', () => {
     ]);
   });
 
+  it('says no card was posted when the event has no channel of its own, and posts none in a day-wide channel', async () => {
+    await world({ blueprint: { ...DEFAULT_BLUEPRINT, name: 'Day-wide only', channels: DEFAULT_BLUEPRINT.channels.filter((c) => c.scope === 'day') } });
+    const before = w.discord.messages.size;
+    const modal = (await slash('penalty', PEOPLE.ash, 'day-staff', { round: 2, event: String(w.tcg.id) })).modal!;
+    expect((await submit(modal.customId, PEOPLE.ash, 'day-staff', fill(modal))).ephemeral).toEqual(['Recorded #1 for Cup. No card was posted: this event has no channel for it.']);
+    expect(w.discord.messages.size).toBe(before);
+  });
+
   it('answers a submit with the same key from someone else as unusable, revealing nothing', async () => {
     await world();
     const modal = (await slash('penalty', PEOPLE.ash, 'day-staff', { round: 3, event: String(w.tcg.id) })).modal!;

@@ -316,6 +316,25 @@ describe('who can be named the judge', () => {
     expect(await refusal(w.penalties.record(w.recordInput({ judgeStaffMemberId: claimed.id })))).toMatchObject({ code: 'judge_without_player_id' });
   });
 
+  it('keeps a claim-created row that judged a penalty when a later claim on it is rejected', async () => {
+    w = await penaltyWorld();
+    w.directory.claim({ userId: PEOPLE.outsider, playerId: '5555', displayName: 'Outsider' });
+    const row = w.directory.list().find((s) => s.playerId === '5555')!;
+    w.directory.update(row.id, { discordUserId: PEOPLE.outsider });
+    const plan = w.days.plan(w.dayId);
+    const staff = plan.staff.map((s) => ({ staffMemberId: s.staffMemberId, events: s.events }));
+    w.days.putStaff(w.dayId, [...staff, { staffMemberId: row.id, events: [{ eventId: w.tcg.id, role: 'judge' }] }]);
+    await w.penalties.record(w.recordInput({ judgeStaffMemberId: row.id }));
+    w.days.putStaff(w.dayId, staff);
+    w.directory.update(row.id, { discordUserId: null });
+    w.directory.claim({ userId: PEOPLE.admin, playerId: '5555', displayName: 'Admin' });
+
+    expect(() => w.directory.rejectClaim(row.id)).not.toThrow();
+    expect(w.directory.get(row.id)).toMatchObject({ playerId: '5555' });
+    expect(w.penalties.namesJudge(row.id)).toBe(true);
+    expect(w.penalties.namesJudge(w.people.gary.id)).toBe(false);
+  });
+
   it('offers the event’s options and lists nothing for an event of another day', async () => {
     w = await penaltyWorld();
     expect(w.penalties.options(w.dayId, w.vgc.id).types.map((t) => t.label)).toEqual(['Warning', 'GL', 'DQ']);
@@ -386,9 +405,16 @@ describe('the catalog and the season', () => {
     expect(await refusal(() => w.penalties.setSeason(' bad'))).toMatchObject({ code: 'invalid_field', data: { field: 'season' } });
   });
 
-  it('answers not found for a season without rows', async () => {
+  it('answers not found for a season without rows, and refuses a row given twice', async () => {
     w = await penaltyWorld();
     expect(await refusal(() => w.penalties.catalog('1999-00'))).toMatchObject({ status: 404 });
+    const { categories, types } = view();
+    expect(await refusal(() => w.penalties.putCatalog('1999-00', { categories: [], types: [] }))).toMatchObject({ status: 404 });
+    const twice = [...asInput(types), { ...asInput(types)[0]!, label: 'Again' }];
+    expect(await refusal(() => w.penalties.putCatalog('2026-27', { categories: asInput(categories), types: twice }))).toMatchObject({
+      code: 'duplicate_row',
+      data: { ids: [types[0]!.id] },
+    });
   });
 });
 

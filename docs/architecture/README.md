@@ -831,10 +831,10 @@ shared Zod schemas. Errors carry `data.code`.
 | Command / component | Who | Where | What |
 | ------------------- | --- | ----- | ---- |
 | `/penalty` | event staff | penalty channel (or any day channel, with `event:`) | Record a penalty (§6.4) |
-| `/penalties` | event staff | that event's channels (or a day channel, with `event:`, for staff of that event) | Ephemeral list of the event's penalties so far |
+| `/penalties` | event staff who can see the event's penalties channel (a blueprint may make it head judges only) | that event's channels (or a day channel, with `event:`, for staff of that event) | Ephemeral list of the event's 20 newest active penalties, without notes |
 | `/link player-id:` | any guild member | anywhere in the bound guild | Claim a player ID (§5.3) |
 | `/day status` | day staff | day channels | Ephemeral: events, staff, sync state |
-| Card buttons **Edit**, **Void** | see §6.4 | penalty card | Modal edit / void with reason |
+| Card buttons **Edit**, **Void** | Edit: the recording judge for 15 minutes, the event's head judges and organizers; Void: head judges and organizers (§6.4) | penalty card | Modal edit (the record modal, pre-filled) / void with reason; each form names the revision it was opened at |
 | Pinned panel **Sync**, **Close the day** | day head judges, organizer | `#head-judges` | Same as the website buttons |
 
 Every interaction is authorized on the server through `canSee()` from Genie's own data (day staff, event

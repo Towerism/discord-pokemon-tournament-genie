@@ -209,6 +209,20 @@ export class DiscordUnavailableError extends Error {
 export class DisallowedIntentsError extends Error {
   override name = 'DisallowedIntentsError';
 }
+/**
+ * Discord refused a request for another reason (a 4xx: Unknown Channel, an invalid body). It carries only the
+ * status and Discord's code: never the request, which can hold penalty notes and player IDs.
+ */
+export class DiscordRequestError extends Error {
+  override name = 'DiscordRequestError';
+  constructor(
+    readonly status: number,
+    readonly code: number | string,
+  ) {
+    super(`Discord refused the request (${status}, code ${code}).`);
+  }
+}
+
 /** Discord refused a write the bot lacks the permissions for (403, code 50013). */
 export class DiscordPermissionError extends Error {
   override name = 'DiscordPermissionError';

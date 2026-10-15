@@ -29,7 +29,7 @@ import {
 import type { Db } from '../../db/client';
 import { penalty, penaltyCategory, penaltyRevision, penaltyType } from '../../db/schema';
 import type { DirectoryService } from '../directory';
-import { type DiscordGateway, DiscordPermissionError, DiscordUnavailableError } from '../discord/port';
+import type { DiscordGateway } from '../discord/port';
 import { ServiceError, notFound } from '../errors';
 import type { EventDaysService, EventView } from '../event-days';
 import type { ProvisioningService } from '../provisioning';
@@ -140,10 +140,13 @@ export function createPenaltiesService(opts: {
   function checkList(list: 'categories' | 'types', s: string, table: CatalogTable, items: readonly CatalogRowInput[]) {
     const existing = rowsOf(table, s);
     const ids = new Set(existing.map((r) => r.id));
+    const given = items.filter((i) => i.id !== undefined).map((i) => i.id!);
+    const repeated = given.filter((id, n) => given.indexOf(id) !== n);
+    if (repeated.length) throw new ServiceError(422, 'duplicate_row', 'A row appears twice.', { list, ids: [...new Set(repeated)] });
     const unknown = items.filter((i) => i.id !== undefined && !ids.has(i.id)).map((i) => i.id!);
     if (unknown.length) throw new ServiceError(422, 'unknown_row', 'A row belongs to another season or list.', { list, ids: unknown });
-    const given = new Set(items.map((i) => i.id));
-    const missing = existing.filter((r) => !given.has(r.id)).map((r) => r.id);
+    const present = new Set(given);
+    const missing = existing.filter((r) => !present.has(r.id)).map((r) => r.id);
     if (missing.length) throw new ServiceError(422, 'row_missing', 'Rows are never deleted: deactivate them instead.', { list, ids: missing });
     const labels = new Set<string>();
     for (const i of items) {
@@ -339,6 +342,7 @@ export function createPenaltiesService(opts: {
 
     putCatalog(s: string, input: { categories: CatalogRowInput[]; types: CatalogRowInput[] }): CatalogView {
       return db.transaction(() => {
+        if (!rowsOf(penaltyCategory, s).length && !rowsOf(penaltyType, s).length) throw notFound('season');
         checkList('categories', s, penaltyCategory, input.categories);
         checkList('types', s, penaltyType, input.types);
         writeList(penaltyCategory, s, input.categories);
@@ -386,6 +390,11 @@ export function createPenaltiesService(opts: {
     },
 
     // ---- penalties
+
+    /** Whether a penalty names the staffer as its judge: the directory then keeps their row. */
+    namesJudge(staffMemberId: number): boolean {
+      return db.select({ id: penalty.id }).from(penalty).where(eq(penalty.judgeStaffId, staffMemberId)).get() !== undefined;
+    },
 
     get(id: number): PenaltyView | null {
       const r = rowById(id);
@@ -520,8 +529,9 @@ export function createPenaltiesService(opts: {
         try {
           messageId = await gateway().postMessage(channelId, cardFor(r));
         } catch (err) {
-          if (err instanceof DiscordUnavailableError || err instanceof DiscordPermissionError) throw new ServiceError(503, 'discord_unavailable', 'Discord can’t be reached. Try again.');
-          throw err;
+          // Unreachable, refused or the channel gone (until the next sync recreates it): the stored card is unchanged.
+          logger.warn('Could not repost a penalty card.', { penaltyId: id, err });
+          throw new ServiceError(503, 'discord_unavailable', 'Discord can’t take the card right now. Try again, or sync the day first.');
         }
         setCard(id, { cardState: 'posted', discordChannelId: channelId, discordMessageId: messageId });
         if (r.discordChannelId && r.discordMessageId) {

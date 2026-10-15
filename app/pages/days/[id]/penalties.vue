@@ -115,6 +115,9 @@ async function download(voided: boolean) {
 
 /** The options for a select, keeping a choice that is no longer offered when editing. */
 const withCurrent = (list: Option[], chosen?: Option) => (chosen && !list.some((o) => o.id === chosen.id) ? [chosen, ...list] : list);
+/** The judge of record stays selectable after leaving the event, so a correction doesn't have to change who issued it. */
+const withCurrentJudge = (list: PenaltyEvent['judges'], judge: Penalty['judge']) =>
+  list.some((j) => j.staffMemberId === judge.staffMemberId) ? list : [judge, ...list];
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 </script>
 
@@ -174,7 +177,7 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
                   <UButton size="xs" variant="outline" @click="startEditing(p)">Edit</UButton>
                   <UButton size="xs" color="error" variant="outline" @click="voiding = { penalty: p, reason: '' }">Void</UButton>
                 </template>
-                <UButton v-if="['failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
+                <UButton v-if="['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
               </td>
             </tr>
             <tr v-if="expanded === p.id">
@@ -195,6 +198,7 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
           v-model="editing.form"
           :event="{
             ...current,
+            judges: withCurrentJudge(current.judges, editing.penalty.judge),
             options: {
               categories: withCurrent(current.options.categories, editing.penalty.category),
               types: withCurrent(current.options.types, editing.penalty.penaltyType),

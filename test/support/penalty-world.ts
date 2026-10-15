@@ -39,6 +39,7 @@ export async function penaltyWorld(opts: { blueprint?: BlueprintInput; beforeIns
     ...(opts.beforeInsert ? { testHooks: { beforeInsert: opts.beforeInsert } } : {}),
   });
 
+  w.referencedBy.push((id) => penalties.namesJudge(id));
   const person = (displayName: string, discordUserId: string, playerId: string | null) => w.directory.create({ displayName, discordUserId, playerId });
   const people = {
     ash: person('Ash', PEOPLE.ash, '00123'),

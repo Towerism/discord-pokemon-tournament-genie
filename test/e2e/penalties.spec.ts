@@ -80,4 +80,14 @@ test('a head judge records penalties, corrects one, voids one, and downloads the
   expect(csv).toBe("Tournament ID,Round of Issue,Judge Player ID,Competitor's Player ID,Category,Severity,Penalty,Notes\n26-10-000777,2,0031415,0042,Game Play,Major,Warning,first\n");
   const voided = await downloaded(page, 'Download voided CSV');
   expect(voided.split('\n')[1]).toBe('26-10-000777,3,0031415,0043,Game Play,Minor,Warning,second');
+
+  // The judge leaves the event; a correction keeps them as the judge of record.
+  await must(api.put(`/api/days/${day.id}/staff`, { data: { staff: [] } }), 200);
+  await page.reload();
+  await page.locator('[data-penalty="1"]').getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByLabel('Judge')).toHaveValue(String(judge.id));
+  await page.getByLabel('Round').fill('4');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.locator('[data-penalty="1"]')).toContainText('Oak (0031415)');
+  expect(await downloaded(page, 'Download CSV')).toContain('26-10-000777,4,0031415,0042,Game Play,Major,Warning,first');
 });

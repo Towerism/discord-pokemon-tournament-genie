@@ -198,6 +198,8 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
     }
     m = /^\/api\/channels\/(\d+)\/messages$/.exec(path);
     if (req.method === 'POST' && m) {
+      // Like Discord: a channel deleted by hand is 404 Unknown Channel, which discord.js doesn't retry.
+      if (!fake.channels.has(m[1]!)) return send(res, 404, { message: 'Unknown Channel', code: 10003 });
       const msg = outbound(JSON.parse(await body(req)) as ApiMessageBody);
       return answer(res, async () => ({ id: await gateway.postMessage(m![1]!, msg) }));
     }

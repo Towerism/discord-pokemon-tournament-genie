@@ -96,7 +96,7 @@ export const useDirectory = once((): DirectoryService =>
     clock: systemClock,
     logger: useLogger('directory'),
     onLinkChanged: (id): number[] => useEventDays().onLinkChanged(id),
-    isReferenced: (id): boolean => useEventDays().isReferenced(id),
+    isReferenced: (id): boolean => useEventDays().isReferenced(id) || usePenalties().namesJudge(id),
   }),
 );
 

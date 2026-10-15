@@ -3,10 +3,11 @@ import { SECRETS } from '../bootstrap/secrets';
 
 /**
  * Redaction (architecture §10): the kit's base credential keys plus message content, penalty notes, competitors'
- * player IDs and void reasons, Genie's tokens and the env names of its secrets.
+ * player IDs and void reasons, any request body a library attaches to its errors, Genie's tokens and the env names of
+ * its secrets.
  */
 export const redactor = createRedactor({
-  extraKeys: ['content', 'notes', 'competitorPlayerId', 'voidReason', 'botToken', 'attendanceToken', 'clientSecret', ...secretKeyNames(SECRETS)],
+  extraKeys: ['content', 'notes', 'competitorPlayerId', 'voidReason', 'requestBody', 'botToken', 'attendanceToken', 'clientSecret', ...secretKeyNames(SECRETS)],
 });
 
 let root: Logger | undefined;

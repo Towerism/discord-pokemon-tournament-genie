@@ -50,6 +50,7 @@ import {
   DisallowedIntentsError,
   DiscordAuthError,
   DiscordPermissionError,
+  DiscordRequestError,
   DiscordUnavailableError,
 } from '../../port';
 
@@ -467,7 +468,8 @@ function translate(err: unknown): Error {
   if (err instanceof DiscordAPIError && err.status === 401) return new DiscordAuthError('Discord refused the bot token.');
   if (err instanceof DiscordAPIError && err.code === MISSING_PERMISSIONS) return new DiscordPermissionError(`Discord refused the write: ${err.message}`);
   if (err instanceof DiscordjsError && err.code === DiscordjsErrorCodes.TokenInvalid) return new DiscordAuthError('Discord refused the bot token.');
+  // A refusal is passed on without discord.js's error, whose `requestBody` holds what was sent (a card's notes).
+  if (err instanceof DiscordAPIError && err.status < 500 && err.status !== 403) return new DiscordRequestError(err.status, err.code);
   // Any other refusal (403 Missing Access when the bot lost the guild, say) means Discord can't answer this for us.
-  if (err instanceof DiscordAPIError && err.status < 500 && err.status !== 403) return err;
   return new DiscordUnavailableError(`Discord could not be reached: ${err instanceof Error ? err.message : String(err)}`);
 }

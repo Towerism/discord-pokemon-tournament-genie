@@ -319,6 +319,33 @@ describe('the CSV', () => {
   });
 });
 
+describe('the catalog’s refusals over HTTP', () => {
+  type Row = { id?: number; label: string; games: string[]; rank: number; active: boolean };
+  const put = (season: string, types: Row[], categories: Row[]) => organizer.put(`/api/catalog/${season}`, { categories, types });
+
+  it('answers each refusal with its code, and swaps two labels in one save', async () => {
+    const current = ok(await organizer.get('/api/catalog?season=2026-27')) as { categories: Row[]; types: Row[] };
+    const { categories, types } = current;
+    const expectCode = async (reply: Promise<Reply>, status: number, expected: string) => {
+      const r = await reply;
+      expect([r.status, code(r)]).toEqual([status, expected]);
+    };
+    await expectCode(put('2026-27', types.slice(1), categories), 422, 'row_missing');
+    await expectCode(put('2026-27', [...types, { label: types[0]!.label.toLowerCase(), games: ['tcg'], rank: 9, active: true }], categories), 422, 'duplicate_label');
+    const many = Array.from({ length: 20 }, (_, i) => ({ label: `T${i}`, games: ['tcg'], rank: 50 + i, active: true }));
+    await expectCode(put('2026-27', [...types, ...many], categories), 422, 'too_many_options');
+    await expectCode(put('2026-27', types.map((t) => ({ ...t, active: false })), categories), 422, 'no_options');
+    await expectCode(put('2026-27', [...types, { ...types[0]!, label: 'Twice' }], categories), 422, 'duplicate_row');
+    await expectCode(put('1999-00', [], []), 404, 'not_found');
+    expect((await organizer.put('/api/catalog/%E0%A4%A', { categories, types })).status).toBe(404);
+
+    const swap = (label: string) => (label === 'Warning' ? 'DQ' : label === 'DQ' ? 'Warning' : label);
+    const swapped = ok(await put('2026-27', types.map((t) => ({ ...t, label: swap(t.label) })), categories)) as { types: Row[] };
+    expect(swapped.types.map((t) => t.label)).toEqual(types.map((t) => swap(t.label)));
+    ok(await put('2026-27', types, categories));
+  });
+});
+
 describe('the season and the catalog over HTTP', () => {
   it('starts a new season as a copy, keeps the open day on its own, and reports it in Settings', async () => {
     const empty = await organizer.put('/api/settings/season', { season: '2027-28' });
@@ -328,6 +355,25 @@ describe('the season and the catalog over HTTP', () => {
     expect(ok(await organizer.get('/api/catalog'))).toMatchObject({ season: '2027-28', seasons: expect.arrayContaining(['2026-27', '2027-28']) });
     expect(ok(await organizer.get(`/api/days/${dayId}`))).toMatchObject({ day: { season: '2026-27' } });
     ok(await organizer.put('/api/settings/season', { season: '2026-27' }));
+  });
+});
+
+describe('a card channel deleted before the next sync', () => {
+  const LOST_NOTE = 'lost-channel-note-5150';
+  const LOST_COMPETITOR = '7770001';
+
+  it('records the penalty with a failed card, refuses the repost as unavailable, and logs nothing it carried', async () => {
+    const channel = [...fake.channels.values()].find((c) => c.name === 'lc-penalties')!;
+    fake.channels.delete(channel.id);
+    const { penalty } = ok(await ash.post(`/api/days/${dayId}/penalties`, createBody({ notes: LOST_NOTE, competitorPlayerId: LOST_COMPETITOR })), 201) as { penalty: { id: number; cardState: string } };
+    expect(penalty.cardState).toBe('failed');
+    const repost = await ash.post(`/api/days/${dayId}/penalties/${penalty.id}/repost`, {});
+    expect([repost.status, code(repost)]).toEqual([503, 'discord_unavailable']);
+    const log = genie.log();
+    expect(log).toContain('Could not post a penalty card.');
+    expect(log).not.toContain(LOST_NOTE);
+    expect(log).not.toContain(LOST_COMPETITOR);
+    expect(log).not.toContain('00222');
   });
 });
 
