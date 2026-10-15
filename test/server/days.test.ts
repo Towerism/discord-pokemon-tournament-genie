@@ -237,6 +237,47 @@ describe('streaming staff', () => {
   });
 });
 
+describe('editing a staff member', () => {
+  // Its own members and draft day: the suite's opened day is read by later tests, and an edit must not queue a sync there.
+  const KEN = '100000000000000201';
+
+  it('changes only the name and player ID, clears the player ID, and shows the change on a day', async () => {
+    const ken = ok(await organizer.post('/api/staff', { displayName: 'Ken', discordUserId: KEN, playerId: '0028010' }), 201) as { id: number };
+    const { day } = ok(await organizer.post('/api/days', { date: '2026-11-07', title: 'Edit Saturday' }), 201) as { day: { id: number } };
+    const event = ok(await organizer.post(`/api/days/${day.id}/events`, { name: 'LC', game: 'tcg', startTime: '10:00' }), 201) as { id: number };
+    ok(await organizer.put(`/api/days/${day.id}/staff`, { staff: [{ staffMemberId: ken.id, events: [{ eventId: event.id, role: 'judge' }] }] }));
+    const unchanged = { discordUserId: KEN, linkState: 'linked', claimedDiscordUserId: null };
+
+    const edited = ok(await patch(organizer, `/api/staff/${ken.id}`, { displayName: '  Kenji  ', playerId: '0028011' }));
+    expect(edited).toEqual({ staff: { id: ken.id, displayName: 'Kenji', playerId: '0028011', ...unchanged }, syncJobIds: [] });
+    const cleared = ok(await patch(organizer, `/api/staff/${ken.id}`, { playerId: null }));
+    expect(cleared).toEqual({ staff: { id: ken.id, displayName: 'Kenji', playerId: null, ...unchanged }, syncJobIds: [] });
+    // Saving the same values again is a no-op.
+    expect(ok(await patch(organizer, `/api/staff/${ken.id}`, { displayName: 'Kenji', playerId: null }))).toEqual(cleared);
+
+    const plan = ok(await organizer.get(`/api/days/${day.id}`)) as { staff: { staffMemberId: number; displayName: string }[] };
+    expect(plan.staff).toEqual([expect.objectContaining({ staffMemberId: ken.id, displayName: 'Kenji' })]);
+  });
+
+  it('refuses another member’s player ID and keeps a member’s own', async () => {
+    const a = ok(await organizer.post('/api/staff', { displayName: 'Holder A', playerId: '0028012' }), 201) as { id: number };
+    const b = ok(await organizer.post('/api/staff', { displayName: 'Holder B', playerId: '0028013' }), 201) as { id: number };
+    const taken = await patch(organizer, `/api/staff/${b.id}`, { playerId: '0028012' });
+    expect(taken.status).toBe(409);
+    expect(taken.json()).toMatchObject({ data: { code: 'player_id_taken' } });
+    const listed = ok(await organizer.get('/api/staff')) as { staff: { id: number; playerId: string | null }[] };
+    expect(listed.staff.find((s) => s.id === b.id)?.playerId).toBe('0028013');
+    expect((ok(await patch(organizer, `/api/staff/${a.id}`, { playerId: '0028012' })) as { staff: { playerId: string } }).staff.playerId).toBe('0028012');
+  });
+
+  it('accepts a 64-character name and a 10-digit player ID, as sent', async () => {
+    const m = ok(await organizer.post('/api/staff', { displayName: 'Boundary' }), 201) as { id: number };
+    const name = 'x'.repeat(64);
+    const { staff } = ok(await patch(organizer, `/api/staff/${m.id}`, { displayName: name, playerId: '1234567890' })) as { staff: { displayName: string; playerId: string } };
+    expect(staff).toMatchObject({ displayName: name, playerId: '1234567890' });
+  });
+});
+
 describe('the member picker', () => {
   it('finds humans by name with their staff link, and refuses bad queries', async () => {
     const found = ok(await organizer.get('/api/discord/members?q=ash')) as { members: { userId: string; staffMemberId: number | null }[] };
@@ -345,6 +386,9 @@ describe('every M2 route', () => {
     expect((await headJudge.get('/api/days/99999')).status).toBe(404);
     expect((await organizer.get('/api/days/abc')).status).toBe(404);
     expect((await organizer.get('/api/jobs/99999')).status).toBe(404);
+    const noStaff = await patch(organizer, '/api/staff/99999', { displayName: 'X' });
+    expect(noStaff.status).toBe(404);
+    expect(noStaff.json()).toMatchObject({ data: { code: 'not_found' } });
   });
 
   it('validates every body: empty, missing fields, wrong types, too long, unknown fields', async () => {
@@ -354,6 +398,15 @@ describe('every M2 route', () => {
       ['POST', '/api/staff', { displayName: 'X', playerId: '12ab' }],
       ['POST', '/api/staff', { displayName: 'X', discordUserId: 'not-a-snowflake' }],
       ['POST', '/api/staff', { displayName: 'X', admin: true }],
+      ['PATCH', '/api/staff/1', { displayName: '' }],
+      ['PATCH', '/api/staff/1', { displayName: '   ' }],
+      ['PATCH', '/api/staff/1', { displayName: 'x'.repeat(65) }],
+      ['PATCH', '/api/staff/1', { displayName: 5 }],
+      ['PATCH', '/api/staff/1', { displayName: null }],
+      ['PATCH', '/api/staff/1', { playerId: '12ab' }],
+      ['PATCH', '/api/staff/1', { playerId: '' }],
+      ['PATCH', '/api/staff/1', { playerId: '12345678901' }],
+      ['PATCH', '/api/staff/1', { playerId: 1234567 }],
       ['POST', '/api/days', { title: 'T' }],
       ['POST', '/api/days', { date: '2026-02-30', title: 'T' }],
       ['POST', '/api/days', { date: '2026-10-17', title: 5 }],
@@ -373,11 +426,15 @@ describe('every M2 route', () => {
     }
   });
 
-  it('stores an XSS display name verbatim and returns it as JSON', async () => {
+  it('stores an XSS display name verbatim and returns it as JSON, on create and on edit', async () => {
     const created = ok(await organizer.post('/api/staff', { displayName: XSS }), 201) as { id: number; displayName: string };
     expect(created.displayName).toBe(XSS);
     const listed = ok(await organizer.get('/api/staff')) as { staff: { displayName: string }[] };
     expect(listed.staff.map((s) => s.displayName)).toContain(XSS);
+    const renamed = ok(await organizer.post('/api/staff', { displayName: 'Plain' }), 201) as { id: number };
+    ok(await patch(organizer, `/api/staff/${renamed.id}`, { displayName: `${XSS}!` }));
+    const relisted = ok(await organizer.get('/api/staff')) as { staff: { id: number; displayName: string }[] };
+    expect(relisted.staff.find((s) => s.id === renamed.id)?.displayName).toBe(`${XSS}!`);
   });
 
   it('lists organizers’ alarms in the status', async () => {

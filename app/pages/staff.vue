@@ -66,12 +66,25 @@ const unlink = (s: StaffMember) => act(() => apiFetch(`/api/staff/${s.id}`, { me
 const confirm = (s: StaffMember) => act(() => apiFetch(`/api/staff/${s.id}/confirm-claim`, { method: 'POST' }), 'Claim confirmed.');
 const reject = (s: StaffMember) => act(() => apiFetch(`/api/staff/${s.id}/reject-claim`, { method: 'POST' }), 'Claim rejected.');
 const linkFor = ref<number | null>(null);
+
+// ---- editing a row: one at a time, and only the name and player ID (never the link)
+const editing = ref<{ id: number; displayName: string; playerId: string } | null>(null);
+function edit(s: StaffMember) {
+  editing.value = { id: s.id, displayName: s.displayName, playerId: s.playerId ?? '' };
+}
+const save = () =>
+  act(async () => {
+    const { id, displayName, playerId } = editing.value!;
+    await apiFetch(`/api/staff/${id}`, { method: 'PATCH', body: { displayName, playerId: playerId || null } });
+    // Another row may have been opened while this save was in flight; leave that editor alone.
+    if (editing.value?.id === id) editing.value = null;
+  }, 'Saved.');
 </script>
 
 <template>
   <section class="space-y-6">
     <h1 class="text-xl font-semibold">Staff</h1>
-    <UAlert v-if="error" color="error" :title="error" />
+    <UAlert v-if="error" color="error" :title="error" role="alert" />
     <p v-if="note" role="status" class="text-sm">{{ note }}</p>
 
     <div class="space-y-2">
@@ -107,14 +120,25 @@ const linkFor = ref<number | null>(null);
       </thead>
       <tbody>
         <tr v-for="s in data.staff" :key="s.id" :data-staff="s.displayName">
-          <td>{{ s.displayName }}</td>
-          <td>{{ s.playerId ?? '—' }}</td>
+          <td v-if="editing?.id === s.id" colspan="2">
+            <form class="flex items-center gap-1" @submit.prevent="save">
+              <input v-model="editing.displayName" :aria-label="`Display name for ${s.displayName}`" required maxlength="64" class="border border-accented rounded p-1" >
+              <input v-model="editing.playerId" :aria-label="`Player ID for ${s.displayName}`" inputmode="numeric" pattern="\d{1,10}" class="w-28 border border-accented rounded p-1" >
+              <UButton type="submit" size="xs">Save</UButton>
+              <UButton size="xs" variant="ghost" @click="editing = null">Cancel</UButton>
+            </form>
+          </td>
+          <template v-else>
+            <td>{{ s.displayName }}</td>
+            <td>{{ s.playerId ?? '—' }}</td>
+          </template>
           <td>
             <template v-if="s.linkState === 'linked'">linked ({{ s.discordUserId }})</template>
             <template v-else-if="s.linkState === 'claimed'">claimed by {{ s.claimedDiscordUserId }}</template>
             <template v-else>not linked</template>
           </td>
           <td class="flex gap-1">
+            <UButton v-if="editing?.id !== s.id" size="xs" variant="ghost" @click="edit(s)">Edit</UButton>
             <template v-if="s.linkState === 'claimed'">
               <UButton size="xs" @click="confirm(s)">Confirm claim</UButton>
               <UButton size="xs" variant="soft" @click="reject(s)">Reject</UButton>
