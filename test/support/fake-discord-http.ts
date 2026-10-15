@@ -2,7 +2,8 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import type { Overwrite } from '../../shared/discord/overwrites';
 import type { FakeDiscord } from '../../server/modules/discord/fake';
-import { type ChannelState, type OutboundMessage, DiscordPermissionError, DiscordUnavailableError } from '../../server/modules/discord/port';
+import { type ChannelState, type HistoryMessage, type OutboundMessage, DiscordPermissionError, DiscordUnavailableError } from '../../server/modules/discord/port';
+import { PERMISSION_BITS } from '../../shared/discord/permissions';
 
 export interface FakeDiscordHttp {
   url: string;
@@ -45,7 +46,23 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
     state.requests.push(`${req.method} ${path}`);
     const auth = req.headers.authorization ?? '';
 
-    // Test control (Playwright runs in another process than the fake).
+    // Discord's CDN: the fake's attachments while their URLs are valid.
+    if (req.method === 'GET' && path.startsWith('/attachments/')) {
+      const answer = fake.cdnServe(`${state.url}${req.url ?? ''}`);
+      if (answer.status === 302) return void res.writeHead(302, { location: answer.location }).end();
+      if (answer.status !== 200 || !answer.body) return void res.writeHead(answer.status).end();
+      return void res.writeHead(200, { 'content-type': 'application/octet-stream' }).end(answer.body);
+    }
+
+    // Test control (Playwright runs in another process than the fake): a member posts, as Discord would allow.
+    if (req.method === 'POST' && path === '/_test/post') {
+      const { userId, channelId, content } = JSON.parse(await body(req)) as { userId: string; channelId: string; content: string };
+      try {
+        return send(res, 200, { id: fake.post(userId, channelId, { content }) });
+      } catch {
+        return send(res, 403, { message: 'Missing Permissions', code: 50013 });
+      }
+    }
     if (req.method === 'POST' && path === '/_test/login-as') {
       nextUser = (JSON.parse(await body(req)) as { userId: string }).userId;
       return send(res, 204, null);
@@ -215,6 +232,54 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
       if (deleted === 'already_gone') return send(res, 404, { message: 'Unknown Message', code: 10008 });
       return send(res, 204, null);
     }
+    // Close-out reads: history (a thread's too), one message, and the thread listings.
+    m = /^\/api\/channels\/(\d+)\/messages$/.exec(path);
+    if (req.method === 'GET' && m) {
+      const before = url.searchParams.get('before') ?? undefined;
+      const limit = Number(url.searchParams.get('limit') ?? 50);
+      try {
+        const page = await gateway.readHistory(m[1]!, before);
+        if (page === null) return send(res, 404, { message: 'Unknown Channel', code: 10003 });
+        return send(res, 200, page.slice(0, limit).map(apiMessage));
+      } catch (err) {
+        if (err instanceof DiscordPermissionError) return send(res, 403, { message: 'Missing Access', code: 50001 });
+        throw err;
+      }
+    }
+    m = /^\/api\/channels\/(\d+)\/messages\/(\d+)$/.exec(path);
+    if (req.method === 'GET' && m) {
+      const message = fake.messages.get(m[2]!);
+      if (!message || message.channelId !== m[1]) return send(res, 404, { message: 'Unknown Message', code: 10008 });
+      const history = ((await gateway.readHistory(m[1]!)) ?? []).find((h) => h.id === m![2]);
+      const page = history ? [history] : [];
+      const attachments = [];
+      for (const a of message.attachments) {
+        const resolved = await gateway.resolveAttachment(m[1]!, m[2]!, a.id);
+        if ('url' in resolved) attachments.push({ id: a.id, filename: a.filename, size: a.size, content_type: a.contentType, url: resolved.url });
+      }
+      return send(res, 200, { ...apiMessage(page[0] ?? fallbackHistory(message)), attachments });
+    }
+    m = /^\/api\/guilds\/(\d+)\/threads\/active$/.exec(path);
+    if (req.method === 'GET' && m) {
+      const guildId = m[1]!;
+      const threads = [...fake.threads.values()].filter((t) => {
+        const parent = fake.channels.get(t.channelId);
+        if (!parent || parent.guildId !== guildId || t.archived) return false;
+        // Without Manage Threads, Discord leaves out private threads the bot isn't in (spike S4).
+        const manages = (fake.permissionsFor(app.botUserId, t.channelId) & PERMISSION_BITS.ManageThreads) !== 0n;
+        return t.type === 'public' || manages || t.memberIds.includes(app.botUserId);
+      });
+      return send(res, 200, { threads: threads.map(apiThread), members: [] });
+    }
+    m = /^\/api\/channels\/(\d+)\/threads\/archived\/(public|private)$/.exec(path);
+    if (req.method === 'GET' && m) {
+      const channelId = m[1]!;
+      if (!fake.channels.has(channelId)) return send(res, 404, { message: 'Unknown Channel', code: 10003 });
+      const manages = (fake.permissionsFor(app.botUserId, channelId) & PERMISSION_BITS.ManageThreads) !== 0n;
+      if (m[2] === 'private' && !manages) return send(res, 403, { message: 'Missing Access', code: 50001 });
+      const threads = [...fake.threads.values()].filter((t) => t.channelId === channelId && t.archived && t.type === m![2]);
+      return send(res, 200, { threads: threads.map(apiThread), members: [], has_more: false });
+    }
     m = /^\/api\/channels\/(\d+)\/pins\/(\d+)$/.exec(path);
     if (req.method === 'PUT' && m) {
       await gateway.pinMessage(m[1]!, m[2]!);
@@ -230,7 +295,36 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   state.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  fake.cdnBase = state.url;
   return state;
+}
+
+function apiMessage(m: HistoryMessage) {
+  return {
+    id: m.id,
+    type: m.type,
+    author: { id: m.authorId, username: m.authorName, global_name: m.authorName, bot: m.authorBot },
+    timestamp: new Date(m.createdAt).toISOString(),
+    edited_timestamp: m.editedAt === null ? null : new Date(m.editedAt).toISOString(),
+    content: m.content,
+    ...(m.referencedMessageId ? { message_reference: { message_id: m.referencedMessageId } } : {}),
+    embeds: m.embeds.map((e) => ({ ...(e.title === null ? {} : { title: e.title }), ...(e.description === null ? {} : { description: e.description }), ...(e.url === null ? {} : { url: e.url }), fields: e.fields })),
+    attachments: m.attachments.map((a) => ({ id: a.id, filename: a.filename, size: a.size, content_type: a.contentType, url: 'https://cdn.invalid/' })),
+  };
+}
+
+function fallbackHistory(m: { id: string; authorId: string; content: string; createdAt: number }): HistoryMessage {
+  return { id: m.id, type: 0, authorId: m.authorId, authorName: m.authorId, authorBot: false, createdAt: m.createdAt, editedAt: null, content: m.content, referencedMessageId: null, embeds: [], attachments: [] };
+}
+
+function apiThread(t: { id: string; channelId: string; name: string; type: 'public' | 'private'; archived: boolean }) {
+  return {
+    id: t.id,
+    type: t.type === 'private' ? 12 : 11,
+    parent_id: t.channelId,
+    name: t.name,
+    thread_metadata: { archived: t.archived, archive_timestamp: new Date(0).toISOString(), auto_archive_duration: 1440, locked: false },
+  };
 }
 
 interface ApiMessageBody {

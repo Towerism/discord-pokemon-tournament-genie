@@ -3,7 +3,8 @@
  * goes through this module. Pure: callers pass in what they know (membership comes from the bot, the owner and
  * the allowlist from the database).
  *
- * Install-wide resources, since M2 days and their channels, since M4 an event's penalties. Exports join with M5.
+ * Install-wide resources, since M2 days and their channels, since M4 an event's penalties, since M5 close and the
+ * exported files.
  */
 import type { DesiredDay, PlanInput, Purpose } from '../blueprints';
 
@@ -59,13 +60,22 @@ export interface Principal {
 
 export type Resource =
   | { kind: 'website' | 'settings' | 'organizer_allowlist' | 'directory' | 'configuration' | 'members' | 'days' | 'day_create' }
-  | { kind: 'day'; action: 'read' | 'preview' | 'sync' | 'edit' | 'open' }
+  | { kind: 'day'; action: 'read' | 'preview' | 'sync' | 'edit' | 'open' | 'close' | 'closeout' }
   | { kind: 'channel'; blueprintKey: string; eventId: number | null }
   /**
    * An event's penalties: `record` with `/penalty`, `list` with `/penalties` (it shows other judges' penalties, so
    * only to those the penalties channel shows them to), `manage` on the website and with a card's Void.
    */
-  | { kind: 'event_penalties'; eventId: number; action: 'record' | 'list' | 'manage' };
+  | { kind: 'event_penalties'; eventId: number; action: 'record' | 'list' | 'manage' }
+  /**
+   * A close-out file (§6.5): an event's CSVs, or a channel's or thread's transcript and its attachments. A private
+   * thread Discord showed only to its members, and anything of a purged day, are for organizers alone.
+   */
+  | {
+      kind: 'export_file';
+      file: { kind: 'csv'; eventId: number } | { kind: 'transcript'; blueprintKey: string; eventId: number | null; privateThread: boolean };
+      dayPurged: boolean;
+    };
 
 /** What `canSee` needs of one day: its linked staff and the audience of each desired channel. */
 export interface AccessPlan {
@@ -108,7 +118,11 @@ export function canSee(principal: Principal | null, resource: Resource, plan?: A
     case 'website':
       return true;
     case 'day':
-      return plan !== undefined && (resource.action === 'read' || resource.action === 'preview' || resource.action === 'sync') && isDayHeadJudge(principal, plan);
+      return (
+        plan !== undefined &&
+        (resource.action === 'read' || resource.action === 'preview' || resource.action === 'sync' || resource.action === 'close') &&
+        isDayHeadJudge(principal, plan)
+      );
     case 'channel': {
       if (!plan) return false;
       const channel = plan.channels.find((c) => c.key === resource.blueprintKey && c.eventId === resource.eventId);
@@ -125,6 +139,14 @@ export function canSee(principal: Principal | null, resource: Resource, plan?: A
         return penaltyChannels.every((c) => c.audienceUserIds.includes(principal.userId));
       }
       return true;
+    }
+    case 'export_file': {
+      if (!plan || resource.dayPurged) return false;
+      const { file } = resource;
+      if (file.kind === 'csv') {
+        return plan.staff.some((s) => s.discordUserId === principal.userId && s.headJudgeOf.includes(file.eventId) && s.staffOf.includes(file.eventId));
+      }
+      return !file.privateThread && canSee(principal, { kind: 'channel', blueprintKey: file.blueprintKey, eventId: file.eventId }, plan);
     }
     default:
       return false;

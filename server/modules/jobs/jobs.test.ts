@@ -235,6 +235,56 @@ describe('due times and the timer', () => {
   });
 });
 
+describe('schedule', () => {
+  it('keeps one queued job of a kind per day, moving its due time instead of adding one', async () => {
+    jobs.register('purge', async () => undefined);
+    const first = jobs.schedule({ kind: 'purge', dayId: 1, dueAt: clock.now() + 7 * 24 * 60 * MINUTE });
+    const second = jobs.schedule({ kind: 'purge', dayId: 1, dueAt: clock.now() + 60 * MINUTE });
+    expect(second).toBe(first);
+    expect(jobs.get(first)?.dueAt).toBe(clock.now() + 60 * MINUTE);
+
+    clock.advance(60 * MINUTE - 1);
+    await jobs.runDue();
+    expect(jobs.get(first)?.state).toBe('queued');
+    clock.advance(1);
+    await jobs.runDue();
+    expect(jobs.get(first)?.state).toBe('succeeded');
+
+    const third = jobs.schedule({ kind: 'purge', dayId: 1, dueAt: clock.now() });
+    expect(third).not.toBe(first);
+  });
+
+  it('keeps days, kinds and install-wide jobs apart', () => {
+    jobs.register('purge', async () => undefined);
+    jobs.register('retention_sweep', async () => undefined);
+    const day1 = jobs.schedule({ kind: 'purge', dayId: 1, dueAt: 5 });
+    const day2 = jobs.schedule({ kind: 'purge', dayId: 2, dueAt: 5 });
+    const sweep = jobs.schedule({ kind: 'retention_sweep', dayId: null, dueAt: 5 });
+    expect(new Set([day1, day2, sweep]).size).toBe(3);
+    expect(jobs.schedule({ kind: 'retention_sweep', dayId: null, dueAt: 9 })).toBe(sweep);
+    expect(jobs.get(sweep)?.dueAt).toBe(9);
+    expect(() => jobs.schedule({ kind: 'lock', dayId: 1, dueAt: 5 })).toThrow(UnknownJobKindError);
+  });
+
+  it('answers the day’s queued and running jobs, and its newest job of some kinds', async () => {
+    const held = gate();
+    jobs.register('lock', async () => held.opened);
+    jobs.register('purge', async () => undefined);
+    const purge = jobs.schedule({ kind: 'purge', dayId: 1, dueAt: clock.now() + MINUTE });
+    const lock = jobs.enqueue({ kind: 'lock', dayId: 1 });
+    const running = jobs.runDue();
+    expect(jobs.active(1).map((j) => [j.id, j.state])).toEqual([
+      [purge, 'queued'],
+      [lock, 'running'],
+    ]);
+    expect(jobs.active(2)).toEqual([]);
+    expect(jobs.latestOf(1, ['lock', 'export'])?.id).toBe(lock);
+    expect(jobs.latestOf(1, ['export'])).toBeNull();
+    held.open();
+    await running;
+  });
+});
+
 describe('boot recovery and retry', () => {
   it('interrupts jobs a previous process left running, and queues again the kinds that retry on boot', async () => {
     const held = gate();

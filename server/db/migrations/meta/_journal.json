@@ -29,6 +29,13 @@
       "when": 1792026643544,
       "tag": "0003_m4_penalties",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792040095840,
+      "tag": "0004_m5_close_out",
+      "breakpoints": true
     }
   ]
 }

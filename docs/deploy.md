@@ -23,7 +23,7 @@ Everything Genie keeps lives in the appdata folder (`/mnt/user/appdata/tournamen
 | ---- | -------- |
 | `app.db` | the database (SQLite, WAL) |
 | `secrets/` | `session-password` and `vault.key`, generated on first boot (mode 0600). The vault key unseals the Discord credentials stored in `app.db`. |
-| `exports/` | penalty CSVs and transcripts (from milestone M5) |
+| `exports/` | penalty CSVs, transcripts and attachments of closed days, kept for the retention set in Settings (90 days for transcripts, a year for penalties, by default) |
 
 The image is `ghcr.io/towerism/discord-pokemon-tournament-genie`. If Unraid can't pull it, the GHCR package
 isn't public yet. Make it public under the repository's **Packages** settings, or log in to `ghcr.io` on Unraid.
@@ -268,3 +268,15 @@ if the store is elsewhere. An unknown zone (a typo) stops Genie at boot, with th
 
 **Before the first release with M3:** import one real day from the owner's attendance and check that each
 connected professor shows as read, or as not refreshed with the right reason.
+
+## 10. Closing a day
+
+**Close the day** (on the day page, or in `#head-judges`) locks the day's channels, exports them to `exports/`, and
+deletes them after the grace period, only if the export holds everything in them. The grace period is 7 days; to
+change it, set `GENIE_PURGE_GRACE` under the template's advanced fields (`36h`, `14d`; 1 hour to 90 days). A
+value Genie can't read stops the container with a message naming it.
+
+If a purge is refused, the page header says so and the day's **Exports** page lists why, with **Re-export**,
+**Retry attachments** (after raising the cap in Settings) and **Discard**. Nothing is deleted until one of them
+clears the reason. Retention (Settings → *Close-out*) deletes a closed day's exports later: transcripts after 90
+days and penalties after a year by default, counted from the close.

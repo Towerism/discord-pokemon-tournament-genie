@@ -10,7 +10,9 @@ import {
   type APIGuild,
   type APIGuildChannel,
   type APIGuildMember,
+  type APIMessage,
   type APIOverwrite,
+  type APIThreadChannel,
   type APIUser,
   type Interaction,
   ApplicationCommandOptionType,
@@ -42,11 +44,14 @@ import {
   type DiscordGateway,
   type GuildInfo,
   type GuildMember,
+  type HistoryMessage,
   type InboundInteraction,
+  type MessageButton,
   type InteractionReply,
   type ModalSpec,
   type OutboundMessage,
   type Overwrite,
+  type ThreadInfo,
   DisallowedIntentsError,
   DiscordAuthError,
   DiscordPermissionError,
@@ -63,6 +68,9 @@ const MISSING_PERMISSIONS = 50013;
 const UNKNOWN_CHANNEL = 10003;
 const UNKNOWN_MESSAGE = 10008;
 const MEMBER_PAGE = 1000;
+const HISTORY_PAGE = 100;
+/** Discord's message type for a reply. */
+const REPLY = 19;
 
 /** Distinct tokens kept (the stored one, plus a few the setup wizard tried). */
 const MAX_CLIENTS = 4;
@@ -108,6 +116,15 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
         if (err instanceof DiscordAPIError && typeof err.code === 'number' && codes.includes(err.code)) return null;
         if (err instanceof DiscordAPIError && err.status === 404) return null;
         throw translate(err);
+      }
+    };
+    /** A read: `null` once the channel or thread is gone; Missing Access (50001) is a refusal, not an outage. */
+    const readable = async <T>(fn: () => Promise<unknown>): Promise<T | null> => {
+      try {
+        return await orNull<T>(fn, [UNKNOWN_CHANNEL]);
+      } catch (err) {
+        if (err instanceof DiscordUnavailableError && /50001|Missing Access/.test(err.message)) throw new DiscordPermissionError(`Discord refused the read: ${err.message}`);
+        throw err;
       }
     };
     const botId = async () => (botUserId ??= (await call<APIUser>(() => rest.get(Routes.user('@me')))).id);
@@ -214,6 +231,42 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
       },
       async pinMessage(channelId, messageId) {
         await call(() => rest.put(Routes.channelPin(channelId, messageId), { reason: 'Tournament Genie: pin the day intro' }));
+      },
+      async readHistory(channelId, before) {
+        const query = new URLSearchParams({ limit: String(HISTORY_PAGE) });
+        if (before) query.set('before', before);
+        const page = await readable<APIMessage[]>(() => rest.get(Routes.channelMessages(channelId), { query }));
+        return page === null ? null : page.map(historyMessage);
+      },
+      async listThreads(guildId, channelId) {
+        const found = new Map<string, ThreadInfo>();
+        const active = await readable<{ threads: APIThreadChannel[] }>(() => rest.get(Routes.guildActiveThreads(guildId)));
+        for (const t of active?.threads ?? []) if (t.parent_id === channelId) found.set(t.id, threadInfo(t));
+        for (const kind of ['public', 'private'] as const) {
+          let before: string | undefined;
+          for (;;) {
+            const query = new URLSearchParams({ limit: '100' });
+            if (before) query.set('before', before);
+            const page = await readable<{ threads: APIThreadChannel[]; has_more: boolean }>(() => rest.get(Routes.channelThreads(channelId, kind), { query }));
+            if (!page) break;
+            for (const t of page.threads) found.set(t.id, threadInfo(t));
+            const last = page.threads.at(-1)?.thread_metadata?.archive_timestamp;
+            if (!page.has_more || !last) break;
+            before = last;
+          }
+        }
+        return [...found.values()];
+      },
+      async getLatestMessageId(channelId) {
+        const page = await readable<APIMessage[]>(() => rest.get(Routes.channelMessages(channelId), { query: new URLSearchParams({ limit: '1' }) }));
+        if (page === null) return 'gone';
+        return page[0]?.id ?? null;
+      },
+      async resolveAttachment(channelId, messageId, attachmentId) {
+        const message = await orNull<APIMessage>(() => rest.get(Routes.channelMessage(channelId, messageId)), [UNKNOWN_MESSAGE, UNKNOWN_CHANNEL]);
+        if (!message) return { error: 'message_deleted' as const };
+        const attachment = message.attachments.find((a) => a.id === attachmentId);
+        return attachment ? { url: attachment.url, bytes: attachment.size } : { error: 'not_found' as const };
       },
     };
 
@@ -354,6 +407,44 @@ function guildInfo(guild: APIGuild, botRoleIds: readonly string[], botUserId: st
   };
 }
 
+function historyMessage(m: APIMessage): HistoryMessage {
+  return {
+    id: m.id,
+    type: m.type,
+    authorId: m.author.id,
+    authorName: m.author.global_name ?? m.author.username,
+    authorBot: m.author.bot ?? false,
+    createdAt: Date.parse(m.timestamp),
+    editedAt: m.edited_timestamp ? Date.parse(m.edited_timestamp) : null,
+    content: m.content,
+    referencedMessageId: m.type === REPLY ? (m.message_reference?.message_id ?? null) : null,
+    embeds: m.embeds.map((e) => ({
+      title: e.title ?? null,
+      description: e.description ?? null,
+      url: e.url ?? null,
+      fields: (e.fields ?? []).map((f) => ({ name: f.name, value: f.value })),
+    })),
+    attachments: m.attachments.map((a) => ({ id: a.id, filename: a.filename, size: a.size, contentType: a.content_type ?? null })),
+  };
+}
+
+function threadInfo(t: APIThreadChannel): ThreadInfo {
+  return {
+    id: t.id,
+    name: t.name ?? '',
+    parentId: t.parent_id ?? '',
+    type: t.type === ChannelType.PrivateThread ? 'private' : 'public',
+    archived: t.thread_metadata?.archived ?? false,
+  };
+}
+
+function buttonRow(buttons: readonly MessageButton[]) {
+  return {
+    type: ComponentType.ActionRow,
+    components: buttons.map((b) => ({ type: ComponentType.Button, style: b.style === 'danger' ? ButtonStyle.Danger : ButtonStyle.Primary, label: b.label, custom_id: b.customId })),
+  };
+}
+
 /** A message body: never pings anyone (`allowed_mentions: none`), whatever its content or embed holds. */
 function messageBody(msg: OutboundMessage): Record<string, unknown> {
   const body: Record<string, unknown> = { content: msg.content, allowed_mentions: { parse: [] }, embeds: [], components: [] };
@@ -366,14 +457,7 @@ function messageBody(msg: OutboundMessage): Record<string, unknown> {
       },
     ];
   }
-  if (msg.buttons?.length) {
-    body.components = [
-      {
-        type: ComponentType.ActionRow,
-        components: msg.buttons.map((b) => ({ type: ComponentType.Button, style: b.style === 'danger' ? ButtonStyle.Danger : ButtonStyle.Primary, label: b.label, custom_id: b.customId })),
-      },
-    ];
-  }
+  if (msg.buttons?.length) body.components = [buttonRow(msg.buttons)];
   return body;
 }
 
@@ -417,9 +501,9 @@ async function dispatch(interaction: Interaction, onInteraction: (i: InboundInte
     inbound = { ...base(interaction, 'modal', interaction.customId), fields };
   } else return;
   const reply: InteractionReply = {
-    async ephemeral(text) {
+    async ephemeral(text, opts) {
       if (!interaction.isRepliable()) return;
-      const body = { content: text, allowedMentions: { parse: [] } };
+      const body = { content: text, allowedMentions: { parse: [] }, ...(opts?.buttons?.length ? { components: [buttonRow(opts.buttons)] } : {}) };
       if (interaction.deferred && !interaction.replied) await interaction.editReply(body);
       else if (interaction.replied) await interaction.followUp({ ...body, flags: MessageFlags.Ephemeral });
       else await interaction.reply({ ...body, flags: MessageFlags.Ephemeral });

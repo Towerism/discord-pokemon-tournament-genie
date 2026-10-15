@@ -9,10 +9,14 @@ import {
   stringVault,
   systemClock,
 } from '@towerism/selfhost-kit';
+import { dirname, join, resolve } from 'node:path';
+import { createCloseoutHandlers } from '../bot/closeout-handlers';
 import { BOT_COMMANDS, createBotHandlers } from '../bot/handlers';
 import { PENALTY_COMMANDS, createPenaltyHandlers } from '../bot/penalty-handlers';
 import { createAttendanceHttp } from '../modules/attendance/adapters/http';
 import { createAttendanceImportService } from '../modules/attendance-import';
+import { createCloseoutService } from '../modules/closeout';
+import { createAttachmentFetcher } from '../modules/closeout/adapters/cdn';
 import { createAttendanceConnectionService } from '../modules/setup/attendance-connection';
 import { createInteractionRouter } from '../bot/router';
 import { type DirectoryService, createDirectoryService } from '../modules/directory';
@@ -166,6 +170,42 @@ export const usePenalties = once(() =>
   }),
 );
 
+/** The exports folder: configured, or `exports` beside the database (§5.2). */
+export const exportsDir = (): string => {
+  const config = useRuntimeConfig();
+  return resolve(config.exportsDir || join(dirname(resolve(config.databasePath)), 'exports'));
+};
+
+export const useCloseout = once(() => {
+  const config = useRuntimeConfig();
+  const store = useStore();
+  return createCloseoutService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('closeout'),
+    eventDays: useEventDays(),
+    provisioning: useProvisioning(),
+    penalties: usePenalties(),
+    jobs: useJobs(),
+    gateway: useGateway,
+    binding: () => {
+      const b = store.binding();
+      return b ? { guildId: b.guildId, organizerRoleId: b.organizerRoleId, headJudgeRoleId: b.headJudgeRoleId } : null;
+    },
+    exportsDir: exportsDir(),
+    graceMs: Number(config.purgeGraceMs),
+    settings: { get: () => store.closeOutSettings(), put: (s, now) => store.putCloseOutSettings(s, now) },
+    fetcher: createAttachmentFetcher({
+      hosts: String(config.discord.cdnHosts)
+        .split(',')
+        .map((h) => h.trim())
+        .filter(Boolean),
+      allowHttp: String(config.discord.cdnAllowHttp) === 'true',
+      timeoutMs: 60_000,
+    }),
+  });
+});
+
 /** What the bot needs to tell organizers from everyone else (§9). */
 const botAccess = () => {
   const b = useStore().binding();
@@ -198,14 +238,19 @@ const usePenaltyHandlers = once(() =>
   }),
 );
 
+const useCloseoutHandlers = once(() =>
+  createCloseoutHandlers({ closeout: useCloseout(), provisioning: useProvisioning(), eventDays: useEventDays(), access: botAccess, logger: useLogger('bot') }),
+);
+
 const useRouter = once(() => {
   const handlers = useBotHandlers();
   const penalties = usePenaltyHandlers();
+  const closeout = useCloseoutHandlers();
   return createInteractionRouter({
     boundGuildId: () => useStore().binding()?.guildId ?? null,
     logger: useLogger('bot'),
     commands: { ...handlers.commands, ...penalties.commands },
-    components: { ...handlers.components, ...penalties.components },
+    components: { ...handlers.components, ...penalties.components, ...closeout.components },
     modals: penalties.modals,
     autocomplete: penalties.autocomplete,
   });

@@ -7,7 +7,7 @@ import type { JobEventView } from '../modules/jobs/jobs';
 export async function dayPlanView(dayId: number, principal: Principal) {
   const core = await handled(() => useEventDays().plan(dayId));
   const access = isOrganizer(principal.grant) ? null : useProvisioning().accessPlan(dayId, principal);
-  const may = (action: 'edit' | 'open' | 'sync') => canSee(principal, { kind: 'day', action }, access ?? undefined);
+  const may = (action: 'edit' | 'open' | 'sync' | 'close' | 'closeout') => canSee(principal, { kind: 'day', action }, access ?? undefined);
   return {
     ...core,
     latestJob: useJobs().latestForDay(dayId),
@@ -17,6 +17,9 @@ export async function dayPlanView(dayId: number, principal: Principal) {
       edit: may('edit'),
       open: may('open'),
       sync: may('sync'),
+      close: may('close'),
+      closeout: may('closeout'),
+      exports: core.day.state !== 'draft' && core.day.state !== 'open' && (isOrganizer(principal.grant) || canSee(principal, { kind: 'day', action: 'read' }, access ?? undefined)),
       penalties: core.events.some((e) => canSee(principal, { kind: 'event_penalties', eventId: e.id, action: 'manage' }, access ?? undefined)),
     },
   };

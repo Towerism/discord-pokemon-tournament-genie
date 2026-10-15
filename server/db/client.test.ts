@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('openDatabase', () => {
-  it('creates the file with the pragmas ADR-0002 relies on and the M1 to M4 tables', () => {
+  it('creates the file with the pragmas ADR-0002 relies on and the M1 to M5 tables', () => {
     const database = openDatabase(tempPath());
     migrateDatabase(database.db, MIGRATIONS);
     const { sqlite } = database;
@@ -34,12 +34,16 @@ describe('openDatabase', () => {
       'attendance_snapshot',
       'blueprint',
       'blueprint_channel',
+      'day_closeout',
       'day_staff',
       'day_template',
       'day_template_event',
       'event',
       'event_day',
       'event_staff',
+      'export_attachment',
+      'export_file',
+      'export_run',
       'guild_binding',
       'install',
       'job',

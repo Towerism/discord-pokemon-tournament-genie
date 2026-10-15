@@ -48,6 +48,77 @@ const sync = async (dayId: number) => {
 };
 const messages = (jobId: number) => w.jobs.events(jobId).map((e) => e.message);
 
+describe('after the day is closed', () => {
+  beforeEach(() => {
+    w = provisioningWorld();
+  });
+
+  it('posts a panel with Sync and Close the day', async () => {
+    const { day } = octoberDay();
+    await openAndRun(day.id);
+    const panel = [...w.discord.messages.values()].find((m) => m.channelId === w.channel('head-judges').id)!;
+    expect(panel.buttons.map((b) => [b.label, b.customId])).toEqual([
+      ['Sync', `genie:day-sync:${day.id}`],
+      ['Close the day', `genie:day-close:${day.id}`],
+    ]);
+  });
+
+  it('runs a sync queued before the close without touching Discord', async () => {
+    const { day, staff } = octoberDay();
+    await openAndRun(day.id);
+    w.days.putStaff(day.id, staff().slice(1));
+    const before = w.discord.restCalls;
+    w.days.markClosing(day.id, PEOPLE.ash, () => 0);
+    await w.jobs.runDue();
+    const job = w.jobs.latestOf(day.id, ['sync'])!;
+    expect(job.state).toBe('succeeded');
+    expect(messages(job.id)).toContain('The day isn’t open: nothing to sync.');
+    expect(w.discord.restCalls).toBe(before);
+  });
+
+  it('refuses to adopt an orphan once the day is closing', async () => {
+    const { day } = octoberDay();
+    await openAndRun(day.id);
+    w.days.markClosing(day.id, PEOPLE.ash, () => 0);
+    expect(() => w.provisioning.adoptOrphan(day.id, '123456789012345678', { key: 'day-staff', eventId: null })).toThrow(
+      expect.objectContaining({ code: 'day_closed' }) as Error,
+    );
+  });
+
+  it('gives the lock each present channel with the locked set of what the frozen plan wants, and the panel', async () => {
+    const { day, staff } = octoberDay();
+    await openAndRun(day.id);
+    const targets = await w.provisioning.lockTargets(day.id);
+    expect(targets.channels.map((c) => c.name).sort()).toEqual(CHANNELS);
+    const floor = targets.channels.find((c) => c.name === 'lc-floor')!;
+    expect(floor.discordChannelId).toBe(w.channel('lc-floor').id);
+    expect(floor.locked.find((o) => o.target.kind === 'member' && o.target.id === PEOPLE.brock)).toEqual(
+      member(PEOPLE.brock, { allow: P.ViewChannel | P.ReadMessageHistory | P.AttachFiles, deny: P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads | P.CreatePrivateThreads | P.AddReactions }),
+    );
+    expect(targets.panel).toEqual({ channelId: w.channel('head-judges').id, messageId: expect.any(String) as string });
+
+    // The plan is what counts: a channel whose audience emptied keeps only the bot's member overwrite.
+    w.days.putStaff(day.id, staff().filter((s) => s.staffMemberId !== staff()[2]!.staffMemberId));
+    const later = await w.provisioning.lockTargets(day.id);
+    expect(later.channels.find((c) => c.name === 'vgc-floor')!.locked.filter((o) => o.target.kind === 'member').map((o) => o.target)).toEqual([
+      { kind: 'member', id: w.discord.applications.get(IDS.app)!.botUserId },
+    ]);
+  });
+
+  it('records the lock, a missing channel and a deleted one on its rows', async () => {
+    const { day } = octoberDay();
+    await openAndRun(day.id);
+    const [first, second, third] = (await w.provisioning.lockTargets(day.id)).channels;
+    w.provisioning.markChannel(first!.rowId, 'locked');
+    w.provisioning.markChannel(second!.rowId, 'missing');
+    w.provisioning.markChannel(third!.rowId, 'deleted');
+    const rows = w.provisioning.closeoutChannels(day.id);
+    expect(rows.find((r) => r.rowId === first!.rowId)).toMatchObject({ state: 'present', lockedAt: w.clock.now() });
+    expect(rows.find((r) => r.rowId === second!.rowId)).toMatchObject({ state: 'missing' });
+    expect(rows.find((r) => r.rowId === third!.rowId)).toMatchObject({ state: 'deleted' });
+  });
+});
+
 describe('opening a day', () => {
   beforeEach(() => {
     w = provisioningWorld();
@@ -75,7 +146,10 @@ describe('opening a day', () => {
     const intro = [...w.discord.messages.values()].find((m) => m.channelId === w.channel('day-staff').id)!;
     expect(intro.pinned).toBe(true);
     const panel = [...w.discord.messages.values()].find((m) => m.channelId === w.channel('head-judges').id)!;
-    expect(panel.buttons).toEqual([{ customId: `genie:day-sync:${day.id}`, label: 'Sync' }]);
+    expect(panel.buttons).toEqual([
+      { customId: `genie:day-sync:${day.id}`, label: 'Sync' },
+      { customId: `genie:day-close:${day.id}`, label: 'Close the day' },
+    ]);
     expect(messages(job.id)).toContain('also visible to: 2 administrators, 1 organizers');
     expect(w.days.plan(day.id).sync).toMatchObject({ inSync: true, revocationPending: false });
   });

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import type { Clock, Logger } from '@towerism/selfhost-kit';
 import { type AccessPlan, type Principal, accessPlan, canSee, isOrganizer } from '../../../shared/access/access';
 import { type BlueprintInput, type DesiredContext, type DesiredDay, type PlanProblem, baseOverwrites, desiredChannels } from '../../../shared/blueprints';
+import { lockedOverwrites } from '../../../shared/discord/lock';
 import { type Overwrite, canonical, overwritesEqual } from '../../../shared/discord/overwrites';
 import { PERMISSION_BITS, type PermissionName, missingPermissions } from '../../../shared/discord/permissions';
 import type { Db } from '../../db/client';
@@ -106,6 +107,11 @@ export function createProvisioningService(opts: {
 
   async function apply(ctx: JobContext): Promise<void> {
     const dayId = ctx.dayId!;
+    // A closing day's channels are being locked: nothing may write them open again (§6.5).
+    if (eventDays.plan(dayId).day.state !== 'open') {
+      ctx.log('info', 'The day isn’t open: nothing to sync.');
+      return;
+    }
     const b = requireBinding();
     const discord = naming(gateway());
     const guild = await discord.getGuild(b.guildId);
@@ -237,7 +243,10 @@ export function createProvisioningService(opts: {
     });
     await postOnce(ctx, blueprint, desired, dayId, 'head_judges', {
       content: 'Head judges and organizers: Sync applies the day plan to these channels.',
-      buttons: [{ customId: `genie:day-sync:${dayId}`, label: 'Sync' }],
+      buttons: [
+        { customId: `genie:day-sync:${dayId}`, label: 'Sync' },
+        { customId: `genie:day-close:${dayId}`, label: 'Close the day' },
+      ],
       pin: false,
     });
 
@@ -254,7 +263,7 @@ export function createProvisioningService(opts: {
     audience: 'all_staff' | 'head_judges',
     msg: { content: string; buttons?: { customId: string; label: string }[]; pin: boolean },
   ): Promise<void> {
-    const key = blueprint.channels.filter((c) => c.scope === 'day' && c.audience === audience).sort((a, b) => a.position - b.position)[0]?.key;
+    const key = dayChannelKey(blueprint, audience);
     if (!key || !desired.channels.some((c) => c.key === key && c.eventId === null)) {
       ctx.log('info', `The blueprint has no day channel for ${audience === 'all_staff' ? 'all staff' : 'head judges'}: no ${msg.pin ? 'intro' : 'panel'} posted.`);
       return;
@@ -279,6 +288,11 @@ export function createProvisioningService(opts: {
       }
       ctx.log('warn', `Couldn't post or pin the ${msg.pin ? 'intro' : 'panel'}; the next sync tries again.`, { error: String(err) });
     }
+  }
+
+  /** The first day-wide channel of the blueprint for all staff or for head judges: where the intro and the panel go. */
+  function dayChannelKey(blueprint: BlueprintInput, audience: 'all_staff' | 'head_judges'): string | undefined {
+    return blueprint.channels.filter((c) => c.scope === 'day' && c.audience === audience).sort((a, b) => a.position - b.position)[0]?.key;
   }
 
   // ---- entry points
@@ -394,6 +408,7 @@ export function createProvisioningService(opts: {
     /** Records an orphan channel as the day's channel for a desired key that has none. */
     adoptOrphan(dayId: number, channelId: string, target: { key: string; eventId: number | null }): void {
       store.transaction(() => {
+        eventDays.requirePlanOpen(dayId);
         const orphan = store.orphan(dayId, channelId);
         if (!orphan || orphan.kind !== 'channel') throw notFound('orphan');
         const plan = eventDays.plan(dayId);
@@ -448,6 +463,65 @@ export function createProvisioningService(opts: {
     },
 
     alarms: () => eventDays.alarms(),
+
+    /**
+     * What the close-out lock writes (§6.5 step 2): each present channel with `lockedOverwrites()` of what the frozen
+     * plan wants for it (the base overwrites for a recorded channel the plan no longer has), the plan revision that
+     * describes, and where the `#head-judges` panel is.
+     */
+    async lockTargets(dayId: number) {
+      const b = requireBinding();
+      const discord = naming(gateway());
+      const guild = await discord.getGuild(b.guildId);
+      if (!guild) throw new Error('bot_not_in_guild');
+      const members = await discord.listMembers(b.guildId);
+      const planRevision = eventDays.plan(dayId).sync.planRevision;
+      const { desired, blueprint } = desiredWith(dayId, b, guild, members);
+      const base = baseOverwrites({ guildId: b.guildId, botUserId: guild.botUserId, organizerRoleId: b.organizerRoleId });
+      const rows = store.present(dayId);
+      const panelKey = dayChannelKey(blueprint, 'head_judges');
+      const panelRow = rows.find((r) => r.blueprintChannelKey === panelKey && r.eventId === null && r.messageId !== null);
+      return {
+        guild,
+        planRevision,
+        channels: rows.map((r) => {
+          const want = desired.channels.find((d) => d.key === r.blueprintChannelKey && d.eventId === r.eventId);
+          return {
+            rowId: r.id,
+            discordChannelId: r.discordChannelId,
+            key: r.blueprintChannelKey,
+            eventId: r.eventId,
+            name: want?.name ?? r.blueprintChannelKey,
+            lockedAt: r.lockedAt,
+            locked: lockedOverwrites(want?.overwrites ?? base, guild.botUserId),
+          };
+        }),
+        panel: panelRow ? { channelId: panelRow.discordChannelId, messageId: panelRow.messageId! } : null,
+      };
+    },
+
+    /** The head-judges channel of the day while Genie still has it: where close-out alerts are posted. */
+    headJudgesChannel(dayId: number): string | null {
+      const key = dayChannelKey(eventDays.blueprint(eventDays.plan(dayId).day.blueprintId), 'head_judges');
+      return store.present(dayId).find((r) => r.blueprintChannelKey === key && r.eventId === null)?.discordChannelId ?? null;
+    },
+
+    /** Close-out's checkpoints on a channel: locked, found missing, or deleted by the purge. */
+    markChannel(rowId: number, mark: 'locked' | 'missing' | 'deleted'): void {
+      store.update(rowId, mark === 'locked' ? { lockedAt: clock.now() } : { state: mark }, clock.now());
+    },
+
+    /** Every channel the day records, for close-out (which never reads provisioning's table itself). */
+    closeoutChannels(dayId: number) {
+      return store.channels(dayId).map((r) => ({
+        rowId: r.id,
+        key: r.blueprintChannelKey,
+        eventId: r.eventId,
+        discordChannelId: r.discordChannelId,
+        state: r.state,
+        lockedAt: r.lockedAt,
+      }));
+    },
 
     /** After `jobs.recover()`, a sync for every open day whose removals may not have landed. */
     recoverOnBoot(): void {

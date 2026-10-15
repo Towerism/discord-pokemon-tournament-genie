@@ -1,4 +1,4 @@
 export default defineEventHandler(async (event) => {
   await requirePrincipal(event, { kind: 'settings' });
-  return handled(() => useSettings().settings());
+  return { ...(await handled(() => useSettings().settings())), closeOut: useCloseout().settings() };
 });

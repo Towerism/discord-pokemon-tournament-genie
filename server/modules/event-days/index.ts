@@ -75,6 +75,12 @@ export interface DayPlanCore {
     blueprintId: number;
     categoryId: string | null;
     attendance: { source: DayRow['source']; refreshedAt: number | null };
+    /** Close-out (§6.5): when the day moved to closing, closed and purged, who closed it, and the grace end. */
+    closingAt: number | null;
+    closedBy: string | null;
+    closedAt: number | null;
+    graceUntil: number | null;
+    purgedAt: number | null;
   };
   events: EventView[];
   staff: DayStaffView[];
@@ -253,6 +259,11 @@ export function createEventDaysService(opts: {
         blueprintId: day.blueprintId,
         categoryId: day.categoryId,
         attendance: { source: day.source, refreshedAt: day.attendanceRefreshedAt },
+        closingAt: day.closingAt,
+        closedBy: day.closedBy,
+        closedAt: day.closedAt,
+        graceUntil: day.graceUntil,
+        purgedAt: day.purgedAt,
       },
       events: eventsOf(dayId).map(eventView),
       staff: entries
@@ -270,6 +281,22 @@ export function createEventDaysService(opts: {
   const requireDraft = (day: DayRow) => {
     if (day.state !== 'draft') throw new ServiceError(409, 'day_not_draft', 'Only a day that hasn’t been opened can be changed this way.');
   };
+
+  /** The plan freezes once the day is closing (§6.5): nothing may change who can see its locked channels. */
+  const requireUnfrozen = (day: DayRow) => {
+    if (day.state !== 'draft' && day.state !== 'open') throw new ServiceError(409, 'day_closed', 'This day is closed: its plan can’t change.');
+  };
+
+  /** A state change close-out makes: only forwards, from the one state it expects. */
+  function moveState(dayId: number, from: DayRow['state'], to: DayRow['state'], set: Partial<DayRow>): void {
+    const done = db
+      .update(eventDay)
+      .set({ ...set, state: to, updatedAt: clock.now() })
+      .where(and(eq(eventDay.id, dayId), eq(eventDay.state, from)))
+      .returning({ id: eventDay.id })
+      .all();
+    if (done.length !== 1) throw new Error(`Day ${dayId} isn't ${from}: it can't become ${to}.`);
+  }
 
   /** Bumps the plan revision; a removal on an open day also marks the revocation and queues a sync. */
   function bump(dayId: number, removal: boolean): number | null {
@@ -443,6 +470,7 @@ export function createEventDaysService(opts: {
     patchDay(dayId: number, patch: { title?: string; date?: string; blueprintId?: number }): DayPlanCore {
       return db.transaction(() => {
         const day = dayRow(dayId);
+        requireUnfrozen(day);
         const changes: Partial<DayRow> = {};
         if (patch.blueprintId !== undefined && patch.blueprintId !== day.blueprintId) {
           requireDraft(day);
@@ -474,7 +502,9 @@ export function createEventDaysService(opts: {
     // events
     addEvent(dayId: number, input: { name: string; game: Game; startTime: string; slug?: string; tournamentId?: string | null }): EventView {
       return db.transaction(() => {
-        const created = insertEvent(dayRow(dayId), input);
+        const day = dayRow(dayId);
+        requireUnfrozen(day);
+        const created = insertEvent(day, input);
         bump(dayId, false);
         return eventView(created);
       });
@@ -484,6 +514,16 @@ export function createEventDaysService(opts: {
         const day = dayRow(dayId);
         const current = db.select().from(event).where(and(eq(event.id, eventId), eq(event.dayId, dayId))).get();
         if (!current) throw notFound('event');
+        if (day.state === 'closing' || day.state === 'closed' || day.state === 'purged') {
+          // After close only the Tournament ID may change (§6.6): it is what the CSV needs.
+          const fields = Object.keys(patch).filter((k) => patch[k as keyof typeof patch] !== undefined);
+          if (fields.some((k) => k !== 'tournamentId')) throw new ServiceError(409, 'day_closed', 'This day is closed: only an event’s Tournament ID can change.');
+          if (day.state === 'closing') throw new ServiceError(409, 'day_closing', 'The day is closing: wait for its export.');
+          if (patch.tournamentId !== undefined && patch.tournamentId !== current.tournamentId) {
+            db.update(event).set({ tournamentId: patch.tournamentId }).where(eq(event.id, eventId)).run();
+          }
+          return eventView(db.select().from(event).where(eq(event.id, eventId)).get()!);
+        }
         if (patch.slug !== undefined && patch.slug !== current.slug && eventsOf(dayId).some((e) => e.slug === patch.slug)) {
           throw new ServiceError(409, 'slug_taken', 'Another event of this day has that slug.');
         }
@@ -514,7 +554,7 @@ export function createEventDaysService(opts: {
     // staff
     putStaff(dayId: number, staff: StaffEntry[]): { diff: StaffDiff; syncJobId: number | null; plan: DayPlanCore } {
       return db.transaction(() => {
-        dayRow(dayId);
+        requireUnfrozen(dayRow(dayId));
         const eventIds = new Set(eventsOf(dayId).map((e) => e.id));
         const ids = staff.map((s) => s.staffMemberId);
         const known = new Set(directory.byIds(ids).map((s) => s.id));
@@ -726,19 +766,19 @@ export function createEventDaysService(opts: {
       return db
         .select()
         .from(eventDay)
-        .where(and(eq(eventDay.state, 'open'), isNotNull(eventDay.revokePendingRevision)))
+        .where(and(inArray(eventDay.state, ['open', 'closing']), isNotNull(eventDay.revokePendingRevision)))
         .orderBy(asc(eventDay.id))
         .all()
         .filter(revocationPending)
         // `revoke_pending_at` is set whenever a revocation is pending (bump).
         .map((d) => ({ kind: 'access_not_revoked' as const, dayId: d.id, title: d.title, since: d.revokePendingAt! }));
     },
-    /** Open days whose removals may not have landed, for boot recovery. */
+    /** Open and closing days whose removals may not have landed, for boot recovery. */
     daysNeedingRevocation(): number[] {
       return db
         .select()
         .from(eventDay)
-        .where(eq(eventDay.state, 'open'))
+        .where(inArray(eventDay.state, ['open', 'closing']))
         .orderBy(asc(eventDay.id))
         .all()
         .filter((d) => d.appliedRevision === null || revocationPending(d))
@@ -752,6 +792,38 @@ export function createEventDaysService(opts: {
         db.update(eventDay).set({ state: 'open', openedAt: clock.now(), updatedAt: clock.now() }).where(eq(eventDay.id, dayId)).run();
         return enqueueProvision();
       });
+    },
+    /** A plan change other modules make (an orphan adopted) is refused once the day is closing. */
+    requirePlanOpen(dayId: number): void {
+      requireUnfrozen(dayRow(dayId));
+    },
+    /** Close: an open day becomes closing and its lock job is queued, in one transaction (§6.5 step 1). */
+    markClosing(dayId: number, closedBy: string, enqueueLock: () => number): number {
+      return db.transaction(() => {
+        if (dayRow(dayId).state !== 'open') throw new ServiceError(409, 'day_not_open', 'Only an open day can be closed.');
+        moveState(dayId, 'open', 'closing', { closingAt: clock.now(), closedBy });
+        return enqueueLock();
+      });
+    },
+    /** The export succeeded: the grace period starts (§6.5 step 4). */
+    markClosed(dayId: number, graceUntil: number): void {
+      moveState(dayId, 'closing', 'closed', { closedAt: clock.now(), graceUntil });
+    },
+    /** "Delete now" shortens the grace period. */
+    setGraceUntil(dayId: number, graceUntil: number): void {
+      db.update(eventDay).set({ graceUntil, updatedAt: clock.now() }).where(and(eq(eventDay.id, dayId), eq(eventDay.state, 'closed'))).run();
+    },
+    markPurged(dayId: number): void {
+      moveState(dayId, 'closed', 'purged', { purgedAt: clock.now() });
+    },
+    /** Closed and purged days with their close time, for retention. */
+    closedDays(): { id: number; state: DayRow['state']; closedAt: number | null }[] {
+      return db
+        .select({ id: eventDay.id, state: eventDay.state, closedAt: eventDay.closedAt })
+        .from(eventDay)
+        .where(inArray(eventDay.state, ['closed', 'purged']))
+        .orderBy(asc(eventDay.id))
+        .all();
     },
     /** Every category a day records, so a stray with the same name can be told apart. */
     recordedCategoryIds(): Set<string> {

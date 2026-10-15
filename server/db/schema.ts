@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { type AnySQLiteColumn, blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // Times are epoch milliseconds. Discord IDs (snowflakes) are TEXT (architecture §3).
 
@@ -48,6 +48,10 @@ export const appSetting = sqliteTable(
   {
     id: integer('id').primaryKey(),
     currentSeason: text('current_season').notNull(),
+    /** Close-out (§6.5, §15 Q3): how long transcripts and penalty data are kept after a day closes, and the attachment cap. */
+    transcriptRetentionDays: integer('transcript_retention_days').notNull().default(90),
+    penaltyRetentionDays: integer('penalty_retention_days').notNull().default(365),
+    attachmentCapBytes: integer('attachment_cap_bytes').notNull().default(26_214_400),
     updatedAt: integer('updated_at').notNull(),
   },
   (t) => [check('app_setting_single_row', sql`${t.id} = 1`)],
@@ -238,6 +242,12 @@ export const eventDay = sqliteTable(
     attendanceRefreshedAt: integer('attendance_refreshed_at'),
     /** Copied from the current season when the day is created, never changed: it selects the penalty catalog. */
     season: text('season').notNull().default('2026-27'),
+    /** Close-out (§6.5): when the day moved to `closing`, `closed` and `purged`, who closed it, and the grace end. */
+    closingAt: integer('closing_at'),
+    closedBy: text('closed_by'),
+    closedAt: integer('closed_at'),
+    graceUntil: integer('grace_until'),
+    purgedAt: integer('purged_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
@@ -446,6 +456,8 @@ export const provisionedChannel = sqliteTable(
     state: text('state', { enum: PROVISIONED_STATES }).notNull(),
     messageId: text('message_id'),
     messagePinned: integer('message_pinned', { mode: 'boolean' }).notNull().default(false),
+    /** The close-out lock reached this channel (§6.5): a retried lock never writes it again. */
+    lockedAt: integer('locked_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
@@ -469,6 +481,132 @@ export const orphanChannel = sqliteTable(
     foundAt: integer('found_at').notNull(),
   },
   (t) => [index('orphan_channel_day').on(t.dayId), check('orphan_channel_kind', sql`${t.kind} in ('channel', 'category')`)],
+);
+
+// ---- M5: close-out (§5.2, §6.5, ADR-0007). Owner: closeout.
+
+export const EXPORT_RUN_KINDS = ['export', 'reexport', 'attachments_retry', 'correction'] as const;
+export const EXPORT_RUN_STATES = ['running', 'succeeded', 'failed'] as const;
+export const EXPORT_FILE_KINDS = [
+  'penalties_csv',
+  'penalties_voided_csv',
+  'transcript_json',
+  'transcript_html',
+  'thread_transcript_json',
+  'thread_transcript_html',
+  'attachment',
+] as const;
+export const ATTACHMENT_STATES = ['saved', 'skipped', 'discarded'] as const;
+export const SKIP_REASONS = ['over_cap', 'download_failed', 'message_deleted'] as const;
+
+/** A day's close-out state beyond its `event_day.state`: the last refusal, the last failure, Genie's alert posts. */
+export const dayCloseout = sqliteTable('day_closeout', {
+  dayId: integer('day_id')
+    .primaryKey()
+    .references(() => eventDay.id, { onDelete: 'restrict' }),
+  /** JSON: the reasons of the last refused purge, until a purge succeeds. */
+  purgeRefusal: text('purge_refusal'),
+  purgeRefusedAt: integer('purge_refused_at'),
+  /** JSON `{ kind, error, at }` of the newest failed close-out job (or correction), until that kind succeeds. */
+  lastFailure: text('last_failure'),
+  failurePostedAt: integer('failure_posted_at'),
+  /** JSON: Genie's own `#head-judges` alert posts, which the purge's high-water check ignores. */
+  alertMessageIds: text('alert_message_ids').notNull().default('[]'),
+  transcriptsSweptAt: integer('transcripts_swept_at'),
+  penaltiesSweptAt: integer('penalties_swept_at'),
+});
+
+/** One export, re-export, attachment retry or correction. Its files are current only once it `succeeded`. */
+export const exportRun = sqliteTable(
+  'export_run',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dayId: integer('day_id')
+      .notNull()
+      .references(() => eventDay.id, { onDelete: 'restrict' }),
+    kind: text('kind', { enum: EXPORT_RUN_KINDS }).notNull(),
+    /** The job that ran it (no FK: the jobs module owns `job`); null for a correction. */
+    jobId: integer('job_id'),
+    eventId: integer('event_id'),
+    state: text('state', { enum: EXPORT_RUN_STATES }).notNull(),
+    contentIntent: integer('content_intent', { mode: 'boolean' }),
+    startedAt: integer('started_at').notNull(),
+    finishedAt: integer('finished_at'),
+  },
+  (t) => [
+    index('export_run_day_state').on(t.dayId, t.state),
+    check('export_run_kind', sql`${t.kind} in ('export', 'reexport', 'attachments_retry', 'correction')`),
+    check('export_run_state', sql`${t.state} in ('running', 'succeeded', 'failed')`),
+  ],
+);
+
+/** A file under `<exportsDir>/` (§5.2). Current: its run succeeded and nothing supersedes it. */
+export const exportFile = sqliteTable(
+  'export_file',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dayId: integer('day_id')
+      .notNull()
+      .references(() => eventDay.id, { onDelete: 'restrict' }),
+    runId: integer('run_id')
+      .notNull()
+      .references(() => exportRun.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: EXPORT_FILE_KINDS }).notNull(),
+    eventId: integer('event_id').references(() => event.id, { onDelete: 'restrict' }),
+    channelId: text('channel_id'),
+    threadId: text('thread_id'),
+    parentChannelId: text('parent_channel_id'),
+    blueprintChannelKey: text('blueprint_channel_key'),
+    threadType: text('thread_type', { enum: ['public', 'private'] }),
+    attachmentId: text('attachment_id'),
+    /** A CSV's penalty state: the event's highest `penalty_revision` rowid when it was built (0: none). */
+    sourceRevision: integer('source_revision'),
+    name: text('name').notNull(),
+    highWaterMessageId: text('high_water_message_id'),
+    /** Relative to the exports folder. */
+    path: text('path').notNull(),
+    downloadName: text('download_name').notNull(),
+    sha256: text('sha256').notNull(),
+    bytes: integer('bytes').notNull(),
+    createdAt: integer('created_at').notNull(),
+    supersededBy: integer('superseded_by').references((): AnySQLiteColumn => exportFile.id, { onDelete: 'restrict' }),
+  },
+  (t) => [
+    index('export_file_day').on(t.dayId, t.supersededBy),
+    index('export_file_run').on(t.runId),
+    check(
+      'export_file_kind',
+      sql`${t.kind} in ('penalties_csv', 'penalties_voided_csv', 'transcript_json', 'transcript_html', 'thread_transcript_json', 'thread_transcript_html', 'attachment')`,
+    ),
+    check('export_file_thread_type', sql`${t.threadType} is null or ${t.threadType} in ('public', 'private')`),
+  ],
+);
+
+/** One attachment of a transcript (§5.2). The purge refuses while a current one is `skipped`. */
+export const exportAttachment = sqliteTable(
+  'export_attachment',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    exportFileId: integer('export_file_id')
+      .notNull()
+      .references(() => exportFile.id, { onDelete: 'cascade' }),
+    attachmentId: text('attachment_id').notNull(),
+    messageId: text('message_id').notNull(),
+    /** The channel or thread that holds the message. */
+    channelId: text('channel_id').notNull(),
+    filename: text('filename').notNull(),
+    declaredBytes: integer('declared_bytes').notNull(),
+    fileId: integer('file_id').references(() => exportFile.id, { onDelete: 'set null' }),
+    state: text('state', { enum: ATTACHMENT_STATES }).notNull(),
+    reason: text('reason', { enum: SKIP_REASONS }),
+    discardedBy: text('discarded_by'),
+    discardedAt: integer('discarded_at'),
+  },
+  (t) => [
+    uniqueIndex('export_attachment_file_attachment').on(t.exportFileId, t.attachmentId),
+    check('export_attachment_state', sql`${t.state} in ('saved', 'skipped', 'discarded')`),
+    check('export_attachment_reason', sql`${t.reason} is null or ${t.reason} in ('over_cap', 'download_failed', 'message_deleted')`),
+  ],
 );
 
 /** Owned by the jobs module alone (§3). */

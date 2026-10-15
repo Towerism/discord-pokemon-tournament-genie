@@ -40,11 +40,16 @@ export function snowflakeParam(event: H3Event, name: string): string {
  * The principal, if they may act on the day (ADR-0010). An unknown day is 404 for everyone; an existing day a
  * non-organizer can't use is 403 (§11's auth matrix). Organizers pass without building the plan.
  */
-export async function requireDay(event: H3Event, dayId: number, action: 'read' | 'preview' | 'sync' | 'edit' | 'open') {
+export async function requireDay(event: H3Event, dayId: number, action: 'read' | 'preview' | 'sync' | 'edit' | 'open' | 'close' | 'closeout') {
   const { principal, session } = await requirePrincipal(event, { kind: 'website' });
   const plan = await handled(() => (isOrganizer(principal.grant) ? (useEventDays().plan(dayId), null) : useProvisioning().accessPlan(dayId, principal)));
   if (plan && !canSee(principal, { kind: 'day', action }, plan)) throw apiError(403, 'forbidden', 'You can’t see this.');
   return { principal, session };
+}
+
+/** Close-out's confirmations (§6.5): an irreversible step needs `{ confirm: true }`. */
+export function requireConfirmed(body: { confirm?: boolean }): void {
+  if (body.confirm !== true) throw apiError(422, 'confirmation_required', 'Confirm this first: it can’t be undone.');
 }
 
 export function originConfig() {

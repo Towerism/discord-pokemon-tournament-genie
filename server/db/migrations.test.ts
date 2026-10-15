@@ -220,3 +220,60 @@ describe('the M4 migration', () => {
     database.close();
   });
 });
+
+describe('the M5 migration', () => {
+  it('keeps M4 days, penalties and channels, and sets the close-out defaults', () => {
+    const database = openDatabase(':memory:');
+    migrateDatabase(database.db, migrationsUpTo(4));
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, state, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 'open', 1, 1);
+      INSERT INTO event (id, day_id, name, slug, game, starts_at) VALUES (1, 1, 'LC', 'lc', 'tcg', 1);
+      INSERT INTO staff_member (id, display_name, link_state, created_at, updated_at) VALUES (1, 'Ash', 'unlinked', 1, 1);
+      INSERT INTO penalty (event_id, number, idempotency_key, round, competitor_player_id, category_id, severity, penalty_type_id, judge_staff_id, judge_player_id, recorded_by, recorded_at, revision, card_state)
+        VALUES (1, 1, 'web:a', 1, '0042', 1, 'Minor', 1, 1, '123', 'u', 1, 1, 'posted');
+      INSERT INTO provisioned_channel (day_id, guild_id, blueprint_channel_key, discord_channel_id, applied_overwrites_hash, state, created_at, updated_at)
+        VALUES (1, 'g', 'day-staff', '500000000000000001', 'h', 'present', 1, 1);
+    `);
+
+    migrateDatabase(database.db, MIGRATIONS);
+
+    expect(database.sqlite.prepare('SELECT state, closing_at, closed_by, closed_at, grace_until, purged_at FROM event_day').get()).toEqual({
+      state: 'open',
+      closing_at: null,
+      closed_by: null,
+      closed_at: null,
+      grace_until: null,
+      purged_at: null,
+    });
+    expect(database.sqlite.prepare('SELECT count(*) AS n FROM penalty').get()).toEqual({ n: 1 });
+    expect(database.sqlite.prepare('SELECT state, locked_at FROM provisioned_channel').get()).toEqual({ state: 'present', locked_at: null });
+    expect(database.sqlite.prepare('SELECT transcript_retention_days, penalty_retention_days, attachment_cap_bytes FROM app_setting').get()).toEqual({
+      transcript_retention_days: 90,
+      penalty_retention_days: 365,
+      attachment_cap_bytes: 26_214_400,
+    });
+    expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
+    database.close();
+  });
+
+  it('keeps a superseded file as long as its successor, and attachment states to the listed values', () => {
+    const database = freshDb();
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 1, 1);
+      INSERT INTO export_run (id, day_id, kind, state, started_at) VALUES (1, 1, 'export', 'succeeded', 1);
+      INSERT INTO export_file (id, day_id, run_id, kind, name, path, download_name, sha256, bytes, created_at) VALUES (1, 1, 1, 'transcript_json', 'a', 'p1', 'a.json', 'h', 1, 1);
+      INSERT INTO export_file (id, day_id, run_id, kind, name, path, download_name, sha256, bytes, created_at) VALUES (2, 1, 1, 'transcript_json', 'a', 'p2', 'a.json', 'h', 1, 1);
+      UPDATE export_file SET superseded_by = 2 WHERE id = 1;
+    `);
+    expect(() => database.sqlite.exec('DELETE FROM export_file WHERE id = 2')).toThrow(/FOREIGN KEY/);
+    const attachment = (state: string, reason: string | null) =>
+      database.sqlite
+        .prepare(`INSERT INTO export_attachment (export_file_id, attachment_id, message_id, channel_id, filename, declared_bytes, state, reason) VALUES (2, ?, 'm', 'c', 'f', 1, ?, ?)`)
+        .run(`${state}-${reason}`, state, reason);
+    attachment('skipped', 'over_cap');
+    expect(() => attachment('lost', null)).toThrow(/CHECK/);
+    expect(() => attachment('skipped', 'gone')).toThrow(/CHECK/);
+    expect(() => database.sqlite.exec(`INSERT INTO export_run (day_id, kind, state, started_at) VALUES (1, 'export', 'interrupted', 1)`)).toThrow(/CHECK/);
+    database.close();
+  });
+});

@@ -153,9 +153,9 @@ describe('the fake bot session', () => {
       },
     });
     const base = { id: '1', name: 'penalty', guildId: GUILD, channelId: '2', userId: '3', options: {}, memberRoleIds: [], userDisplayName: 'Ash' };
-    expect(await discord.interact({ ...base, kind: 'command' })).toEqual({ ephemeral: [], deferred: false, modal, choices: null });
-    expect(await discord.interact({ ...base, kind: 'autocomplete' })).toEqual({ ephemeral: [], deferred: false, modal: null, choices: [{ name: 'LC', value: '7' }] });
-    expect(await discord.interact({ ...base, kind: 'modal' })).toEqual({ ephemeral: ['Recorded #1 for LC.'], deferred: true, modal: null, choices: null });
+    expect(await discord.interact({ ...base, kind: 'command' })).toEqual({ ephemeral: [], buttons: [], deferred: false, modal, choices: null });
+    expect(await discord.interact({ ...base, kind: 'autocomplete' })).toEqual({ ephemeral: [], buttons: [], deferred: false, modal: null, choices: [{ name: 'LC', value: '7' }] });
+    expect(await discord.interact({ ...base, kind: 'modal' })).toEqual({ ephemeral: ['Recorded #1 for LC.'], buttons: [], deferred: true, modal: null, choices: null });
     expect(await discord.dispatch({ ...base, kind: 'modal' })).toEqual(['Recorded #1 for LC.']);
   });
 });

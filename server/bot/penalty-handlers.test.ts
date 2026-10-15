@@ -10,6 +10,7 @@ import { PENALTY_COMMANDS, createPenaltyHandlers } from './penalty-handlers';
 import { createInteractionRouter } from './router';
 
 let w: PenaltyWorld;
+const CLOSED = 'This day is closed. Corrections are made on the website.';
 let logger: ReturnType<typeof recordingLogger>;
 let ids = 700_000_000_000_000_000n;
 afterEach(() => w?.close());
@@ -289,7 +290,21 @@ describe('the card’s Edit and Void', () => {
     const other = await w.penalties.record(w.recordInput());
     const form = (await click(`genie:penalty-edit:${other.penalty.id}`, PEOPLE.brock)).modal!;
     w.database.sqlite.prepare("UPDATE event_day SET state = 'closing'").run();
-    expect((await submit(form.customId, PEOPLE.brock, 'cup-penalties', fill(form))).ephemeral).toEqual(["This day isn't open."]);
+    expect((await submit(form.customId, PEOPLE.brock, 'cup-penalties', fill(form))).ephemeral).toEqual([CLOSED]);
+  });
+
+  it('changes nothing from the card once the day is closed, whoever clicks or submits', async () => {
+    const p = await recorded();
+    const form = (await click(`genie:penalty-edit:${p.id}`, PEOPLE.brock)).modal!;
+    w.days.markClosing(w.dayId, PEOPLE.brock, () => 0);
+    w.days.markClosed(w.dayId, w.clock.now());
+    for (const who of [PEOPLE.brock, PEOPLE.organizer]) {
+      expect((await click(`genie:penalty-edit:${p.id}`, who)).ephemeral).toEqual([CLOSED]);
+      expect((await click(`genie:penalty-void:${p.id}`, who)).ephemeral).toEqual([CLOSED]);
+      expect((await submit(form.customId, who, 'cup-penalties', fill(form))).ephemeral).toEqual([CLOSED]);
+      expect((await submit(`genie:penalty-void:${p.id}:1`, who, 'cup-penalties', { reason: 'x' })).ephemeral).toEqual([CLOSED]);
+    }
+    expect(w.penalties.get(p.id)).toMatchObject({ revision: 1, state: 'active' });
   });
 
   it('re-checks the right at submit time', async () => {

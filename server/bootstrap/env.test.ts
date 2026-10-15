@@ -23,6 +23,16 @@ describe('prepareGenieEnv', () => {
     expect(joined).not.toContain(env.NUXT_SESSION_PASSWORD);
   });
 
+  it('turns GENIE_PURGE_GRACE into milliseconds for the runtime config, 7 days when unset', () => {
+    expect(prepare().env.NUXT_PURGE_GRACE_MS).toBe('604800000');
+    expect(prepare({ GENIE_PURGE_GRACE: '36h' }).env.NUXT_PURGE_GRACE_MS).toBe(String(36 * 3_600_000));
+  });
+
+  it.each(['0h', '91d', '7', '7 d', '-1h', '1.5d', '7w'])('refuses GENIE_PURGE_GRACE=%s at boot, naming it', (grace) => {
+    expect(() => prepare({ GENIE_PURGE_GRACE: grace })).toThrow(InvalidConfigError);
+    expect(() => prepare({ GENIE_PURGE_GRACE: grace })).toThrow(/GENIE_PURGE_GRACE/);
+  });
+
   it('forces Secure session cookies, whatever the input says', () => {
     expect(prepare().env.NUXT_SESSION_COOKIE_SECURE).toBe('true');
     expect(prepare({ NUXT_SESSION_COOKIE_SECURE: 'false' }).env.NUXT_SESSION_COOKIE_SECURE).toBe('true');

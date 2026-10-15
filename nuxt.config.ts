@@ -46,6 +46,11 @@ export default defineNuxtConfig({
     // Overridden by env (NUXT_DATABASE_PATH etc.). The image sets /data/app.db (#12).
     databasePath: '.data/app.db',
     migrationsDir: 'server/db/migrations',
+    // Close-out (§6.5): CSVs, transcripts and attachments. Blank = an `exports` folder beside the database
+    // (/data/exports in the image). NUXT_EXPORTS_DIR: optional, not in the template.
+    exportsDir: '',
+    // From GENIE_PURGE_GRACE (`7d`, `36h`), checked at boot by server/bootstrap/env.ts.
+    purgeGraceMs: 604_800_000,
     // Filled from env or <data>/secrets/vault.key by server/bootstrap/launcher.ts.
     vaultKey: '',
     // Peers whose X-Forwarded-* headers are believed (NUXT_TRUSTED_PROXIES). Blank = this default.
@@ -63,6 +68,9 @@ export default defineNuxtConfig({
       apiUrl: 'https://discord.com/api',
       authorizeUrl: 'https://discord.com/oauth2/authorize',
       tokenUrl: 'https://discord.com/api/oauth2/token',
+      // Where attachments are downloaded from: Discord's CDN, over https (§6.5).
+      cdnHosts: 'cdn.discordapp.com,media.discordapp.net',
+      cdnAllowHttp: false,
     },
     session: {
       // Secure always (ADR-0013); the launcher forces NUXT_SESSION_COOKIE_SECURE=true.

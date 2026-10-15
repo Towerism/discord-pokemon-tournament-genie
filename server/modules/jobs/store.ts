@@ -40,6 +40,14 @@ export interface JobStore {
   listByState(state: JobState): JobView[];
   /** The oldest queued job of one of `kinds` for the day, or `null`. */
   findQueued(kinds: readonly JobKind[], dayId: number): number | null;
+  /** The oldest queued job of `kind` for the day (`null`: install-wide), or `null`. */
+  findQueuedOf(kind: JobKind, dayId: number | null): number | null;
+  /** Moves a queued job's due time. */
+  setDue(id: number, dueAt: number): void;
+  /** The day's queued and running jobs, oldest first. */
+  active(dayId: number): JobView[];
+  /** The day's newest job of one of `kinds`, or `null`. */
+  latestOf(dayId: number, kinds: readonly JobKind[]): JobView | null;
   /** Days that have a running job: the per-day lease. */
   leasedDays(): Set<number>;
   /** `queued` → `running`, counting the attempt. False when the job wasn't queued any more. */

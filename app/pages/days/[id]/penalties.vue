@@ -44,13 +44,16 @@ interface Form {
 
 const route = useRoute();
 const dayId = Number(route.params.id);
-const { data: plan } = await useFetch<{ day: { title: string; state: string } }>(`/api/days/${dayId}`);
+const { data: plan } = await useFetch<{ day: { title: string; state: string }; can: { closeout: boolean } }>(`/api/days/${dayId}`);
 const { data, refresh } = await useFetch<{ events: PenaltyEvent[]; penalties: Penalty[] }>(`/api/days/${dayId}/penalties`);
 
 const eventId = ref<number | null>(data.value?.events[0]?.id ?? null);
 const current = computed(() => data.value?.events.find((e) => e.id === eventId.value) ?? null);
 const rows = computed(() => (data.value?.penalties ?? []).filter((p) => p.eventId === eventId.value));
 const isOpen = computed(() => plan.value?.day.state === 'open');
+const isClosed = computed(() => plan.value?.day.state === 'closed' || plan.value?.day.state === 'purged');
+/** After close, only organizers correct penalties, and each correction writes the event's CSVs again (§6.4). */
+const canChange = computed(() => isOpen.value || (isClosed.value && plan.value?.can.closeout === true));
 const error = ref<string | null>(null);
 
 const empty = (): Form => ({ judgeStaffMemberId: null, round: null, competitorPlayerId: '', categoryId: null, severity: 'Minor', penaltyTypeId: null, notes: '' });
@@ -126,7 +129,9 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
     <div class="space-y-1">
       <h1 class="text-xl font-semibold">Penalties · {{ plan.day.title }}</h1>
       <NuxtLink :to="`/days/${dayId}`" class="text-sm underline">Back to the day</NuxtLink>
-      <p v-if="!isOpen" role="status" class="text-sm">Penalties can be recorded and changed only while the day is open.</p>
+      <p v-if="isClosed && canChange" role="status" class="text-sm">This day is closed. Corrections write the event's CSVs again; the earlier ones are kept.</p>
+      <p v-else-if="isClosed" role="status" class="text-sm">This day is closed.</p>
+      <p v-else-if="!isOpen" role="status" class="text-sm">Penalties can be recorded and changed only while the day is open.</p>
     </div>
 
     <nav v-if="data.events.length > 1" class="flex gap-2" aria-label="Events">
@@ -173,11 +178,11 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
               <td>{{ p.state }}<template v-if="p.voidReason">: {{ p.voidReason }}</template></td>
               <td>{{ p.cardState }}</td>
               <td class="space-x-1 whitespace-nowrap">
-                <template v-if="isOpen && p.state === 'active'">
+                <template v-if="canChange && p.state === 'active'">
                   <UButton size="xs" variant="outline" @click="startEditing(p)">Edit</UButton>
                   <UButton size="xs" color="error" variant="outline" @click="voiding = { penalty: p, reason: '' }">Void</UButton>
                 </template>
-                <UButton v-if="['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
+                <UButton v-if="isOpen && ['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
               </td>
             </tr>
             <tr v-if="expanded === p.id">

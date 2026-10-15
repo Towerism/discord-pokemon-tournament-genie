@@ -41,7 +41,7 @@ export function createProvisioningStore(db: Db) {
         .returning({ id: provisionedChannel.id })
         .get().id;
     },
-    update(id: number, patch: Partial<Pick<ProvisionedRow, 'appliedOverwritesHash' | 'state' | 'messageId' | 'messagePinned'>>, now: number): void {
+    update(id: number, patch: Partial<Pick<ProvisionedRow, 'appliedOverwritesHash' | 'state' | 'messageId' | 'messagePinned' | 'lockedAt'>>, now: number): void {
       db.update(provisionedChannel).set({ ...patch, updatedAt: now }).where(eq(provisionedChannel.id, id)).run();
     },
     isRecorded(channelId: string): boolean {
