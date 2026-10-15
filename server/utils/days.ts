@@ -13,7 +13,12 @@ export async function dayPlanView(dayId: number, principal: Principal) {
     latestJob: useJobs().latestForDay(dayId),
     channels: useProvisioning().channels(dayId),
     orphans: useProvisioning().orphans(dayId),
-    can: { edit: may('edit'), open: may('open'), sync: may('sync') },
+    can: {
+      edit: may('edit'),
+      open: may('open'),
+      sync: may('sync'),
+      penalties: core.events.some((e) => canSee(principal, { kind: 'event_penalties', eventId: e.id, action: 'manage' }, access ?? undefined)),
+    },
   };
 }
 

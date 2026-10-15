@@ -148,6 +148,7 @@ describe('route authorization', () => {
       headJudgeRole: { id: IDS.headJudgeRole, name: 'Head judge' },
       ownerId: IDS.owner,
       organizerAllowlistEnabled: false,
+      currentSeason: '2026-27',
     });
     expectNoSecrets([...replyTexts(owner), ...replyTexts(organizer), genie.log()]);
   });

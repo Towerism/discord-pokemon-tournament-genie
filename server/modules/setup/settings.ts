@@ -10,6 +10,8 @@ export interface Settings {
   headJudgeRole: { id: string; name: string | null } | null;
   ownerId: string;
   organizerAllowlistEnabled: boolean;
+  /** The season new days copy (§5.2). */
+  currentSeason: string;
 }
 
 export interface Allowlist {
@@ -45,6 +47,7 @@ export function createSettingsService(opts: {
         headJudgeRole: role(binding.headJudgeRoleId),
         ownerId,
         organizerAllowlistEnabled: binding.organizerAllowlistEnabled,
+        currentSeason: store.currentSeason(),
       };
     },
 

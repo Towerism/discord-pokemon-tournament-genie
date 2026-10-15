@@ -1,3 +1,4 @@
+import { LABEL_MAX, NOTES_MAX, ROUND_MAX, SEASON, SEVERITIES, VOID_REASON_MAX } from '../penalties';
 import { z } from '../zod';
 
 /** A Discord ID: a decimal snowflake. */
@@ -100,3 +101,48 @@ export const importAcceptBody = z.strictObject({
   planRevision: z.number().int().min(1),
   keys: z.array(z.string().min(1).max(64)).max(2000),
 });
+
+// ---- M4 (spec #22): penalties, the catalog and the season.
+
+const round = z.number().int().min(1).max(ROUND_MAX);
+const severity = z.enum(SEVERITIES);
+const notes = z.string().max(NOTES_MAX * 2).refine((s) => s.trim().length <= NOTES_MAX, `At most ${NOTES_MAX} characters.`);
+const revision = z.number().int().min(1);
+const season = z.string().regex(SEASON, 'Letters, digits, spaces, dots, dashes and underscores, up to 32.');
+
+export const penaltyCreateBody = z.strictObject({
+  idempotencyKey: z.uuidv4(),
+  eventId: id,
+  round,
+  competitorPlayerId: playerId,
+  categoryId: id,
+  severity,
+  penaltyTypeId: id,
+  notes,
+  judgeStaffMemberId: id,
+});
+export const penaltyPatchBody = z.strictObject({
+  revision,
+  round: round.optional(),
+  competitorPlayerId: playerId.optional(),
+  categoryId: id.optional(),
+  severity: severity.optional(),
+  penaltyTypeId: id.optional(),
+  notes: notes.optional(),
+  judgeStaffMemberId: id.optional(),
+});
+export const penaltyVoidBody = z.strictObject({ revision, reason: z.string().trim().min(1).max(VOID_REASON_MAX) });
+export const emptyBody = z.strictObject({});
+export const penaltyCsvQuery = z.strictObject({ eventId: z.coerce.number().int().positive(), voided: z.enum(['0', '1']).optional() });
+
+const catalogRow = z.strictObject({
+  id: id.optional(),
+  label: z.string().trim().min(1).max(LABEL_MAX),
+  games: z.array(game).min(1).max(4),
+  rank: z.number().int().min(0).max(999),
+  active: z.boolean(),
+});
+export const catalogPutBody = z.strictObject({ categories: z.array(catalogRow).max(200), types: z.array(catalogRow).max(200) });
+export const catalogQuery = z.strictObject({ season: season.optional() });
+export const seasonParam = season;
+export const seasonPutBody = z.strictObject({ season, copyFrom: season.optional() });
