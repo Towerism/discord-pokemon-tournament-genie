@@ -60,7 +60,13 @@ export async function startGenie(opts: { discordUrl: string; port?: number; env?
     await exited;
   }
 
-  await boot();
+  try {
+    await boot();
+  } catch (err) {
+    await stop();
+    dataDir.cleanup();
+    throw err;
+  }
   return {
     url: `http://127.0.0.1:${port}`,
     port,
@@ -81,6 +87,44 @@ export async function startGenie(opts: { discordUrl: string; port?: number; env?
       dataDir.cleanup();
     },
   };
+}
+
+/**
+ * Starts the built launcher with `env` and waits for it to exit on its own (a boot the launcher refuses).
+ * Waits on the exit event with a deadline, never a sleep; the throwaway data dir is removed either way.
+ */
+export async function bootRefused(env: Record<string, string>): Promise<{ exitCode: number | null; log: string }> {
+  const dataDir = tempSecretsDir();
+  let output = '';
+  const child = spawn(process.execPath, [resolve(ROOT, '.output/launcher.mjs')], {
+    cwd: ROOT,
+    env: {
+      PATH: process.env.PATH,
+      NODE_ENV: 'production',
+      PORT: String(await freePort()),
+      HOST: '127.0.0.1',
+      NUXT_DATABASE_PATH: dataDir.databasePath,
+      NO_COLOR: '1',
+      ...env,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+  try {
+    const exitCode = await new Promise<number | null>((resolveExit, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Genie was still running after 30 s:\n${output}`)), 30_000);
+      // `close`, not `exit`: it fires once stdout and stderr are drained, so the log is complete.
+      child.once('close', (code) => {
+        clearTimeout(timer);
+        resolveExit(code);
+      });
+    });
+    return { exitCode, log: output };
+  } finally {
+    if (child.exitCode === null) child.kill('SIGKILL');
+    dataDir.cleanup();
+  }
 }
 
 async function waitForReady(url: string, exitCode: () => number | null, log: () => string) {

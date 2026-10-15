@@ -55,3 +55,32 @@ describe('prepareGenieEnv', () => {
     expect(prepare({ NUXT_AUTH_RATE_LIMIT_SETUP_MAX: '20' }).env.NUXT_AUTH_RATE_LIMIT_SETUP_MAX).toBe('20');
   });
 });
+
+describe('the store time zone', () => {
+  // Unraid passes a blank Timezone field as TZ="", which Node resolves to ICU's unusable Etc/Unknown.
+  it.each([undefined, '', '   '])('defaults TZ=%j to Central time, and says so in the log', (tz) => {
+    const { env, log } = prepare({ TZ: tz });
+    expect(env.TZ).toBe('America/Chicago');
+    expect(log).toContain('Store time zone: America/Chicago (default; set TZ to change it)');
+  });
+
+  it.each([
+    ['America/Chicago', 'America/Chicago'],
+    ['US/Central', 'US/Central'],
+    ['UTC', 'UTC'],
+    [' Europe/London ', 'Europe/London'],
+  ])('keeps TZ=%j as %s', (tz, kept) => {
+    const { env, log } = prepare({ TZ: tz });
+    expect(env.TZ).toBe(kept);
+    expect(log).toContain(`Store time zone: ${kept} (from TZ)`);
+  });
+
+  it.each(['America/Chicgo', 'Etc/Unknown', 'CST6CDT,M3.2.0,M11.1.0', ':/etc/localtime'])('refuses TZ=%s, naming it', (tz) => {
+    expect(() => prepare({ TZ: tz })).toThrow(InvalidConfigError);
+    expect(() => prepare({ TZ: tz })).toThrow(`TZ must be an IANA time zone like America/Chicago (got ${JSON.stringify(tz)})`);
+  });
+
+  it('quotes a refused TZ, so it stays on one log line', () => {
+    expect(() => prepare({ TZ: 'Bad\nZone' })).toThrow(/^[^\n]*"Bad\\nZone"[^\n]*$/);
+  });
+});

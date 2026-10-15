@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Clock, Logger } from '@towerism/selfhost-kit';
 import { eq } from 'drizzle-orm';
+import { canonicalTimeZone } from '../../../shared/time';
 import type { Db } from '../../db/client';
 import { attendanceSnapshot } from '../../db/schema';
 import type { DirectoryService } from '../directory';
@@ -19,7 +20,6 @@ import {
   AttendanceRejectedError,
   type AttendanceSource,
   AttendanceUnavailableError,
-  canonicalTimeZone,
 } from '../attendance/port';
 import { type DiffItem, type ImportDiff, type ImportState, refreshDiff } from './diff';
 

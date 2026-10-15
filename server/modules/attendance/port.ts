@@ -80,12 +80,3 @@ export class AttendanceBadResponseError extends Error {
     super(`Attendance's answer was unusable (${reason}).`);
   }
 }
-
-/** The canonical name of an IANA zone, or `null` when `Intl` doesn't know it. Node folds some aliases, not all. */
-export function canonicalTimeZone(zone: string): string | null {
-  try {
-    return new Intl.DateTimeFormat('en-US', { timeZone: zone }).resolvedOptions().timeZone;
-  } catch {
-    return null;
-  }
-}

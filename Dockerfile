@@ -42,9 +42,12 @@ COPY --from=app-build /app/.output/selfhost-kit/litestream.yml /etc/litestream.y
 COPY --from=app-build /app/.output/selfhost-kit/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN rm -rf .output/selfhost-kit
 # Port 3001 sits beside attendance's 3000; the template publishes it only on the host's loopback (ADR-0013).
+# TZ is the store's zone, Central unless set (DEFAULT_TIME_ZONE in server/bootstrap/env.ts, which also covers
+# Unraid's blank field: it arrives as TZ="" and overrides this).
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3001 \
+    TZ=America/Chicago \
     PUID=99 \
     PGID=100 \
     UMASK=022 \
