@@ -918,3 +918,60 @@ describe('edges', () => {
     expect(w.logs.some((l) => l.level === 'error' && /leaves the exports folder/.test(l.msg))).toBe(true);
   });
 });
+
+describe('after the changeset review', () => {
+  it('clears a failed re-export’s alarm once the day is purged', async () => {
+    let failing = false;
+    w = await closeoutWorld({
+      wrap: (g) => ({
+        ...g,
+        async getApplication() {
+          if (failing) throw new Error('boom');
+          return g.getApplication();
+        },
+      }),
+    });
+    await w.closeAndExport();
+    failing = true;
+    await w.closeout.reexport(w.dayId);
+    await w.settle();
+    failing = false;
+    expect(w.closeout.alarms()).toEqual([expect.objectContaining({ kind: 'closeout_failed', jobKind: 'reexport' })]);
+    w.closeout.purgeNow(w.dayId);
+    await w.settle();
+    expect(state()).toBe('purged');
+    expect(w.closeout.alarms()).toEqual([]);
+  });
+
+  it('keeps a transcript’s row until its file is gone, so a failed sweep is retried', async () => {
+    w = await closeoutWorld();
+    await w.closeAndExport();
+    w.closeout.purgeNow(w.dayId);
+    await w.settle();
+    const T = w.days.plan(w.dayId).day.closedAt!;
+    const folder = join(w.exportsDir, String(w.dayId), String(w.database.sqlite.prepare("SELECT run_id FROM export_file WHERE kind = 'transcript_json'").pluck().get()), 'transcripts');
+    chmodSync(folder, 0o500);
+    w.clock.set(T + 91 * DAY_MS);
+    w.jobs.schedule({ kind: 'retention_sweep', dayId: null, dueAt: w.clock.now() });
+    try {
+      await w.jobs.runDue();
+    } finally {
+      chmodSync(folder, 0o700);
+    }
+    const kept = w.database.sqlite.prepare("SELECT count(*) FROM export_file WHERE kind = 'transcript_json'").pluck().get() as number;
+    expect(kept).toBeGreaterThan(0);
+    expect(w.closeout.exportsView(w.dayId, null).swept.transcriptsAt).toBeNull();
+    w.jobs.schedule({ kind: 'retention_sweep', dayId: null, dueAt: w.clock.now() });
+    await w.jobs.runDue();
+    expect(w.database.sqlite.prepare("SELECT count(*) FROM export_file WHERE kind = 'transcript_json'").pluck().get()).toBe(0);
+    expect(existsSync(folder)).toBe(false);
+  });
+
+  it('reads a draft day’s close-out state without writing anything, so the day can still be deleted', async () => {
+    w = await closeoutWorld();
+    const { day } = w.days.createDay({ date: '2026-10-24', title: 'Draft' });
+    expect(w.closeout.penaltiesSwept(day.id)).toBe(false);
+    expect(w.closeout.exportsView(day.id, null).transcripts).toEqual([]);
+    expect(() => w.days.deleteDay(day.id)).not.toThrow();
+  });
+});

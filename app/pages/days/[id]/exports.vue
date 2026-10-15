@@ -88,7 +88,12 @@ async function act(fn: () => Promise<unknown>, done: string) {
 const reexport = () => act(() => apiFetch(`/api/days/${dayId}/reexport`, { method: 'POST', body: {} }), 'Re-export started.');
 const retry = () => act(() => apiFetch(`/api/days/${dayId}/exports/attachments/retry`, { method: 'POST', body: {} }), 'Retrying the skipped attachments.');
 const rewrite = () => act(() => apiFetch(`/api/days/${dayId}/exports/csv`, { method: 'POST', body: {} }), 'CSVs written again.');
-const deleteNow = () => act(() => apiFetch(`/api/days/${dayId}/purge`, { method: 'POST', body: { confirm: true } }), 'The purge will run now.');
+const confirmingDelete = ref(false);
+const deleteNow = () =>
+  act(async () => {
+    await apiFetch(`/api/days/${dayId}/purge`, { method: 'POST', body: { confirm: true } });
+    confirmingDelete.value = false;
+  }, 'The purge will run now.');
 const discardChosen = ref<number[]>([]);
 const discardConfirmed = ref(false);
 const discard = () =>
@@ -129,7 +134,8 @@ const discard = () =>
       </UAlert>
       <UAlert v-if="data.organizer.contentIntentMissing" color="warning" title="Exported without the Message Content intent: transcripts may be nearly empty." />
       <p v-if="data.organizer.csvBlocked.length" class="text-sm">
-        No CSV yet for {{ data.organizer.csvBlocked.map((e) => e.name).join(', ') }}: set the Tournament ID on the day page.
+        No CSV yet for {{ data.organizer.csvBlocked.map((e) => e.name).join(', ') }}: set the Tournament ID on the
+        <NuxtLink :to="`/days/${dayId}`" class="underline">day page</NuxtLink>, which writes the CSVs.
       </p>
       <div v-if="data.organizer.skipped.length" class="space-y-1 text-sm">
         <p>Skipped attachments:</p>
@@ -151,7 +157,15 @@ const discard = () =>
           </UButton>
         </template>
         <UButton variant="outline" @click="rewrite">Rewrite CSVs</UButton>
-        <UButton v-if="data.day.state === 'closed'" color="error" variant="soft" @click="deleteNow">Delete now</UButton>
+        <UButton v-if="data.day.state === 'closed' && !confirmingDelete" color="error" variant="soft" @click="confirmingDelete = true">Delete now</UButton>
+      </div>
+      <div v-if="confirmingDelete" role="alertdialog" aria-labelledby="exports-delete-heading" class="border border-error rounded p-3 space-y-2 text-sm">
+        <h3 id="exports-delete-heading" class="font-semibold">Delete the channels now?</h3>
+        <p>The grace period ends now. Genie deletes the channels only if the export holds everything in them.</p>
+        <div class="flex gap-2">
+          <UButton color="error" @click="deleteNow">Confirm delete</UButton>
+          <UButton variant="ghost" @click="confirmingDelete = false">Cancel</UButton>
+        </div>
       </div>
     </section>
 
@@ -191,10 +205,22 @@ const discard = () =>
           </li>
         </ul>
         <ul v-if="t.threads.length" class="pl-4">
-          <li v-for="th in t.threads" :key="th.threadId ?? th.name">
+          <li v-for="th in t.threads" :key="th.threadId ?? th.name" :data-thread="th.name">
             Thread <strong>{{ th.name }}</strong>
             · <a :href="fileUrl(th.html)" target="_blank" rel="noopener noreferrer" class="underline">View</a>
             · <a :href="fileUrl(th.json)" class="underline">Download JSON</a>
+            <ul v-if="th.attachments.length" class="pl-4">
+              <li v-for="a in th.attachments" :key="a.id">
+                <a v-if="a.fileId" :href="`/api/exports/${a.fileId}`" class="underline">{{ a.filename }}</a><template v-else>{{ a.filename }}</template>
+                · {{ a.state }}<template v-if="a.reason"> ({{ skipText[a.reason] ?? a.reason }})</template>
+              </li>
+            </ul>
+            <details v-if="th.supersededVersions.length">
+              <summary>Earlier versions</summary>
+              <ul>
+                <li v-for="v in th.supersededVersions" :key="v.json.id"><a :href="fileUrl(v.html)" target="_blank" rel="noopener noreferrer" class="underline">{{ when(v.json.createdAt) }}</a></li>
+              </ul>
+            </details>
           </li>
         </ul>
         <details v-if="t.supersededVersions.length">

@@ -134,6 +134,11 @@ const deleteNow = () =>
     follow(jobId);
   });
 const when = (ms: number | null) => (ms === null ? '' : new Date(ms).toLocaleString());
+/** After close the Tournament ID is the one change an organizer can make; it writes the event's CSVs (§6.6). */
+const closedDay = computed(() => plan.value?.day.state === 'closed' || plan.value?.day.state === 'purged');
+const tournamentIds = reactive<Record<number, string>>({});
+const setTournamentId = (eventId: number) =>
+  act(() => apiFetch(`/api/days/${dayId}/events/${eventId}`, { method: 'PATCH', body: { tournamentId: tournamentIds[eventId]?.trim() || null } }));
 /** The plan freezes once the day is closing: nothing may change who can see its locked channels. */
 const editable = computed(() => plan.value?.can.edit === true && (plan.value.day.state === 'draft' || plan.value.day.state === 'open'));
 
@@ -283,7 +288,18 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
               </span>
             </td>
             <td>{{ e.startTime }}</td>
-            <td>{{ e.tournamentId ?? '—' }}</td>
+            <td>
+              <form v-if="plan.can.closeout && closedDay" class="flex items-center gap-1" @submit.prevent="setTournamentId(e.id)">
+                <input
+                  v-model="tournamentIds[e.id]"
+                  :placeholder="e.tournamentId ?? '25-12-001050'"
+                  :aria-label="`Tournament ID of ${e.name}`"
+                  class="w-32 border border-accented rounded p-1"
+                >
+                <UButton type="submit" size="xs" variant="outline">Set</UButton>
+              </form>
+              <template v-else>{{ e.tournamentId ?? '—' }}</template>
+            </td>
             <td>{{ e.attendance?.organizerName ?? (e.attendance ? e.attendance.organizerPlayerId : '—') }}</td>
             <td><UButton v-if="editable && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
           </tr>

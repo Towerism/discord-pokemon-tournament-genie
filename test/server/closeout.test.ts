@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeDiscord } from '../../server/modules/discord/fake';
@@ -153,6 +155,7 @@ afterAll(async () => {
 describe('closing over HTTP', () => {
   it('lets the day’s head judge preflight and close, with the confirmations and refusals the routes promise', async () => {
     expect(ok(await ash.get(`/api/days/${dayId}/close`))).toEqual({ recentPenalties: [expect.objectContaining({ eventId: lcId })], csvBlocked: [], channels: 6 });
+    expect((ok(await gary.get(`/api/days/${dayId}/close`)) as { recentPenalties: unknown[] }).recentPenalties).toEqual([]);
     expect((await otherDayHeadJudge.get(`/api/days/${dayId}/close`)).status).toBe(403);
     expect((await anonymous.get(`/api/days/${dayId}/close`)).status).toBe(401);
     const unconfirmed = await ash.post(`/api/days/${dayId}/close`, {});
@@ -307,6 +310,26 @@ describe('the exports, after close', () => {
     expect(left).toEqual([]);
     expect((ok(await organizer.get('/api/status')) as { alarms: { kind: string }[] }).alarms).toEqual([]);
     expect((await ash.get(`/api/exports/${view.csvs[0]!.files[0]!.id}`)).status).toBe(403);
+    // After the purge only organizers keep the day's penalty data, through M4's routes too.
+    expect((await ash.get(`/api/days/${dayId}/penalties`)).status).toBe(403);
+    expect((await ash.get(`/api/days/${dayId}/penalties.csv?eventId=${lcId}`)).status).toBe(403);
+    expect((await organizer.get(`/api/days/${dayId}/penalties.csv?eventId=${lcId}`)).status).toBe(200);
+  });
+
+  it('answers 404 for a file gone from disk, and 410 for the CSV once retention swept the penalties', async () => {
+    const after = ok(await organizer.get(`/api/days/${dayId}/exports`)) as Exports;
+    const html = after.transcripts.find((t) => t.name === 'day-staff')!.html;
+    const db = new Database(genie.dataDir.databasePath);
+    try {
+      const path = db.prepare('SELECT path FROM export_file WHERE id = ?').pluck().get(html.id) as string;
+      rmSync(join(dirname(genie.dataDir.databasePath), 'exports', path));
+      expect([(await organizer.get(`/api/exports/${html.id}`)).status]).toEqual([404]);
+      db.prepare('UPDATE day_closeout SET penalties_swept_at = 1 WHERE day_id = ?').run(dayId);
+    } finally {
+      db.close();
+    }
+    const swept = await organizer.get(`/api/days/${dayId}/penalties.csv?eventId=${lcId}`);
+    expect([swept.status, code(swept)]).toEqual([410, 'retention_expired']);
   });
 });
 

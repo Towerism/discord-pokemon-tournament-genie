@@ -122,20 +122,21 @@ export function createCloseoutStore(db: Db) {
     contentIntentOf(runId: number): boolean {
       return runOf(runId).contentIntent !== false;
     },
-    /** Retention: every file of these kinds, every version. Their attachment rows go with the transcripts. */
-    deleteFiles(dayId: number, which: 'transcripts' | 'csvs'): FileRow[] {
-      return db.transaction(() => {
-        const kinds = which === 'transcripts' ? TRANSCRIPT_KINDS : CSV_KINDS;
-        const rows = db
-          .select()
-          .from(exportFile)
-          .where(and(eq(exportFile.dayId, dayId), inArray(exportFile.kind, [...kinds])))
-          .all();
-        if (rows.length) {
-          db.update(exportFile).set({ supersededBy: null }).where(inArray(exportFile.id, rows.map((r) => r.id))).run();
-          db.delete(exportFile).where(inArray(exportFile.id, rows.map((r) => r.id))).run();
-        }
-        return rows;
+    /** Retention: every file of these kinds, every version (the sweep removes them from disk before their rows). */
+    filesToSweep(dayId: number, which: 'transcripts' | 'csvs'): FileRow[] {
+      const kinds = which === 'transcripts' ? TRANSCRIPT_KINDS : CSV_KINDS;
+      return db
+        .select()
+        .from(exportFile)
+        .where(and(eq(exportFile.dayId, dayId), inArray(exportFile.kind, [...kinds])))
+        .all();
+    },
+    /** The rows of swept files. Their attachment rows go with the transcripts. */
+    deleteFileRows(ids: readonly number[]): void {
+      if (!ids.length) return;
+      db.transaction(() => {
+        db.update(exportFile).set({ supersededBy: null }).where(inArray(exportFile.id, [...ids])).run();
+        db.delete(exportFile).where(inArray(exportFile.id, [...ids])).run();
       });
     },
 
@@ -152,6 +153,22 @@ export function createCloseoutStore(db: Db) {
     },
 
     // ---- the day's close-out state
+    /** A read that writes nothing: a day without a row reads as one with nothing recorded. */
+    peek(dayId: number): CloseoutRow {
+      return (
+        db.select().from(dayCloseout).where(eq(dayCloseout.dayId, dayId)).get() ?? {
+          dayId,
+          purgeRefusal: null,
+          purgeRefusedAt: null,
+          lastFailure: null,
+          failurePostedAt: null,
+          alertMessageIds: '[]',
+          transcriptsSweptAt: null,
+          penaltiesSweptAt: null,
+        }
+      );
+    },
+    /** The day's row, created on the first write. */
     closeout(dayId: number): CloseoutRow {
       db.insert(dayCloseout).values({ dayId }).onConflictDoNothing().run();
       return db.select().from(dayCloseout).where(eq(dayCloseout.dayId, dayId)).get()!;

@@ -1,4 +1,5 @@
 import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { canSee, isOrganizer } from '../../../shared/access/access';
 import { CSP_TRANSCRIPT, contentDisposition } from '../../../shared/closeout';
 
@@ -17,6 +18,8 @@ export default defineEventHandler(async (event) => {
   if (!found) throw organizer ? apiError(404, 'not_found', 'No such file.') : notInAudience();
   if (!organizer && !canSee(principal, found.resource, await handled(() => useProvisioning().accessPlan(found.dayId, principal)))) throw notInAudience();
   if (!found.path) throw apiError(404, 'not_found', 'No such file.');
+  const onDisk = await stat(found.path).catch(() => null);
+  if (!onDisk?.isFile()) throw apiError(404, 'not_found', 'The file is missing from the exports folder. Re-export the day.');
 
   const { file } = found;
   const headers: Record<string, string> = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
@@ -29,6 +32,9 @@ export default defineEventHandler(async (event) => {
     Object.assign(headers, { 'content-type': json ? 'application/json' : 'application/octet-stream', 'content-disposition': contentDisposition(file.downloadName) });
   }
   setResponseHeaders(event, headers);
+  const stream = createReadStream(found.path);
+  // A download the client abandons releases its file at once.
+  event.node.res.once('close', () => stream.destroy());
   useLogger('closeout').info('export_downloaded', { fileId, kind: file.kind, dayId: found.dayId, userId: principal.userId });
-  return sendStream(event, createReadStream(found.path));
+  return sendStream(event, stream);
 });

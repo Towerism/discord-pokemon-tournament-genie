@@ -6,11 +6,13 @@ const forbidden = () => apiError(403, 'forbidden', 'You can’t see this.');
 
 /**
  * The caller and the day's events whose penalties they may manage (ADR-0010): organizers every event, an event head
- * judge their own. An unknown day is 404; a day where they manage nothing is 403.
+ * judge their own. An unknown day is 404; a day where they manage nothing is 403, and so is a purged day for anyone
+ * but organizers (§6.5: after the purge, only organizers keep a day's files).
  */
 export async function requirePenaltyDay(event: H3Event, dayId: number) {
   const { principal } = await requirePrincipal(event, { kind: 'website' });
   const plan = await handled(() => useEventDays().plan(dayId));
+  if (plan.day.state === 'purged' && !isOrganizer(principal.grant)) throw forbidden();
   const access = isOrganizer(principal.grant) ? undefined : useProvisioning().accessPlan(dayId, principal);
   const manageable = plan.events.filter((e) => canSee(principal, { kind: 'event_penalties', eventId: e.id, action: 'manage' }, access)).map((e) => e.id);
   if (!manageable.length) throw forbidden();

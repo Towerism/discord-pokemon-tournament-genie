@@ -114,7 +114,7 @@ export function createCloseoutService(opts: {
   }
 
   function clearFailure(dayId: number, kind: FailureKind): void {
-    const failure = store.closeout(dayId).lastFailure;
+    const failure = store.peek(dayId).lastFailure;
     if (failure && (JSON.parse(failure) as { kind: FailureKind }).kind === kind) store.setFailure(dayId, null);
   }
 
@@ -503,7 +503,7 @@ export function createCloseoutService(opts: {
     if (day.state !== 'closed') throw new Error('day_not_closed');
     const discord = gateway();
     const b = requireBinding();
-    const alerts = new Set(JSON.parse(store.closeout(dayId).alertMessageIds) as string[]);
+    const alerts = new Set(JSON.parse(store.peek(dayId).alertMessageIds) as string[]);
     const refuse = async (reasons: RefusalReason[]): Promise<never> => {
       store.setRefusal(dayId, reasons, clock.now());
       logger.warn('Purge refused.', { dayId, reasons: reasons.length });
@@ -565,6 +565,9 @@ export function createCloseoutService(opts: {
     }
     eventDays.markPurged(dayId);
     store.setRefusal(dayId, null, clock.now());
+    // Nothing is left to lock, export or retry: only a correction's failure still has an action (Rewrite CSVs).
+    const failure = store.peek(dayId).lastFailure;
+    if (failure && (JSON.parse(failure) as { kind: FailureKind }).kind !== 'correction') store.setFailure(dayId, null);
     logger.info('Day purged.', { dayId });
   }
 
@@ -572,17 +575,20 @@ export function createCloseoutService(opts: {
     jobs.schedule({ kind: 'retention_sweep', dayId: null, dueAt: clock.now() + DAY_MS });
     const s = opts.settings.get();
     for (const day of eventDays.closedDays().filter((d) => d.state === 'purged')) {
-      const row = store.closeout(day.id);
+      const row = store.peek(day.id);
       const due = retentionDue({ closedAt: day.closedAt, transcriptsSweptAt: row.transcriptsSweptAt, penaltiesSweptAt: row.penaltiesSweptAt }, s, clock.now());
+      // Files go before their rows: a removal that fails leaves the rows, and the next sweep tries again.
       if (due.transcripts) {
-        const gone = store.deleteFiles(day.id, 'transcripts');
+        const gone = store.filesToSweep(day.id, 'transcripts');
         for (const f of gone) await folder.remove(f.path);
+        store.deleteFileRows(gone.map((f) => f.id));
         store.setSwept(day.id, 'transcripts', clock.now());
         ctx.log('info', `Retention: deleted ${gone.length} transcript and attachment files.`, { dayId: day.id, files: gone.length });
       }
       if (due.penalties) {
-        const gone = store.deleteFiles(day.id, 'csvs');
+        const gone = store.filesToSweep(day.id, 'csvs');
         for (const f of gone) await folder.remove(f.path);
+        store.deleteFileRows(gone.map((f) => f.id));
         const count = penalties.deleteForDay(day.id);
         store.setSwept(day.id, 'penalties', clock.now());
         ctx.log('info', `Retention: deleted ${count} penalties and ${gone.length} CSV files.`, { dayId: day.id, penalties: count, files: gone.length });
@@ -611,7 +617,7 @@ export function createCloseoutService(opts: {
   }
 
   function requireNotSwept(dayId: number): void {
-    if (store.closeout(dayId).penaltiesSweptAt !== null) throw notFound('penalty');
+    if (store.peek(dayId).penaltiesSweptAt !== null) throw notFound('penalty');
   }
 
   function requireClosed(dayId: number): void {
@@ -770,7 +776,7 @@ export function createCloseoutService(opts: {
     /** The one plan change after close (§6.6): an event's Tournament ID, which lets its CSVs be written. */
     async setTournamentId(dayId: number, eventId: number, tournamentId: string | null): Promise<EventView> {
       const ev = eventDays.patchEvent(dayId, eventId, { tournamentId });
-      if (store.closeout(dayId).penaltiesSweptAt === null) await correctionRun(dayId, [ev]);
+      if (store.peek(dayId).penaltiesSweptAt === null) await correctionRun(dayId, [ev]);
       return ev;
     },
 
@@ -835,7 +841,7 @@ export function createCloseoutService(opts: {
         };
       };
       const currentJson = all.filter((f) => jsonKinds.includes(f.kind) && currentIds.has(f.id));
-      const closeout = store.closeout(dayId);
+      const closeout = store.peek(dayId);
       const latestJob = jobs.latestOf(dayId, ['lock', 'export', 'reexport', 'attachments_retry', 'purge']);
       return {
         day: { id: p.day.id, title: p.day.title, date: p.day.date, state: p.day.state, closedAt: p.day.closedAt, graceUntil: p.day.graceUntil, purgedAt: p.day.purgedAt },
@@ -880,7 +886,7 @@ export function createCloseoutService(opts: {
 
     /** Retention deleted the day's penalties (§15 Q3). */
     penaltiesSwept(dayId: number): boolean {
-      return store.closeout(dayId).penaltiesSweptAt !== null;
+      return store.peek(dayId).penaltiesSweptAt !== null;
     },
 
     alarms(): CloseoutAlarm[] {
