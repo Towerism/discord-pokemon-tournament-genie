@@ -147,3 +147,76 @@ describe('the M3 migration', () => {
     database.close();
   });
 });
+
+describe('the M4 migration', () => {
+  it('keeps M3 days, events, staff and snapshots, and gives every day the first season', () => {
+    const database = openDatabase(':memory:');
+    migrateDatabase(database.db, migrationsUpTo(3));
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, source, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 'attendance', 1, 1);
+      INSERT INTO event (id, day_id, name, slug, game, starts_at, attendance_tournament_id) VALUES (1, 1, 'LC', 'lc', 'tcg', 1, 't1');
+      INSERT INTO staff_member (id, display_name, link_state, created_at, updated_at) VALUES (1, 'Ash', 'unlinked', 1, 1);
+      INSERT INTO day_staff (day_id, staff_member_id, imported) VALUES (1, 1, 1);
+      INSERT INTO event_staff (event_id, staff_member_id, role, imported) VALUES (1, 1, 'judge', 1);
+      INSERT INTO attendance_snapshot (day_id, snapshot_id, payload, plan_revision, day_state, fetched_at, fetched_by) VALUES (1, 's1', '{}', 1, 'draft', 1, 'u');
+    `);
+
+    migrateDatabase(database.db, MIGRATIONS);
+
+    expect(database.sqlite.prepare('SELECT season, source FROM event_day').get()).toEqual({ season: '2026-27', source: 'attendance' });
+    expect(database.sqlite.prepare('SELECT count(*) AS n FROM event').get()).toEqual({ n: 1 });
+    expect(database.sqlite.prepare('SELECT imported FROM event_staff').get()).toEqual({ imported: 1 });
+    expect(database.sqlite.prepare('SELECT count(*) AS n FROM attendance_snapshot').get()).toEqual({ n: 1 });
+    expect(database.sqlite.prepare('SELECT current_season FROM app_setting').get()).toEqual({ current_season: '2026-27' });
+    expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
+    database.close();
+  });
+
+  it('seeds season 2026-27 with the clipboard sheet, prize penalties for TCG only', () => {
+    const database = freshDb();
+    const rows = (table: string) => database.sqlite.prepare(`SELECT label, games, active FROM ${table} WHERE season = '2026-27' ORDER BY rank, id`).all();
+    const all = JSON.stringify(['tcg', 'vgc', 'go', 'other']);
+    expect(rows('penalty_category')).toEqual(
+      ['Game Play', 'Deck/Team', 'Pace of Play', 'Procedural', 'Unsporting', 'Cheating'].map((label) => ({ label, games: all, active: 1 })),
+    );
+    expect(rows('penalty_type')).toEqual([
+      { label: 'Warning', games: all, active: 1 },
+      { label: 'DPC', games: JSON.stringify(['tcg']), active: 1 },
+      { label: 'QPC', games: JSON.stringify(['tcg']), active: 1 },
+      { label: 'GL', games: all, active: 1 },
+      { label: 'DQ', games: all, active: 1 },
+    ]);
+    database.close();
+  });
+
+  it('keeps labels unique per season whatever their case, and penalties tied to their rows', () => {
+    const database = freshDb();
+    expect(() => database.sqlite.exec(`INSERT INTO penalty_type (season, label, games, rank, created_at) VALUES ('2026-27', 'dq', '["tcg"]', 9, 1)`)).toThrow(/UNIQUE/);
+    expect(() => database.sqlite.exec(`INSERT INTO penalty_type (season, label, games, rank, created_at) VALUES ('2027-28', 'DQ', '["tcg"]', 9, 1)`)).not.toThrow();
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, season, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, '2026-27', 1, 1);
+      INSERT INTO event (id, day_id, name, slug, game, starts_at) VALUES (1, 1, 'LC', 'lc', 'tcg', 1);
+      INSERT INTO staff_member (id, display_name, player_id, discord_user_id, link_state, created_at, updated_at) VALUES (1, 'Ash', '123', '9', 'linked', 1, 1);
+    `);
+    const insert = (key: string, number: number, { round = 1, severity = 'Minor' } = {}) =>
+      database.sqlite
+        .prepare(
+          `INSERT INTO penalty (event_id, number, idempotency_key, round, competitor_player_id, category_id, severity, penalty_type_id, judge_staff_id, judge_player_id, recorded_by, recorded_at, revision, card_state)
+           VALUES (1, ?, ?, ?, '0042', 1, ?, 1, 1, '123', 'u', 1, 1, 'pending')`,
+        )
+        .run(number, key, round, severity);
+    insert('web:a', 1);
+    expect(() => insert('web:a', 2)).toThrow(/UNIQUE/);
+    expect(() => insert('web:b', 1)).toThrow(/UNIQUE/);
+    expect(() => insert('web:c', 3, { severity: 'Huge' })).toThrow(/CHECK/);
+    expect(() => insert('web:d', 4, { round: 100 })).toThrow(/CHECK/);
+    expect(() => insert('web:e', 5, { round: 0 })).toThrow(/CHECK/);
+    expect(() => database.sqlite.exec('DELETE FROM penalty_type WHERE id = 1')).toThrow(/FOREIGN KEY/);
+    expect(() => database.sqlite.exec('DELETE FROM staff_member WHERE id = 1')).toThrow(/FOREIGN KEY/);
+    expect(() => database.sqlite.exec('DELETE FROM event WHERE id = 1')).toThrow(/FOREIGN KEY/);
+    database.sqlite.exec(`INSERT INTO penalty_revision (penalty_id, revision, action, snapshot, edited_by, edited_at) VALUES (1, 1, 'recorded', '{}', 'u', 1)`);
+    expect(() => database.sqlite.exec(`INSERT INTO penalty_revision (penalty_id, revision, action, snapshot, edited_by, edited_at) VALUES (1, 1, 'edited', '{}', 'u', 2)`)).toThrow(/UNIQUE|PRIMARY/);
+    expect(() => database.sqlite.exec(`INSERT INTO app_setting (id, current_season, updated_at) VALUES (2, 'x', 1)`)).toThrow(/CHECK|UNIQUE/);
+    database.close();
+  });
+});

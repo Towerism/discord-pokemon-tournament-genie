@@ -42,6 +42,17 @@ export const attendanceConnection = sqliteTable(
   (t) => [check('attendance_connection_single_row', sql`${t.id} = 1`)],
 );
 
+/** Install-wide settings (§5.2): one row, id 1. New days copy the current season, which selects the penalty catalog. */
+export const appSetting = sqliteTable(
+  'app_setting',
+  {
+    id: integer('id').primaryKey(),
+    currentSeason: text('current_season').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [check('app_setting_single_row', sql`${t.id} = 1`)],
+);
+
 /** The one guild this install serves (§5.1). At most one row. */
 export const guildBinding = sqliteTable(
   'guild_binding',
@@ -225,6 +236,8 @@ export const eventDay = sqliteTable(
     /** `attendance` once an import was accepted (§4.2). */
     source: text('source', { enum: DAY_SOURCES }).notNull().default('manual'),
     attendanceRefreshedAt: integer('attendance_refreshed_at'),
+    /** Copied from the current season when the day is created, never changed: it selects the penalty catalog. */
+    season: text('season').notNull().default('2026-27'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
@@ -296,6 +309,103 @@ export const eventStaff = sqliteTable(
     check('event_staff_role', sql`${t.role} in ('headjudge', 'judge', 'scorekeeper', 'administration', 'translator')`),
     check('event_staff_imported', sql`${t.imported} in (0, 1)`),
   ],
+);
+
+export const SEVERITIES = ['Minor', 'Major', 'Severe'] as const;
+export const PENALTY_STATES = ['active', 'voided'] as const;
+export const CARD_STATES = ['pending', 'posted', 'failed', 'missing', 'none'] as const;
+export const REVISION_ACTIONS = ['recorded', 'edited', 'voided'] as const;
+
+/**
+ * The penalty catalog as data (ADR-0006): one row per label per season, never deleted (penalties refer to it), only
+ * deactivated. `games` is a JSON array of game codes. "Unique label per season, any case" is an expression index,
+ * hand-written in the migration.
+ */
+const catalogColumns = {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  season: text('season').notNull(),
+  label: text('label').notNull(),
+  games: text('games').notNull(),
+  rank: integer('rank').notNull(),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull(),
+};
+
+export const penaltyCategory = sqliteTable('penalty_category', catalogColumns, (t) => [
+  index('penalty_category_season').on(t.season),
+  check('penalty_category_active', sql`${t.active} in (0, 1)`),
+]);
+
+export const penaltyType = sqliteTable('penalty_type', catalogColumns, (t) => [
+  index('penalty_type_season').on(t.season),
+  check('penalty_type_active', sql`${t.active} in (0, 1)`),
+]);
+
+/**
+ * One row per future CSV line (§5.2, ADR-0006). No competitor name, ever. The Discord card is a view of the row;
+ * `card_state` records what Discord last did with it. Owned by `penalties`.
+ */
+export const penalty = sqliteTable(
+  'penalty',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    eventId: integer('event_id')
+      .notNull()
+      .references(() => event.id, { onDelete: 'restrict' }),
+    /** Per event, from 1, never reused: what judges call it ("#12"). */
+    number: integer('number').notNull(),
+    /** `discord:<command interaction ID>` or `web:<UUID>`: a repeated submission returns the existing row. */
+    idempotencyKey: text('idempotency_key').notNull().unique(),
+    round: integer('round').notNull(),
+    competitorPlayerId: text('competitor_player_id').notNull(),
+    categoryId: integer('category_id')
+      .notNull()
+      .references(() => penaltyCategory.id, { onDelete: 'restrict' }),
+    severity: text('severity', { enum: SEVERITIES }).notNull(),
+    penaltyTypeId: integer('penalty_type_id')
+      .notNull()
+      .references(() => penaltyType.id, { onDelete: 'restrict' }),
+    notes: text('notes').notNull().default(''),
+    judgeStaffId: integer('judge_staff_id')
+      .notNull()
+      .references(() => staffMember.id, { onDelete: 'restrict' }),
+    /** Copied when recorded (and when the judge changes): the CSV's Judge Player ID as of then. */
+    judgePlayerId: text('judge_player_id').notNull(),
+    /** The Discord user who recorded it (the judge in Discord; a head judge or organizer on the website). */
+    recordedBy: text('recorded_by').notNull(),
+    recordedAt: integer('recorded_at').notNull(),
+    state: text('state', { enum: PENALTY_STATES }).notNull().default('active'),
+    voidReason: text('void_reason'),
+    revision: integer('revision').notNull(),
+    discordChannelId: text('discord_channel_id'),
+    discordMessageId: text('discord_message_id'),
+    cardState: text('card_state', { enum: CARD_STATES }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('penalty_event_number').on(t.eventId, t.number),
+    index('penalty_event_state').on(t.eventId, t.state),
+    check('penalty_round', sql`${t.round} between 1 and 99`),
+    check('penalty_severity', sql`${t.severity} in ('Minor', 'Major', 'Severe')`),
+    check('penalty_state', sql`${t.state} in ('active', 'voided')`),
+    check('penalty_card_state', sql`${t.cardState} in ('pending', 'posted', 'failed', 'missing', 'none')`),
+  ],
+);
+
+/** Every change to a penalty, as a full snapshot (§5.2): edits and voids are auditable. */
+export const penaltyRevision = sqliteTable(
+  'penalty_revision',
+  {
+    penaltyId: integer('penalty_id')
+      .notNull()
+      .references(() => penalty.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    action: text('action', { enum: REVISION_ACTIONS }).notNull(),
+    /** The row's fields as JSON, without the card columns. */
+    snapshot: text('snapshot').notNull(),
+    editedBy: text('edited_by').notNull(),
+    editedAt: integer('edited_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.penaltyId, t.revision] }), check('penalty_revision_action', sql`${t.action} in ('recorded', 'edited', 'voided')`)],
 );
 
 /** The latest pull of a day from attendance, waiting to be accepted. Owned by `attendance-import`. */
