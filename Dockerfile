@@ -4,8 +4,8 @@
 # UMASK, optional Litestream). The entrypoint, litestream.yml and the Litestream installer come from
 # @towerism/selfhost-kit through `selfhost-kit docker-assets`; this file is Genie's own.
 
-ARG NODE_SLIM_IMAGE=node:24.21.0-slim
-ARG NODE_ALPINE_IMAGE=node:24.21.0-alpine3.23
+ARG NODE_SLIM_IMAGE=node:24.22.0-slim
+ARG NODE_ALPINE_IMAGE=node:24.22.0-alpine3.23
 # Keep in step with package.json's packageManager: Renovate bumps both in one PR (the comment below is its marker).
 # renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION=11.28.5
