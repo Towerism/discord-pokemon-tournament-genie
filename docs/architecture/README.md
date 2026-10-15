@@ -317,11 +317,10 @@ interface DiscordGateway {
   // messages
   postMessage(channelId: Snowflake, msg: OutboundMessage): Promise<Snowflake>;
   editMessage(channelId: Snowflake, messageId: Snowflake, msg: OutboundMessage): Promise<void>;
-  readHistory(channelId: Snowflake, before?: Snowflake): Promise<HistoryPage>; // 100 per page, oldest-last
-  getLatestMessageId(channelOrThreadId: Snowflake): Promise<Snowflake | null>; // purge's high-water check
-  // threads
-  listThreads(channelId: Snowflake): Promise<ThreadInfo[]>;  // active + archived, public + private
-  readThreadHistory(threadId: Snowflake, before?: Snowflake): Promise<HistoryPage>;
+  // close-out (M5): a thread's ID reads its history like a channel's
+  readHistory(channelOrThreadId: Snowflake, before?: Snowflake): Promise<HistoryMessage[] | null>; // 100, newest first; null once gone
+  getLatestMessageId(channelOrThreadId: Snowflake): Promise<Snowflake | null | 'gone'>; // purge's high-water check
+  listThreads(guildId: Snowflake, channelId: Snowflake): Promise<ThreadInfo[]>; // active + archived, public + private; needs Manage Threads
   // attachments: CDN URLs expire, so each is re-resolved when it is downloaded
   resolveAttachment(channelId: Snowflake, messageId: Snowflake, attachmentId: Snowflake):
     Promise<{ url: string; bytes: number } | { error: 'message_deleted' | 'not_found' }>;
@@ -460,24 +459,26 @@ erDiagram
 | Table | Key columns | Notes |
 | ----- | ----------- | ----- |
 | `guild_binding` | `guild_id`, `name`, `organizer_role_id`, `head_judge_role_id`, `organizer_allowlist_enabled` | Single row. Roles map Discord roles to Genie permissions (§9). |
-| `app_setting` | `current_season` | Single row (M4). Settings' *current season*: a new day copies it. A new season starts as a copy of an existing one's catalog. |
+| `app_setting` | `current_season`, `transcript_retention_days`, `penalty_retention_days`, `attachment_cap_bytes` | Single row (M4). Settings' *current season*: a new day copies it. A new season starts as a copy of an existing one's catalog. M5 adds close-out's retention (90 and 365 days by default) and the attachment cap (25 MB). |
 | `organizer_allowlist` | `discord_user_id` (PK) | Optional, edited only by the install owner. When enabled, organizers are the owner plus members who hold the organizer role **and** are listed here (§9). |
 | `login_audit` | `discord_user_id`, `grant` (`owner`/`organizer_role`/`allowlist`/`event_head_judge`), `at` | One row per website login: which grant let them in. |
 | `staff_member` | `id`, `discord_user_id?` (unique), `player_id?` (unique), `display_name`, `link_state` (`linked`/`claimed`/`unlinked`) | The directory: one person, at most one Discord account and one player ID. A judge needs a player ID to record penalties (it is the CSV's *Judge Player ID*). |
 | `blueprint`, `blueprint_channel` | channel `key`, `scope` (`day`/`per_event`), `kind` (`text`/`voice`), `name_pattern` (e.g. `{event}-penalties`), `audience` (`all_staff`/`event_staff`/`head_judges`), `purpose` (`general`/`floor`/`penalties`), `topic`, `position` | Pure data; `shared/blueprints` turns it into the desired channel set. A default blueprint is seeded (§6.2). |
 | `day_template`, `day_template_event` | template: `id`, `name` (unique), `blueprint_id`; event: `template_id`, `name`, `game`, `start_time`, `position` | Pre-fills a new day's events ("Saturday: TCG LC + VGC"). |
-| `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `grace_until?`, `source` (`manual`/`attendance`), `attendance_refreshed_at?` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
+| `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `closing_at?`, `closed_by?`, `closed_at?`, `grace_until?`, `purged_at?`, `source` (`manual`/`attendance`), `attendance_refreshed_at?` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
 | `event` | `id`, `day_id`, `name`, `slug`, `game` (`tcg`/`vgc`/`go`/`other`), `game_confirmed`, `starts_at`, `attendance_tournament_id?`, `attendance_organizer_player_id?`, `attendance_organizer_name?`, `tournament_id?` | `slug` is unique within the day and drives channel names. `game_confirmed` is false only when attendance sent `game: null`, and opening the day requires it. The attendance organizer fields record which connected professor the tournament came from, for display and for the refresh rule (§4.2). `tournament_id` is the play-tools display ID (`25-12-001050`), the CSV's *Tournament ID*: imported from attendance or typed in, and required before the event's CSV can be exported. |
 | `day_staff` | `day_id`, `staff_member_id`, `is_day_lead`, `imported` | Who has access to the day's channels at all. `imported`: an attendance import put them on the day, so a refresh may take them off again (§4.2). |
 | `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`), `imported` | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. Only `imported` roles are ever proposed for removal by a refresh (§4.2). |
 | `attendance_connection` | `id` (= 1), `base_url`, `token_hint`, `updated_at` | Where attendance answers; the token itself is the sealed `attendance_token` (owner: `setup`). |
 | `attendance_snapshot` | `day_id` (PK), `snapshot_id`, `payload`, `plan_revision`, `day_state`, `fetched_at`, `fetched_by` | The day's latest pull, waiting to be accepted (owner: `attendance-import`, §4.2). |
-| `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
+| `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`), `locked_at?` | The **only** record of which Discord channels Genie owns. Written immediately after each create. `locked_at`: the close-out lock reached it, so a retried lock never writes it again (§6.5). |
+| `day_closeout` | `day_id`, `purge_refusal?`, `purge_refused_at?`, `last_failure?`, `alert_message_ids`, `transcripts_swept_at?`, `penalties_swept_at?` | Close-out's own state of a day (M5): the last refusal and failure for the alarms, Genie's own `#head-judges` alert posts (which the high-water check ignores), and what retention swept. |
+| `export_run` | `day_id`, `kind` (`export`/`reexport`/`attachments_retry`/`correction`), `job_id?`, `event_id?`, `state` (`running`/`succeeded`/`failed`), `content_intent?` | One export, re-export, attachment retry or correction (M5). Its files are current only once it `succeeded`; a run a stop cut short is failed at boot, and a failed run's files are deleted when the next run starts. |
 | `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by Genie's own `jobs` module (§3): lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
 | `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7) as season `2026-27`, editable in Settings. Labels are unique per season in any case. Rows are deactivated, never deleted, because penalties refer to them; at most 24 are active per game and list, leaving the Edit modal's select room for a choice no longer offered. The CSV writes `label` as is, so a relabel applies to the whole season. A guideline change is an edit, not a release. |
 | `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_by` (the Discord user who recorded it), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `number` (per event, from 1, never reused: "#12"), `discord_channel_id?`, `discord_message_id?`, `card_state` (`pending`/`posted`/`failed`/`missing`/`none`), `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the ID of the `/penalty` command interaction, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4), but only to the same recorder on the same event: any other reuse is `409 idempotency_conflict` and reveals nothing. |
 | `penalty_revision` | `penalty_id`, `revision`, full row snapshot, `edited_by`, `edited_at` | Edits and voids are auditable. |
-| `export_file` | `day_id`, `kind` (`penalties_csv`/`penalties_voided_csv`/`transcript_json`/`transcript_html`/`thread_transcript_json`/`thread_transcript_html`/`attachment`), `event_id?`, `channel_id?`, `thread_id?`, `high_water_message_id?`, `path`, `sha256`, `bytes`, `created_at`, `superseded_by?` | Files live in `/data/exports/<day-id>/`. `high_water_message_id` is the newest message a transcript holds (§6.5). A re-exported CSV gets a new row, and the old row points to it through `superseded_by` and is kept. |
+| `export_file` | `day_id`, `run_id`, `kind` (`penalties_csv`/`penalties_voided_csv`/`transcript_json`/`transcript_html`/`thread_transcript_json`/`thread_transcript_html`/`attachment`), `event_id?`, `channel_id?`, `thread_id?`, `thread_type?`, `attachment_id?`, `blueprint_channel_key?`, `source_revision?`, `name`, `high_water_message_id?`, `path`, `download_name`, `sha256`, `bytes`, `created_at`, `superseded_by?` | Files live in `/data/exports/<day-id>/<run-id>/`, named from IDs only. `high_water_message_id` is the newest message a transcript holds (§6.5). A new version of a file (same kind, event, channel, thread and attachment) supersedes the old row, which is kept; a CSV records the penalty state it was built from (`source_revision`), so an older one never supersedes a newer one. |
 | `export_attachment` | `export_file_id` (the transcript), `attachment_id`, `message_id`, `file_id?` (the saved `attachment` file), `state` (`saved`/`skipped`/`discarded`), `reason?` (`over_cap`/`download_failed`/`message_deleted`), `discarded_by?`, `discarded_at?` | One row per attachment in a transcript. Purge refuses while any row is `skipped` (§6.5). |
 | `app_session` | via `nuxt-auth-utils` sealed cookie | No session table needed. |
 
@@ -677,9 +678,11 @@ sequenceDiagram
 2. **Lock:** a `lock` job rewrites every channel's overwrites so nobody but the bot can add anything.
    Leaving Send out of an allow list is not enough, because members keep Send from their guild base
    permissions (§4.1). So the job writes explicit **denies** for Send Messages, Send Messages in Threads,
-   Create Public Threads, Create Private Threads and Add Reactions (re-locking an already-locked channel
-   is an open risk, to be resolved before M5: [ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md),
-   [issue #9](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/9)):
+   Create Public Threads, Create Private Threads and Add Reactions. Re-locking an already-locked channel
+   was never recorded on a real guild and is an accepted risk ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md),
+   [issue #9](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/9)), so the lock never does it: each
+   channel's locked overwrites are `lockedOverwrites()` of what the frozen plan wants, and a channel that already
+   carries the lock (or whose row records `locked_at`) is skipped, whatever the plan says now. The denies go:
    - on the `@everyone` overwrite;
    - on the organizer-role overwrite;
    - on every member overwrite.
@@ -713,6 +716,13 @@ sequenceDiagram
      catches anyone who still posts after the lock, an Administrator for instance;
    - no attachment is `skipped`.
 
+   M5 reads these strictly: a thread with no transcript (opened after the export) counts as holding newer
+   messages; a transcript exported without the Message Content intent blocks the purge until a re-export with
+   it on; every present channel needs a transcript; Genie's own alert posts in `#head-judges` are recorded and
+   don't count as newer. Right before each channel is deleted, the purge checks it and its threads again; a
+   message posted between that check and the delete (one round trip) is the one window no design closes.
+   The category is deleted only if it holds nothing Genie didn't record; otherwise it and that channel stay.
+
    Otherwise it refuses and alerts. The organizer can then:
    - choose **Re-export**, for messages newer than the marks;
    - choose **Retry attachments** after raising the cap;
@@ -720,8 +730,17 @@ sequenceDiagram
 
    The day becomes `purged`. Deleting an already-gone channel counts as success.
 
+**The plan freezes at `closing`.** From then on every plan change answers `409 day_closed`, the provision and
+sync jobs do nothing for a day that isn't open, and the "access not yet revoked" alarm stays up through `closing`
+until the lock (which applies the frozen plan) succeeds. One exception: on a `closed` or `purged` day an
+organizer may set an event's Tournament ID, which writes its CSVs.
+
+**Corrections after close** (§6.4) are made on the website only; the card's Edit and Void answer that the day is
+closed. Every CSV write (export, re-export, correction, **Rewrite CSVs**) holds its event's CSV lock.
+
 **Where alerts go.** A refused purge (and any failed close-out job) shows a banner in the page header for
-organizers. While the day's `#head-judges` channel still exists, the bot also posts there.
+organizers. While the day's `#head-judges` channel still exists, the bot also posts there, naming the day and
+the number of reasons but never a channel, thread or file name.
 
 **Serving exports safely.** Transcripts hold whatever staff typed and uploaded, so:
 - every message field is escaped when the HTML transcript is rendered;
@@ -731,7 +750,10 @@ organizers. While the day's `#head-judges` channel still exists, the bot also po
 
 Downloads are limited by `canSee()` ([ADR-0010](adr/0010-one-audience-model.md)). An event's CSVs and
 transcripts go to that event's head judges and organizers. A day-wide channel's transcript goes to
-organizers and to head judges in that channel's audience.
+organizers and to head judges in that channel's audience. A private thread's transcript goes to organizers
+only (Discord showed it to its members alone), and so does everything of a `purged` day. Attachments are
+downloaded only from Discord's CDN hosts, over https, without following redirects, and never beyond their
+declared size or the cap; the HTML transcript lists them by name and holds no link or image.
 
 Exports stay downloadable on the website for the retention period (§15 Q3). Settings rejects a
 transcript retention that isn't longer than the purge grace period. The retention sweep never deletes
@@ -812,13 +834,16 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST /api/days/{id}/import` | organizer | Pull or refresh from attendance; returns `{ snapshotId, planRevision, dayState, fetchedAt, diff }` (the diff holds the unread professors) to accept, covering every connected organizer (`422 timezone_mismatch` when the timezones differ, `422 no_connected_organizers` when none is connected, `409 import_in_progress`, `5xx attendance_*` when attendance can't be used, §4.2) |
 | `POST /api/days/{id}/import/accept` | organizer | Body `{ snapshotId, planRevision, keys }`: apply the chosen items of the latest pull in one transaction (removals queue a sync, §6.3; `409 plan_changed`, `409 snapshot_stale`, `422 unknown_items`) |
 | `GET/PUT/DELETE /api/settings/attendance` | organizer | The attendance connection: base URL and a token hint, never the token. `PUT` needs an allowed origin (ADR-0013) and the token again for a new base URL (`422 token_required`) |
-| `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id) |
+| `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id). `close` and `purge` need `{ confirm: true }` (`422 confirmation_required`); `close` resumes a close whose lock or export failed (`409 close_in_progress`, `409 day_closed`, `422 close_preconditions_failed`, `503 discord_unavailable`); `purge` is "Delete now" (`409 day_not_closed`) |
+| `GET /api/days/{id}/close` | organizer, day head judges | What closing leaves behind: penalties still in their judge's edit window, events without a Tournament ID, the channel count |
 | `GET /api/jobs/{id}`, `GET /api/jobs/{id}/events` (SSE) | as the day | Progress |
 | `GET /api/days/{id}/penalties`, `POST`, `PATCH /{pid}`, `POST /{pid}/void`, `POST /{pid}/repost`, `GET /api/days/{id}/penalties.csv?eventId=&voided=` | head judges of the event (that event's penalties only, until close), organizer | Penalties and the CSV (`no-store`, logged; `422 export_blocked` without a Tournament ID). `POST` with an already-used `idempotencyKey` returns `200` and the existing row. Another event's penalty and a missing one get the same `403`. After close, `PATCH`/`void` are organizer-only (`403 closed_organizer_only`) and answer `{ penalty, exportFileId }` for the re-exported CSV |
-| `GET /api/days/{id}/exports`, `GET /api/exports/{fileId}` | `canSee()` on each file: an event's files go to its head judges and organizers; a day-wide channel's transcript goes to organizers and to head judges in that channel's audience | Download CSVs and transcripts (`no-store`, audited, served as §6.5 says; `403 not_in_audience`) |
-| `POST /api/days/{id}/reexport` | organizer | Re-export after messages newer than the high-water marks (202; `409` unless the day is `closed`) |
+| `GET /api/days/{id}/exports`, `GET /api/exports/{fileId}` | `canSee()` on each file: an event's files go to its head judges and organizers; a day-wide channel's transcript goes to organizers and to head judges in that channel's audience; private threads and a purged day's files to organizers | Download CSVs and transcripts (`no-store`, audited, served as §6.5 says; `403 not_in_audience`, also for an unknown file to non-organizers) |
+| `POST /api/days/{id}/reexport` | organizer | Re-export after messages newer than the high-water marks (202; `409 day_not_closed`, `409 closeout_in_progress`) |
 | `POST /api/days/{id}/exports/attachments/retry` | organizer | Retry `skipped` attachments after raising the cap (202; `409 nothing_skipped`) |
-| `POST /api/days/{id}/exports/attachments/discard` | organizer | Body `{ attachmentIds, confirm: true }`; marks them `discarded` and logs it (`422` without `confirm`) |
+| `POST /api/days/{id}/exports/attachments/discard` | organizer | Body `{ attachmentIds, confirm: true }`; marks them `discarded` and logs it (`422 confirmation_required`, `422 not_skipped`) |
+| `POST /api/days/{id}/exports/csv` | organizer | **Rewrite CSVs** on a closed or purged day (202 `{ written }`) |
+| `PUT /api/settings/close-out` | organizer | Transcript and penalty retention (days) and the attachment cap (MB); `422 retention_not_longer_than_grace` |
 | `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim`, `POST /api/staff/{id}/reject-claim` | organizer | Directory; rejecting a claim deletes a row the claim itself created, unless a day's staff or a penalty names it |
 | `GET /api/discord/members?q=` | organizer | Member picker |
 | `GET/POST/PUT/DELETE /api/blueprints[/{id}]`, `GET/POST/PUT/DELETE /api/templates[/{id}]`, `GET /api/catalog?season=`, `PUT /api/catalog/{season}`, `GET /api/settings`, `PUT /api/settings/season` | organizer | Configuration (a blueprint an opened day uses is frozen: `409 blueprint_in_use`) |
@@ -835,7 +860,7 @@ shared Zod schemas. Errors carry `data.code`.
 | `/link player-id:` | any guild member | anywhere in the bound guild | Claim a player ID (§5.3) |
 | `/day status` | day staff | day channels | Ephemeral: events, staff, sync state |
 | Card buttons **Edit**, **Void** | Edit: the recording judge for 15 minutes, the event's head judges and organizers; Void: head judges and organizers (§6.4) | penalty card | Modal edit (the record modal, pre-filled) / void with reason; each form names the revision it was opened at |
-| Pinned panel **Sync**, **Close the day** | day head judges, organizer | `#head-judges` | Same as the website buttons |
+| Pinned panel **Sync**, **Close the day** | day head judges, organizer | `#head-judges` | Same as the website buttons. Close answers with the counts the website's confirmation lists and a **Confirm close** button; the lock edits the panel to "This day is closed." Panels posted before M5 have Sync only |
 
 Every interaction is authorized on the server through `canSee()` from Genie's own data (day staff, event
 roles, guild roles; [ADR-0010](adr/0010-one-audience-model.md)), never from Discord's command
@@ -898,6 +923,9 @@ logged (§4.1).
   `interrupted` at boot and can be retried. Syncs with pending removals are retried automatically
   (§6.3). The site shows bot status (connected, latency, missing permissions, unexpected extra guilds)
   in every page header.
+- **Close-out:** `GENIE_PURGE_GRACE` (`<n>h` or `<n>d`, 1 hour to 90 days, default `7d`; anything else stops the
+  boot) sets the grace period. Exports are written under `exports/` beside the database (`/data/exports`), folders
+  0700 and files 0600, each file to a temporary name first.
 - **Scheduled work** (purge after grace, retention sweep) runs on the jobs module's own timer, not on
   Nitro's experimental scheduled tasks:
   - due times are stored in `job.due_at`;
@@ -1028,10 +1056,11 @@ A case may only be added or changed together with a real-guild observation.
   permissions) that become the fake's contract suite (§11, ADR-0003).
 - **S4 Transcript export.** History paging speed and attachment sizes for a busy day; thread listing (active,
   archived, private) with Manage Threads; attachment URL expiry and re-resolution; MessageContent behaviour.
-  Two gaps remain, a follow-up before M5 ([issue
+  Two gaps remain, closed by the owner as accepted risks ([issue
   #10](https://github.com/Towerism/discord-pokemon-tournament-genie/issues/10)): the expired-URL check didn't
   run (the seed record was lost), and an archived private thread `genie` isn't a member of wasn't seeded or
-  tested.
+  tested. M5 re-resolves every attachment at download and lists archived private threads through the endpoint
+  that needs Manage Threads, which the export checks first; both stay on the manual smoke checklist.
 
 ## 14. Delivery plan
 
