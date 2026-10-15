@@ -120,6 +120,7 @@ export interface AudienceMember {
 export interface DesiredChannel {
   key: string;
   eventId: number | null;
+  purpose: Purpose;
   name: string;
   topic: string | null;
   audience: AudienceMember[];
@@ -191,7 +192,7 @@ export function desiredChannels(plan: PlanInput, blueprint: BlueprintInput, ctx:
   const build = (c: BlueprintChannelInput, eventId: number | null, vars: Vars): DesiredChannel => {
     const audience = audienceOf(c, eventId);
     const members = [...audience].sort((a, b) => (a.discordUserId < b.discordUserId ? -1 : 1)).map((a) => member(a.discordUserId, { allow: STAFF_ALLOW }));
-    return { key: c.key, eventId, name: formatName(c.namePattern, vars, 'text'), topic: fillTopic(c.topic, vars), audience, overwrites: [...base, ...members] };
+    return { key: c.key, eventId, purpose: c.purpose, name: formatName(c.namePattern, vars, 'text'), topic: fillTopic(c.topic, vars), audience, overwrites: [...base, ...members] };
   };
 
   const dayVars: Vars = { ...day, slug: '', event: '' };

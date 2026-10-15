@@ -379,6 +379,11 @@ export function createProvisioningService(opts: {
       return accessPlan(input, desired);
     },
 
+    /** Which day, event and blueprint channel a Discord channel is, when Genie owns it; `null` otherwise. */
+    channelOwner(discordChannelId: string): { dayId: number; eventId: number | null; key: string } | null {
+      const row = store.byDiscordChannel(discordChannelId);
+      return row ? { dayId: row.dayId, eventId: row.eventId, key: row.blueprintChannelKey } : null;
+    },
     channels(dayId: number) {
       return store.channels(dayId).map((r) => ({ key: r.blueprintChannelKey, eventId: r.eventId, discordChannelId: r.discordChannelId, state: r.state }));
     },

@@ -10,12 +10,14 @@ import {
   systemClock,
 } from '@towerism/selfhost-kit';
 import { BOT_COMMANDS, createBotHandlers } from '../bot/handlers';
+import { PENALTY_COMMANDS, createPenaltyHandlers } from '../bot/penalty-handlers';
 import { createAttendanceHttp } from '../modules/attendance/adapters/http';
 import { createAttendanceImportService } from '../modules/attendance-import';
 import { createAttendanceConnectionService } from '../modules/setup/attendance-connection';
 import { createInteractionRouter } from '../bot/router';
 import { type DirectoryService, createDirectoryService } from '../modules/directory';
 import { type EventDaysService, createEventDaysService } from '../modules/event-days';
+import { createPenaltiesService } from '../modules/penalties';
 import { createProvisioningService } from '../modules/provisioning';
 import { createBotRunner, systemBotScheduler } from '../modules/discord/bot-runner';
 import { createDiscordJs } from '../modules/discord/adapters/discordjs';
@@ -94,7 +96,7 @@ export const useDirectory = once((): DirectoryService =>
     clock: systemClock,
     logger: useLogger('directory'),
     onLinkChanged: (id): number[] => useEventDays().onLinkChanged(id),
-    isReferenced: (id): boolean => useEventDays().isReferenced(id),
+    isReferenced: (id): boolean => useEventDays().isReferenced(id) || usePenalties().namesJudge(id),
   }),
 );
 
@@ -107,6 +109,7 @@ export const useEventDays = once((): EventDaysService =>
     guildId: () => useStore().binding()?.guildId ?? null,
     directory: useDirectory(),
     enqueueSync: (dayId) => useJobs().enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+    currentSeason: () => useStore().currentSeason(),
   }),
 );
 
@@ -147,31 +150,61 @@ export const useProvisioning = once(() =>
   }),
 );
 
+export const usePenalties = once(() =>
+  createPenaltiesService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('penalties'),
+    eventDays: useEventDays(),
+    directory: useDirectory(),
+    provisioning: useProvisioning(),
+    gateway: useGateway,
+    season: { current: () => useStore().currentSeason(), put: (season, now) => useStore().putCurrentSeason(season, now) },
+  }),
+);
+
+/** What the bot needs to tell organizers from everyone else (§9). */
+const botAccess = () => {
+  const b = useStore().binding();
+  return {
+    ownerId: useStore().install()?.ownerDiscordUserId ?? null,
+    organizerRoleId: b?.organizerRoleId ?? null,
+    headJudgeRoleId: b?.headJudgeRoleId ?? null,
+    allowlist: { enabled: b?.organizerAllowlistEnabled ?? false, userIds: useStore().allowlist() },
+  };
+};
+
 const useBotHandlers = once(() =>
   createBotHandlers({
     directory: useDirectory(),
     provisioning: useProvisioning(),
-    access: () => {
-      const b = useStore().binding();
-      return {
-        ownerId: useStore().install()?.ownerDiscordUserId ?? null,
-        organizerRoleId: b?.organizerRoleId ?? null,
-        headJudgeRoleId: b?.headJudgeRoleId ?? null,
-        allowlist: { enabled: b?.organizerAllowlistEnabled ?? false, userIds: useStore().allowlist() },
-      };
-    },
+    access: botAccess,
     linkLimiter: createFixedWindowLimiter({ max: 5, windowMs: 10 * 60_000 }),
     logger: useLogger('bot'),
   }),
 );
 
+const usePenaltyHandlers = once(() =>
+  createPenaltyHandlers({
+    penalties: usePenalties(),
+    provisioning: useProvisioning(),
+    eventDays: useEventDays(),
+    directory: useDirectory(),
+    access: botAccess,
+    clock: systemClock,
+  }),
+);
+
 const useRouter = once(() => {
   const handlers = useBotHandlers();
+  const penalties = usePenaltyHandlers();
   return createInteractionRouter({
     boundGuildId: () => useStore().binding()?.guildId ?? null,
     logger: useLogger('bot'),
-    commands: handlers.commands,
-    components: handlers.components,
+    commands: { ...handlers.commands, ...penalties.commands },
+    components: { ...handlers.components, ...penalties.components },
+    modals: penalties.modals,
+    autocomplete: penalties.autocomplete,
   });
 });
 
@@ -180,7 +213,7 @@ export const useBot = once(() =>
     createDiscord: useCreateDiscord(),
     loadToken: () => useSetup().botToken(),
     guildId: () => useStore().binding()?.guildId ?? null,
-    commands: BOT_COMMANDS,
+    commands: [...BOT_COMMANDS, ...PENALTY_COMMANDS],
     onInteraction: (interaction, reply) => useRouter().route(interaction, reply),
     scheduler: systemBotScheduler,
     logger: useLogger('bot'),

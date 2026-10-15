@@ -128,15 +128,15 @@ describe('canSee for days and channels (ADR-0010)', () => {
   const plan: AccessPlan = {
     dayId: 1,
     staff: [
-      { discordUserId: HJ, headJudgeOf: [LC] },
-      { discordUserId: ROLE_HJ, headJudgeOf: [] },
-      { discordUserId: JUDGE, headJudgeOf: [] },
+      { discordUserId: HJ, headJudgeOf: [LC], staffOf: [LC] },
+      { discordUserId: ROLE_HJ, headJudgeOf: [], staffOf: [] },
+      { discordUserId: JUDGE, headJudgeOf: [], staffOf: [LC] },
     ],
     channels: [
-      { key: 'day-staff', eventId: null, audienceUserIds: [HJ, ROLE_HJ, JUDGE] },
-      { key: 'head-judges', eventId: null, audienceUserIds: [HJ, ROLE_HJ] },
-      { key: 'penalties', eventId: LC, audienceUserIds: [HJ, JUDGE] },
-      { key: 'penalties', eventId: VGC, audienceUserIds: [HJ] },
+      { key: 'day-staff', eventId: null, purpose: 'general', audienceUserIds: [HJ, ROLE_HJ, JUDGE] },
+      { key: 'head-judges', eventId: null, purpose: 'general', audienceUserIds: [HJ, ROLE_HJ] },
+      { key: 'penalties', eventId: LC, purpose: 'penalties', audienceUserIds: [HJ, JUDGE] },
+      { key: 'penalties', eventId: VGC, purpose: 'penalties', audienceUserIds: [HJ] },
     ],
   };
   const hj = (userId: string, holdsHeadJudgeRole = false): Principal => ({ userId, grant: 'event_head_judge', holdsHeadJudgeRole });
@@ -159,7 +159,7 @@ describe('canSee for days and channels (ADR-0010)', () => {
     const desired = desiredChannels(plan, DEFAULT_BLUEPRINT, { guildId: '4', botUserId: '3', organizerRoleId: '2', headJudgeRoleHolders: new Set(), guildMemberIds: null });
     const access = accessPlan(plan, desired);
     expect(access.dayId).toBe(7);
-    expect(access.staff).toEqual([{ discordUserId: HJ, headJudgeOf: [LC] }]);
+    expect(access.staff).toEqual([{ discordUserId: HJ, headJudgeOf: [LC], staffOf: [LC, VGC] }]);
     expect(canSee(hj(HJ), channel('penalties', LC), access)).toBe(true);
     expect(canSee(hj(HJ), channel('penalties', VGC), access)).toBe(false);
     expect(canSee(hj(HJ), day('read'), access)).toBe(true);
@@ -205,10 +205,10 @@ describe('canSee for days and channels (ADR-0010)', () => {
   it('never shows a channel to someone outside its Discord audience, and the role never reaches an event', () => {
     const ids = ['100000000000000021', '100000000000000022', '100000000000000023', '100000000000000024'];
     const plans = fc.record({
-      staff: fc.uniqueArray(fc.record({ discordUserId: fc.constantFrom(...ids), headJudgeOf: fc.uniqueArray(fc.constantFrom(1, 2)) }), {
+      staff: fc.uniqueArray(fc.record({ discordUserId: fc.constantFrom(...ids), headJudgeOf: fc.uniqueArray(fc.constantFrom(1, 2)), staffOf: fc.uniqueArray(fc.constantFrom(1, 2)) }), {
         selector: (s) => s.discordUserId,
       }),
-      channels: fc.array(fc.record({ key: fc.constantFrom('a', 'b'), eventId: fc.constantFrom(null, 1, 2), audienceUserIds: fc.uniqueArray(fc.constantFrom(...ids)) })),
+      channels: fc.array(fc.record({ key: fc.constantFrom('a', 'b'), eventId: fc.constantFrom(null, 1, 2), purpose: fc.constantFrom<'general' | 'penalties'>('general', 'penalties'), audienceUserIds: fc.uniqueArray(fc.constantFrom(...ids)) })),
     });
     const principals = fc.record({
       userId: fc.constantFrom(...ids),
@@ -248,5 +248,112 @@ describe('canSee', () => {
     expect(canSee(principal('owner'), { kind: 'organizer_allowlist' })).toBe(true);
     expect(canSee(principal('organizer_role'), { kind: 'organizer_allowlist' })).toBe(false);
     expect(canSee(principal('allowlist'), { kind: 'organizer_allowlist' })).toBe(false);
+  });
+});
+
+describe('canSee for event penalties (ADR-0010)', () => {
+  const TCG = 21;
+  const VGC = 22;
+  const HJ = '100000000000000031';
+  const JUDGE = '100000000000000032';
+  const SCORER = '100000000000000033';
+  const ROLE_HJ = '100000000000000034';
+  const plan: AccessPlan = {
+    dayId: 1,
+    staff: [
+      { discordUserId: HJ, headJudgeOf: [TCG], staffOf: [TCG] },
+      { discordUserId: JUDGE, headJudgeOf: [], staffOf: [TCG, VGC] },
+      { discordUserId: SCORER, headJudgeOf: [], staffOf: [VGC] },
+      { discordUserId: ROLE_HJ, headJudgeOf: [], staffOf: [] },
+    ],
+    channels: [
+      { key: 'day-staff', eventId: null, purpose: 'general', audienceUserIds: [HJ, JUDGE, SCORER, ROLE_HJ] },
+      { key: 'penalties', eventId: TCG, purpose: 'penalties', audienceUserIds: [HJ, JUDGE] },
+      // VGC's penalties channel is head judges only: its scorekeeper may record, never list.
+      { key: 'penalties', eventId: VGC, purpose: 'penalties', audienceUserIds: [] },
+    ],
+  };
+  const p = (userId: string, holdsHeadJudgeRole = false): Principal => ({ userId, grant: 'event_head_judge', holdsHeadJudgeRole });
+  const pen = (eventId: number, action: 'record' | 'list' | 'manage'): Resource => ({ kind: 'event_penalties', eventId, action });
+
+  it('lets organizers record, list and manage every event', () => {
+    for (const grant of ['owner', 'organizer_role', 'allowlist'] as const) {
+      for (const action of ['record', 'list', 'manage'] as const) expect(canSee({ userId: USER, grant, holdsHeadJudgeRole: false }, pen(VGC, action), plan)).toBe(true);
+    }
+  });
+
+  it('lets an event head judge manage only their event', () => {
+    expect(canSee(p(HJ), pen(TCG, 'manage'), plan)).toBe(true);
+    expect(canSee(p(HJ), pen(VGC, 'manage'), plan)).toBe(false);
+    expect(canSee(p(HJ), pen(VGC, 'record'), plan)).toBe(false);
+  });
+
+  it('lets any staffer of the event record, and list only from inside the penalties channel audience', () => {
+    expect(canSee(p(JUDGE), pen(TCG, 'record'), plan)).toBe(true);
+    expect(canSee(p(JUDGE), pen(TCG, 'list'), plan)).toBe(true);
+    expect(canSee(p(JUDGE), pen(TCG, 'manage'), plan)).toBe(false);
+    expect(canSee(p(SCORER), pen(VGC, 'record'), plan)).toBe(true);
+    expect(canSee(p(SCORER), pen(VGC, 'list'), plan)).toBe(false);
+    expect(canSee(p(SCORER), pen(TCG, 'record'), plan)).toBe(false);
+  });
+
+  it('lets a staffer list when the event has no penalties channel', () => {
+    const noChannel: AccessPlan = { ...plan, channels: plan.channels.filter((c) => c.eventId !== VGC) };
+    expect(canSee(p(SCORER), pen(VGC, 'list'), noChannel)).toBe(true);
+  });
+
+  it('gives the head-judge role nothing on an event, and nothing without the plan', () => {
+    for (const action of ['record', 'list', 'manage'] as const) {
+      expect(canSee(p(ROLE_HJ, true), pen(TCG, action), plan)).toBe(false);
+      expect(canSee(p(HJ), pen(TCG, action))).toBe(false);
+      expect(canSee(null, pen(TCG, action), plan)).toBe(false);
+    }
+  });
+
+  it('builds staffOf and the channel purposes from the plan provisioning applies', () => {
+    const input: PlanInput = {
+      day: { id: 7, date: '2026-10-17', title: 'T' },
+      events: [{ id: TCG, name: 'TCG', slug: 'tcg', startsAt: 1, gameConfirmed: true }],
+      staff: [{ staffMemberId: 1, discordUserId: JUDGE, linkState: 'linked', events: [{ eventId: TCG, role: 'scorekeeper' }] }],
+    };
+    const desired = desiredChannels(input, DEFAULT_BLUEPRINT, { guildId: '4', botUserId: '3', organizerRoleId: '2', headJudgeRoleHolders: new Set(), guildMemberIds: null });
+    const access = accessPlan(input, desired);
+    expect(access.staff).toEqual([{ discordUserId: JUDGE, headJudgeOf: [], staffOf: [TCG] }]);
+    expect(access.channels.find((c) => c.key === 'penalties')).toMatchObject({ eventId: TCG, purpose: 'penalties' });
+    expect(access.channels.find((c) => c.key === 'floor')).toMatchObject({ purpose: 'floor' });
+  });
+
+  it('never lets a non-organizer manage outside their event or record off its staff (property)', () => {
+    const ids = ['100000000000000041', '100000000000000042', '100000000000000043'];
+    const events = [1, 2];
+    const plans = fc.record({
+      staff: fc.uniqueArray(
+        fc.record({ discordUserId: fc.constantFrom(...ids), headJudgeOf: fc.uniqueArray(fc.constantFrom(...events)), staffOf: fc.uniqueArray(fc.constantFrom(...events)) }),
+        { selector: (s) => s.discordUserId },
+      ),
+      channels: fc.array(
+        fc.record({
+          key: fc.constantFrom('penalties', 'floor'),
+          eventId: fc.constantFrom(null, ...events),
+          purpose: fc.constantFrom<'general' | 'floor' | 'penalties'>('general', 'floor', 'penalties'),
+          audienceUserIds: fc.uniqueArray(fc.constantFrom(...ids)),
+        }),
+      ),
+    });
+    fc.assert(
+      fc.property(fc.constantFrom(...ids), fc.boolean(), plans, fc.constantFrom(...events), fc.constantFrom<'record' | 'list' | 'manage'>('record', 'list', 'manage'), (userId, role, raw, eventId, action) => {
+        // A head judge is always on the event's staff: accessPlan guarantees it, so the generator does too.
+        const staff = raw.staff.map((s) => ({ ...s, staffOf: [...new Set([...s.staffOf, ...s.headJudgeOf])] }));
+        const access: AccessPlan = { dayId: 1, staff, channels: raw.channels };
+        if (!canSee({ userId, grant: 'event_head_judge', holdsHeadJudgeRole: role }, { kind: 'event_penalties', eventId, action }, access)) return;
+        const me = staff.find((s) => s.discordUserId === userId);
+        expect(me?.staffOf).toContain(eventId);
+        if (action === 'manage') expect(me?.headJudgeOf).toContain(eventId);
+        if (action === 'list') {
+          for (const c of access.channels.filter((c) => c.eventId === eventId && c.purpose === 'penalties')) expect(c.audienceUserIds).toContain(userId);
+        }
+      }),
+      { seed: 20261014, numRuns: 1000 },
+    );
   });
 });

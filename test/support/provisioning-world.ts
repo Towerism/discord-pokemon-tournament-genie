@@ -8,6 +8,7 @@ import { type EventDaysService, createEventDaysService } from '../../server/modu
 import { type Jobs, createJobs } from '../../server/modules/jobs/jobs';
 import { createSqliteJobStore } from '../../server/modules/jobs/sqlite-store';
 import { type ProvisioningService, createProvisioningService } from '../../server/modules/provisioning';
+import { createSetupStore } from '../../server/modules/setup/store';
 import { freshDb } from './db';
 import { ALL_PERMISSIONS, BOT_TOKEN, IDS } from './discord-world';
 
@@ -33,6 +34,8 @@ export interface ProvisioningWorld {
   directory: DirectoryService;
   days: EventDaysService;
   provisioning: ProvisioningService;
+  /** More references the directory must respect (a penalty naming a judge); modules built later add theirs. */
+  referencedBy: ((staffMemberId: number) => boolean)[];
   /** The Discord user IDs who can view the day channel named `name` (or the category, by its name). */
   viewers(name: string): string[];
   /** Like `viewers`, without administrators, the owner, organizers and the bot. */
@@ -64,6 +67,7 @@ export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPe
     discord.addMember(IDS.guild, id, [], { displayName: name[0]!.toUpperCase() + name.slice(1), username: name });
   }
 
+  const referencedBy: ((staffMemberId: number) => boolean)[] = [];
   const jobs = createJobs({ store: createSqliteJobStore(database.db), clock, logger: silentLogger, redactor: createRedactor({ extraKeys: [] }) });
   let days: EventDaysService | null = null;
   const directory = createDirectoryService({
@@ -71,7 +75,7 @@ export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPe
     clock,
     logger: silentLogger,
     onLinkChanged: (id) => days!.onLinkChanged(id),
-    isReferenced: (id) => days!.isReferenced(id),
+    isReferenced: (id) => days!.isReferenced(id) || referencedBy.some((isJudge) => isJudge(id)),
   });
   days = createEventDaysService({
     db: database.db,
@@ -81,6 +85,7 @@ export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPe
     guildId: () => IDS.guild,
     directory,
     enqueueSync: (dayId) => jobs.enqueueUnlessQueued({ kind: 'sync', dayId }).jobId,
+    currentSeason: () => createSetupStore(database.db).currentSeason(),
   });
   const provisioning = createProvisioningService({
     db: database.db,
@@ -112,6 +117,7 @@ export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPe
     directory,
     days,
     provisioning,
+    referencedBy,
     viewers,
     staffViewers: (name) => viewers(name).filter((u) => !excluded.has(u)),
     channel,

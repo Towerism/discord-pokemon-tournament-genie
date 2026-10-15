@@ -109,4 +109,53 @@ describe('the fake gateway', () => {
     await gateway.pinMessage(channel, id);
     expect(discord.messages.get(id)).toMatchObject({ content: 'hi', pinned: true, buttons: [{ customId: 'x', label: 'Sync' }] });
   });
+
+  it('posts an embed, edits it in place, and answers gone for a deleted message or channel', async () => {
+    const { discord, gateway } = world();
+    const category = await gateway.createCategory(GUILD, { name: 'day', overwrites: [] });
+    const channel = await gateway.createChannel(GUILD, { name: 'lc-penalties', parentId: category, overwrites: [] });
+    const embed = { title: 'Penalty #1', fields: [{ name: 'Severity', value: 'Minor' }] };
+    const id = await gateway.postMessage(channel, { content: '', embed, buttons: [{ customId: 'e', label: 'Edit' }, { customId: 'v', label: 'Void', style: 'danger' }] });
+    expect(discord.messages.get(id)).toMatchObject({ embed, buttons: [{ customId: 'e' }, { customId: 'v', style: 'danger' }] });
+
+    expect(await gateway.editMessage(channel, id, { content: '', embed: { ...embed, title: 'VOIDED · Penalty #1' } })).toBe('edited');
+    expect(discord.messages.get(id)).toMatchObject({ embed: { title: 'VOIDED · Penalty #1' }, buttons: [] });
+
+    expect(await gateway.deleteMessage(channel, id)).toBe('deleted');
+    expect(discord.messages.has(id)).toBe(false);
+    expect(await gateway.deleteMessage(channel, id)).toBe('already_gone');
+    expect(await gateway.editMessage(channel, id, { content: 'x' })).toBe('gone');
+
+    const other = await gateway.postMessage(channel, { content: 'y' });
+    await gateway.deleteChannel(channel, 'test');
+    expect(await gateway.editMessage(channel, other, { content: 'z' })).toBe('gone');
+  });
+
+  it('counts every REST call, reads and writes alike', async () => {
+    const { discord, gateway } = world();
+    const before = discord.restCalls;
+    await gateway.getGuild(GUILD);
+    await gateway.createCategory(GUILD, { name: 'day', overwrites: [] });
+    expect(discord.restCalls - before).toBe(2);
+  });
+});
+
+describe('the fake bot session', () => {
+  it('answers interact with the deferral, the modal, the choices and the ephemeral replies a handler sent', async () => {
+    const { discord } = world();
+    const modal = { customId: 'genie:penalty:1:2:3', title: 'Penalty', components: [] };
+    await discord.create(TOKEN).bot.connect({
+      async onInteraction(i, reply) {
+        if (i.kind === 'command') return reply.showModal(modal);
+        if (i.kind === 'autocomplete') return reply.autocomplete([{ name: 'LC', value: '7' }]);
+        await reply.deferEphemeral();
+        await reply.ephemeral('Recorded #1 for LC.');
+      },
+    });
+    const base = { id: '1', name: 'penalty', guildId: GUILD, channelId: '2', userId: '3', options: {}, memberRoleIds: [], userDisplayName: 'Ash' };
+    expect(await discord.interact({ ...base, kind: 'command' })).toEqual({ ephemeral: [], deferred: false, modal, choices: null });
+    expect(await discord.interact({ ...base, kind: 'autocomplete' })).toEqual({ ephemeral: [], deferred: false, modal: null, choices: [{ name: 'LC', value: '7' }] });
+    expect(await discord.interact({ ...base, kind: 'modal' })).toEqual({ ephemeral: ['Recorded #1 for LC.'], deferred: true, modal: null, choices: null });
+    expect(await discord.dispatch({ ...base, kind: 'modal' })).toEqual(['Recorded #1 for LC.']);
+  });
 });

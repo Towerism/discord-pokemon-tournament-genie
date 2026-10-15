@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('openDatabase', () => {
-  it('creates the file with the pragmas ADR-0002 relies on and the M1, M2 and M3 tables', () => {
+  it('creates the file with the pragmas ADR-0002 relies on and the M1 to M4 tables', () => {
     const database = openDatabase(tempPath());
     migrateDatabase(database.db, MIGRATIONS);
     const { sqlite } = database;
@@ -29,6 +29,7 @@ describe('openDatabase', () => {
       .pluck()
       .all();
     expect(tables).toEqual([
+      'app_setting',
       'attendance_connection',
       'attendance_snapshot',
       'blueprint',
@@ -46,6 +47,10 @@ describe('openDatabase', () => {
       'login_audit',
       'organizer_allowlist',
       'orphan_channel',
+      'penalty',
+      'penalty_category',
+      'penalty_revision',
+      'penalty_type',
       'provisioned_channel',
       'sealed_secret',
       'staff_member',

@@ -3,9 +3,9 @@
  * goes through this module. Pure: callers pass in what they know (membership comes from the bot, the owner and
  * the allowlist from the database).
  *
- * Install-wide resources, and since M2 days and their channels. Penalties and exports join with M4 and M5.
+ * Install-wide resources, since M2 days and their channels, since M4 an event's penalties. Exports join with M5.
  */
-import type { DesiredDay, PlanInput } from '../blueprints';
+import type { DesiredDay, PlanInput, Purpose } from '../blueprints';
 
 /** How a website login was admitted, as `login_audit.grant` records it. */
 export type Grant = 'owner' | 'organizer_role' | 'allowlist' | 'event_head_judge';
@@ -60,13 +60,19 @@ export interface Principal {
 export type Resource =
   | { kind: 'website' | 'settings' | 'organizer_allowlist' | 'directory' | 'configuration' | 'members' | 'days' | 'day_create' }
   | { kind: 'day'; action: 'read' | 'preview' | 'sync' | 'edit' | 'open' }
-  | { kind: 'channel'; blueprintKey: string; eventId: number | null };
+  | { kind: 'channel'; blueprintKey: string; eventId: number | null }
+  /**
+   * An event's penalties: `record` with `/penalty`, `list` with `/penalties` (it shows other judges' penalties, so
+   * only to those the penalties channel shows them to), `manage` on the website and with a card's Void.
+   */
+  | { kind: 'event_penalties'; eventId: number; action: 'record' | 'list' | 'manage' };
 
 /** What `canSee` needs of one day: its linked staff and the audience of each desired channel. */
 export interface AccessPlan {
   dayId: number;
-  staff: { discordUserId: string; headJudgeOf: number[] }[];
-  channels: { key: string; eventId: number | null; audienceUserIds: string[] }[];
+  /** `staffOf` holds every event the staffer has any role on, `headJudgeOf` those they head-judge. */
+  staff: { discordUserId: string; headJudgeOf: number[]; staffOf: number[] }[];
+  channels: { key: string; eventId: number | null; purpose: Purpose; audienceUserIds: string[] }[];
 }
 
 /** Builds the access plan from the same plan and desired channels provisioning applies. */
@@ -75,8 +81,12 @@ export function accessPlan(plan: PlanInput, desired: DesiredDay): AccessPlan {
     dayId: plan.day.id,
     staff: plan.staff
       .filter((s): s is typeof s & { discordUserId: string } => s.linkState === 'linked' && s.discordUserId !== null)
-      .map((s) => ({ discordUserId: s.discordUserId, headJudgeOf: s.events.filter((e) => e.role === 'headjudge').map((e) => e.eventId) })),
-    channels: desired.channels.map((c) => ({ key: c.key, eventId: c.eventId, audienceUserIds: c.audience.map((a) => a.discordUserId) })),
+      .map((s) => ({
+        discordUserId: s.discordUserId,
+        headJudgeOf: s.events.filter((e) => e.role === 'headjudge').map((e) => e.eventId),
+        staffOf: [...new Set(s.events.map((e) => e.eventId))],
+      })),
+    channels: desired.channels.map((c) => ({ key: c.key, eventId: c.eventId, purpose: c.purpose, audienceUserIds: c.audience.map((a) => a.discordUserId) })),
   };
 }
 
@@ -105,6 +115,16 @@ export function canSee(principal: Principal | null, resource: Resource, plan?: A
       if (!channel?.audienceUserIds.includes(principal.userId)) return false;
       if (resource.eventId === null) return isDayHeadJudge(principal, plan);
       return plan.staff.some((s) => s.discordUserId === principal.userId && s.headJudgeOf.includes(resource.eventId!));
+    }
+    case 'event_penalties': {
+      const staffer = plan?.staff.find((s) => s.discordUserId === principal.userId);
+      if (!plan || !staffer?.staffOf.includes(resource.eventId)) return false;
+      if (resource.action === 'manage') return staffer.headJudgeOf.includes(resource.eventId);
+      if (resource.action === 'list') {
+        const penaltyChannels = plan.channels.filter((c) => c.eventId === resource.eventId && c.purpose === 'penalties');
+        return penaltyChannels.every((c) => c.audienceUserIds.includes(principal.userId));
+      }
+      return true;
     }
     default:
       return false;

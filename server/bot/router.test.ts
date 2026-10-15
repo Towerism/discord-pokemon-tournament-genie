@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { recordingLogger } from '../../test/support/logger';
-import type { InboundInteraction } from '../modules/discord/port';
+import type { InboundInteraction, InteractionReply } from '../modules/discord/port';
 import { createInteractionRouter } from './router';
 
 const GUILD = '400000000000000001';
@@ -20,7 +20,14 @@ const interaction = (over: Partial<InboundInteraction> = {}): InboundInteraction
 
 function replies() {
   const sent: string[] = [];
-  return { sent, reply: { ephemeral: async (text: string) => void sent.push(text) } };
+  const choices: { name: string; value: string }[][] = [];
+  const reply: InteractionReply = {
+    ephemeral: async (text) => void sent.push(text),
+    deferEphemeral: async () => undefined,
+    showModal: async () => undefined,
+    autocomplete: async (list) => void choices.push(list),
+  };
+  return { sent, choices, reply };
 }
 
 describe('the interaction router', () => {
@@ -102,11 +109,80 @@ describe('the interaction router', () => {
       },
     });
     const reply = {
+      ...replies().reply,
       ephemeral: async () => {
         throw new Error('interaction expired');
       },
     };
     await expect(router.route(interaction({ name: 'broken' }), reply)).resolves.toBeUndefined();
     expect(logger.records.filter((r) => r.level === 'error')).toHaveLength(2);
+  });
+});
+
+describe('the interaction router for modals and autocomplete', () => {
+  const PENALTY_MODAL = 'genie:penalty:';
+
+  it('routes a modal submit by its custom-ID prefix', async () => {
+    const seen: string[] = [];
+    const router = createInteractionRouter({
+      boundGuildId: () => GUILD,
+      logger: recordingLogger(),
+      commands: { 'genie:penalty:1:2:3': async () => void seen.push('command') },
+      modals: { [PENALTY_MODAL]: async (i) => void seen.push(i.name) },
+    });
+    const { sent, reply } = replies();
+    await router.route(interaction({ kind: 'modal', name: 'genie:penalty:1:2:3', fields: { notes: 'x' } }), reply);
+    expect(seen).toEqual(['genie:penalty:1:2:3']);
+    expect(sent).toEqual([]);
+  });
+
+  it("tells the caller a form isn't available when no modal handler matches", async () => {
+    const router = createInteractionRouter({ boundGuildId: () => GUILD, logger: recordingLogger(), commands: {} });
+    const { sent, reply } = replies();
+    await router.route(interaction({ kind: 'modal', name: 'genie:unknown:1' }), reply);
+    expect(sent).toEqual(["This form isn't available."]);
+  });
+
+  it('routes autocomplete by command name, and answers an empty list when it is unknown or fails', async () => {
+    const router = createInteractionRouter({
+      boundGuildId: () => GUILD,
+      logger: recordingLogger(),
+      commands: {},
+      autocomplete: {
+        penalty: async (_i, reply) => reply.autocomplete([{ name: 'LC', value: '7' }]),
+        broken: async () => {
+          throw new Error('kaput');
+        },
+      },
+    });
+    const known = replies();
+    await router.route(interaction({ kind: 'autocomplete', name: 'penalty', focused: { name: 'event', value: 'l' } }), known.reply);
+    expect(known.choices).toEqual([[{ name: 'LC', value: '7' }]]);
+    for (const name of ['unknown', 'broken']) {
+      const r = replies();
+      await router.route(interaction({ kind: 'autocomplete', name }), r.reply);
+      expect(r.choices).toEqual([[]]);
+      expect(r.sent).toEqual([]);
+    }
+  });
+
+  it('drops a modal submit and an autocomplete from another guild or a DM, without answering', async () => {
+    const logger = recordingLogger();
+    const router = createInteractionRouter({
+      boundGuildId: () => GUILD,
+      logger,
+      commands: {},
+      modals: { [PENALTY_MODAL]: async () => expect.unreachable() },
+      autocomplete: { penalty: async () => expect.unreachable() },
+    });
+    for (const guildId of ['400000000000000009', null]) {
+      for (const over of [{ kind: 'modal', name: 'genie:penalty:1:2:3' }, { kind: 'autocomplete', name: 'penalty' }] as const) {
+        const r = replies();
+        await router.route(interaction({ ...over, guildId }), r.reply);
+        expect(r.sent).toEqual([]);
+        expect(r.choices).toEqual([]);
+      }
+    }
+    expect(logger.records.filter((r) => r.msg === 'interaction_dropped')).toHaveLength(4);
   });
 });

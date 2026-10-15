@@ -219,6 +219,7 @@ describe('settings', () => {
       headJudgeRole: { id: IDS.headJudgeRole, name: 'Head judge' },
       ownerId: IDS.owner,
       organizerAllowlistEnabled: false,
+      currentSeason: '2026-27',
     });
     expect(JSON.stringify(shown)).not.toContain(CLIENT_SECRET);
 

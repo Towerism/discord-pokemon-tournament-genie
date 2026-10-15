@@ -1,0 +1,7 @@
+Tournament ID,Round of Issue,Judge Player ID,Competitor's Player ID,Category,Severity,Penalty,Notes
+26-10-000123,1,123456,0001234,Game Play,Minor,Warning,Played Buddy-Buddy Poffin and did not get out a Pokémon
+26-10-000123,1,654321,42,Procedural,Minor,DPC,
+26-10-000123,2,123456,99,Unsporting,Severe,DQ,=SUM(A1:A2)
+26-10-000123,2,123456,98,Pace of Play,Minor,Warning,+1 slow play
+26-10-000123,6,123456,7654321,Deck/Team,Major,GL,"Marked cards with pattern, ""sleeves""
+Game Loss issued for Round 1 of Top Cut."
