@@ -76,7 +76,8 @@ const save = () =>
   act(async () => {
     const { id, displayName, playerId } = editing.value!;
     await apiFetch(`/api/staff/${id}`, { method: 'PATCH', body: { displayName, playerId: playerId || null } });
-    editing.value = null;
+    // Another row may have been opened while this save was in flight; leave that editor alone.
+    if (editing.value?.id === id) editing.value = null;
   }, 'Saved.');
 </script>
 
