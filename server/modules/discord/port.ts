@@ -3,7 +3,8 @@
  * `fake/` implements it in memory for tests. Payload shapes never cross this boundary.
  *
  * M1 has the application, guild and member reads the setup wizard and login need, plus the gateway
- * connection. M2 adds members, channels, overwrites and messages. Threads and history arrive with close-out.
+ * connection. M2 adds members, channels, overwrites and messages. M5 (close-out) adds history, threads, the newest
+ * message and attachment re-resolution.
  */
 import type { Member } from '../../../shared/access/access';
 import type { Overwrite } from '../../../shared/discord/overwrites';
@@ -90,6 +91,37 @@ export interface ModalSpec {
   )[];
 }
 
+/** An embed as a transcript keeps it. */
+export interface HistoryEmbed {
+  title: string | null;
+  description: string | null;
+  url: string | null;
+  fields: { name: string; value: string }[];
+}
+
+/** One message of a channel's or thread's history, in Genie's terms (§6.5's transcript). */
+export interface HistoryMessage {
+  id: Snowflake;
+  type: number;
+  authorId: Snowflake;
+  authorName: string;
+  authorBot: boolean;
+  createdAt: number;
+  editedAt: number | null;
+  content: string;
+  referencedMessageId: Snowflake | null;
+  embeds: HistoryEmbed[];
+  attachments: { id: Snowflake; filename: string; size: number; contentType: string | null }[];
+}
+
+export interface ThreadInfo {
+  id: Snowflake;
+  name: string;
+  parentId: Snowflake;
+  type: 'public' | 'private';
+  archived: boolean;
+}
+
 export interface AutocompleteChoice {
   name: string;
   value: string;
@@ -125,6 +157,20 @@ export interface DiscordGateway {
   /** The bot's own message. `already_gone` when it no longer exists. */
   deleteMessage(channelId: Snowflake, messageId: Snowflake): Promise<'deleted' | 'already_gone'>;
   pinMessage(channelId: Snowflake, messageId: Snowflake): Promise<void>;
+
+  // Close-out (§6.5). A thread is a channel here: its ID reads its history.
+  /** Up to 100 messages older than `before`, newest first; `[]` when none are left; `null` once the channel or thread is gone. */
+  readHistory(channelId: Snowflake, before?: Snowflake): Promise<HistoryMessage[] | null>;
+  /** Active, archived public and archived private threads. Throws DiscordPermissionError without Manage Threads. */
+  listThreads(guildId: Snowflake, channelId: Snowflake): Promise<ThreadInfo[]>;
+  /** The newest existing message's ID: `null` when there is none, `'gone'` once the channel or thread is. */
+  getLatestMessageId(channelId: Snowflake): Promise<Snowflake | null | 'gone'>;
+  /** A fresh CDN URL for an attachment (CDN URLs expire, S4): resolved again at every download. */
+  resolveAttachment(
+    channelId: Snowflake,
+    messageId: Snowflake,
+    attachmentId: Snowflake,
+  ): Promise<{ url: string; bytes: number } | { error: 'message_deleted' | 'not_found' }>;
 }
 
 /** An interaction in Genie's terms; the adapter builds it from discord.js's. */
@@ -148,8 +194,8 @@ export interface InboundInteraction {
 }
 
 export interface InteractionReply {
-  /** After `deferEphemeral`, this edits the deferred reply. */
-  ephemeral(text: string): Promise<void>;
+  /** After `deferEphemeral`, this edits the deferred reply. Buttons go under the text (the Close confirmation). */
+  ephemeral(text: string, opts?: { buttons?: MessageButton[] }): Promise<void>;
   /** Acknowledges now (Discord's 3-second window) and answers later with `ephemeral`. */
   deferEphemeral(): Promise<void>;
   /** Only as the first answer to a command or a component. */

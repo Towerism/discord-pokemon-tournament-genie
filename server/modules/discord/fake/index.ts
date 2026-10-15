@@ -8,6 +8,7 @@
  */
 import type { Member } from '../../../../shared/access/access';
 import type { Overwrite } from '../../../../shared/discord/overwrites';
+import { PERMISSION_BITS } from '../../../../shared/discord/permissions';
 import { effectivePermissions } from '../../../../shared/discord/resolve';
 import { writeRefusal } from '../../../../shared/discord/write-rules';
 import {
@@ -25,6 +26,8 @@ import {
   type GuildInfo,
   type GuildMember,
   type GuildRole,
+  type HistoryEmbed,
+  type HistoryMessage,
   type InboundInteraction,
   type InteractionHandlers,
   type InteractionReply,
@@ -64,23 +67,55 @@ export interface FakeChannel extends ChannelState {
 export interface FakeThread {
   id: string;
   channelId: string;
+  name: string;
   type: 'public' | 'private';
   archived: boolean;
   memberIds: string[];
 }
 
+export interface FakeAttachment {
+  id: string;
+  filename: string;
+  size: number;
+  contentType: string | null;
+  data: Buffer;
+}
+
 export interface FakeMessage {
   id: string;
+  /** The channel, or the thread, that holds it. */
   channelId: string;
+  authorId: string;
   content: string;
+  /** The bot's card. */
   embed: Embed | null;
+  /** Embeds a member's message carries. */
+  embeds: HistoryEmbed[];
+  attachments: FakeAttachment[];
+  referencedMessageId: string | null;
+  createdAt: number;
+  editedAt: number | null;
   buttons: MessageButton[];
   pinned: boolean;
+}
+
+/** How the fake CDN answers one attachment, instead of serving it. */
+export type CdnBehaviour = 'error' | 'redirect' | 'overlong' | 'stall';
+
+export interface CdnAnswer {
+  status: number;
+  body?: Buffer;
+  /** For a redirect. */
+  location?: string;
+  /** Overlong: the body is longer than the attachment's size; stall: it never finishes. */
+  behaviour?: CdnBehaviour;
 }
 
 /** Everything a handler answered to one interaction. */
 export interface InteractionOutcome {
   ephemeral: string[];
+  /** The buttons sent with the last ephemeral reply. */
+  buttons: MessageButton[];
   deferred: boolean;
   modal: ModalSpec | null;
   choices: AutocompleteChoice[] | null;
@@ -136,7 +171,27 @@ export interface FakeDiscord {
   failOn(rule: ((call: MutationRecord, index: number) => WriteFailure | null | undefined) | null): void;
   /** Replaces a channel's overwrites as an administrator would: no bot permission rules. */
   forceOverwrites(channelId: string, overwrites: Overwrite[]): void;
-  addThread(channelId: string, thread: { type: 'public' | 'private'; archived?: boolean; memberIds?: string[] }): string;
+  addThread(channelId: string, thread: { type: 'public' | 'private'; archived?: boolean; memberIds?: string[]; name?: string }): string;
+  /** A member opens a thread, if Discord would let them (Create Public/Private Threads). */
+  openThread(userId: string, channelId: string, thread: { type: 'public' | 'private'; name: string }): string;
+  /** A member posts in a channel or thread, if Discord would let them (Send Messages, or Send Messages in Threads). */
+  post(
+    userId: string,
+    channelOrThreadId: string,
+    msg: { content?: string; embeds?: HistoryEmbed[]; attachments?: { filename: string; data: Buffer; contentType?: string }[]; replyTo?: string },
+  ): string;
+  /** A member edits their own message. */
+  editAsAuthor(messageId: string, content: string): void;
+  /** The clock messages, edits and CDN URLs are timed by. */
+  setNow(now: () => number): void;
+  /** Where resolved attachment URLs point (`https://cdn.discordapp.com` unless a test serves the CDN itself). */
+  cdnBase: string;
+  /** Attachment ID → how the CDN misbehaves for it. */
+  readonly cdnBehaviour: Map<string, CdnBehaviour>;
+  /** Every CDN path requested. */
+  readonly cdnRequests: string[];
+  /** The CDN's answer to a URL: the file while its URL is valid, 404 once it expired. */
+  cdnServe(url: string): CdnAnswer;
   /** A member's effective permissions in a channel or one of its threads. */
   permissionsFor(userId: string, channelId: string, threadId?: string): bigint;
   /** The guild's channels under a parent (or every channel). */
@@ -161,6 +216,11 @@ export function createFakeDiscord(): FakeDiscord {
   const mutations: MutationRecord[] = [];
   const pendingFailures: WriteFailure[] = [];
   let rule: ((call: MutationRecord, index: number) => WriteFailure | null | undefined) | null = null;
+  let now = () => 1_760_000_000_000;
+  const cdnBehaviour = new Map<string, CdnBehaviour>();
+  const cdnRequests: string[] = [];
+  /** URL lifetime, as S4 recorded it: about 24 hours. */
+  const URL_LIFETIME_MS = 86_400_000;
   let handlers: InteractionHandlers | null = null;
   let counter = 900_000_000_000_000_000n;
   const snowflake = () => (++counter).toString();
@@ -181,6 +241,9 @@ export function createFakeDiscord(): FakeDiscord {
     connectFailure: null,
     connectAttempts: 0,
     connected: false,
+    cdnBase: 'https://cdn.discordapp.com',
+    cdnBehaviour,
+    cdnRequests,
 
     addApplication({ token, ...app }) {
       const full: FakeApplication = {
@@ -246,8 +309,60 @@ export function createFakeDiscord(): FakeDiscord {
     addThread(channelId, thread) {
       need(channels.get(channelId));
       const id = snowflake();
-      threads.set(id, { id, channelId, type: thread.type, archived: thread.archived ?? false, memberIds: [...(thread.memberIds ?? [])] });
+      threads.set(id, { id, channelId, name: thread.name ?? `thread-${id.slice(-4)}`, type: thread.type, archived: thread.archived ?? false, memberIds: [...(thread.memberIds ?? [])] });
       return id;
+    },
+    openThread(userId, channelId, thread) {
+      const needed = thread.type === 'public' ? PERMISSION_BITS.CreatePublicThreads : PERMISSION_BITS.CreatePrivateThreads;
+      if (!(fake.permissionsFor(userId, channelId) & needed)) throw new DiscordPermissionError(`Missing Permissions (fake): ${userId} can't open a thread.`);
+      return fake.addThread(channelId, { type: thread.type, name: thread.name, memberIds: [userId] });
+    },
+    post(userId, target, msg) {
+      const thread = threads.get(target);
+      const channelId = thread ? thread.channelId : target;
+      need(channels.get(channelId));
+      const bits = fake.permissionsFor(userId, channelId, thread?.id);
+      const needed = thread ? PERMISSION_BITS.SendMessagesInThreads : PERMISSION_BITS.SendMessages;
+      if (!(bits & PERMISSION_BITS.ViewChannel) || !(bits & needed)) throw new DiscordPermissionError(`Missing Permissions (fake): ${userId} can't post here.`);
+      const id = snowflake();
+      messages.set(id, {
+        id,
+        channelId: target,
+        authorId: userId,
+        content: msg.content ?? '',
+        embed: null,
+        embeds: (msg.embeds ?? []).map((e) => structuredClone(e)),
+        attachments: (msg.attachments ?? []).map((a) => ({ id: snowflake(), filename: a.filename, size: a.data.length, contentType: a.contentType ?? null, data: a.data })),
+        referencedMessageId: msg.replyTo ?? null,
+        createdAt: now(),
+        editedAt: null,
+        buttons: [],
+        pinned: false,
+      });
+      return id;
+    },
+    editAsAuthor(messageId, content) {
+      const message = need(messages.get(messageId));
+      message.content = content;
+      message.editedAt = now() + 1;
+    },
+    setNow(next) {
+      now = next;
+    },
+    cdnServe(url) {
+      const parsed = new URL(url);
+      cdnRequests.push(parsed.pathname);
+      const match = /^\/attachments\/(\d+)\/(\d+)\/[^/]+$/.exec(parsed.pathname);
+      const expires = Number.parseInt(parsed.searchParams.get('ex') ?? '', 16);
+      if (!match || !Number.isFinite(expires) || expires * 1000 < now()) return { status: 404 };
+      const message = [...messages.values()].find((m) => m.channelId === match[1] && m.attachments.some((a) => a.id === match[2]));
+      const attachment = message?.attachments.find((a) => a.id === match[2]);
+      if (!attachment) return { status: 404 };
+      const behaviour = cdnBehaviour.get(attachment.id);
+      if (behaviour === 'error') return { status: 500 };
+      if (behaviour === 'redirect') return { status: 302, location: `${fake.cdnBase}/elsewhere` };
+      if (behaviour) return { status: 200, body: attachment.data, behaviour };
+      return { status: 200, body: attachment.data };
     },
     permissionsFor(userId, channelId, threadId) {
       const channel = need(channels.get(channelId));
@@ -278,9 +393,12 @@ export function createFakeDiscord(): FakeDiscord {
     },
     async interact(interaction) {
       if (!handlers) throw new Error('The bot is not connected.');
-      const outcome: InteractionOutcome = { ephemeral: [], deferred: false, modal: null, choices: null };
+      const outcome: InteractionOutcome = { ephemeral: [], buttons: [], deferred: false, modal: null, choices: null };
       const reply: InteractionReply = {
-        ephemeral: async (text) => void outcome.ephemeral.push(text),
+        ephemeral: async (text, opts) => {
+          outcome.ephemeral.push(text);
+          outcome.buttons = (opts?.buttons ?? []).map((b) => ({ ...b }));
+        },
         deferEphemeral: async () => void (outcome.deferred = true),
         showModal: async (modal) => void (outcome.modal = structuredClone(modal)),
         autocomplete: async (choices) => void (outcome.choices = [...choices]),
@@ -299,6 +417,12 @@ export function createFakeDiscord(): FakeDiscord {
         fake.restCalls += 1;
         await fake.readGate;
         return appOf();
+      };
+      /** A channel, or a thread with its parent channel; `null` once either is gone. */
+      const locate = (id: string): { channel: FakeChannel; thread: FakeThread | null } | null => {
+        const thread = threads.get(id);
+        const channel = channels.get(thread ? thread.channelId : id);
+        return channel ? { channel, thread: thread ?? null } : null;
       };
       const botGuild = (guildId: string): FakeGuild => {
         const app = appOf();
@@ -426,7 +550,20 @@ export function createFakeDiscord(): FakeDiscord {
           if (!channel) throw new DiscordUnavailableError('Unknown channel (fake).');
           return write('postMessage', channelId, channel.guildId, null, null, () => {
             const id = snowflake();
-            messages.set(id, { id, channelId, content: msg.content, embed: msg.embed ? structuredClone(msg.embed) : null, buttons: (msg.buttons ?? []).map((b) => ({ ...b })), pinned: false });
+            messages.set(id, {
+              id,
+              channelId,
+              authorId: appOf().botUserId,
+              content: msg.content,
+              embed: msg.embed ? structuredClone(msg.embed) : null,
+              embeds: [],
+              attachments: [],
+              referencedMessageId: null,
+              createdAt: now(),
+              editedAt: null,
+              buttons: (msg.buttons ?? []).map((b) => ({ ...b })),
+              pinned: false,
+            });
             return id;
           });
         },
@@ -441,6 +578,7 @@ export function createFakeDiscord(): FakeDiscord {
             if (!message || message.channelId !== channelId) return 'gone' as const;
             message.content = msg.content;
             message.embed = msg.embed ? structuredClone(msg.embed) : null;
+            message.editedAt = now();
             message.buttons = (msg.buttons ?? []).map((b) => ({ ...b }));
             return 'edited' as const;
           });
@@ -464,6 +602,48 @@ export function createFakeDiscord(): FakeDiscord {
           await write('pinMessage', messageId, channel.guildId, null, null, () => {
             need(messages.get(messageId)).pinned = true;
           });
+        },
+        async readHistory(channelId, before) {
+          const app = await read();
+          const where = locate(channelId);
+          if (!where) return null;
+          const bits = fake.permissionsFor(app.botUserId, where.channel.id, where.thread?.id);
+          if (!(bits & PERMISSION_BITS.ViewChannel) || !(bits & PERMISSION_BITS.ReadMessageHistory)) {
+            throw new DiscordPermissionError('Missing Access (fake): the bot can’t read this history.');
+          }
+          return [...messages.values()]
+            .filter((m) => m.channelId === channelId && (before === undefined || BigInt(m.id) < BigInt(before)))
+            .sort((a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1))
+            .slice(0, 100)
+            .map((m) => historyOf(m, guilds.get(where.channel.guildId)!));
+        },
+        async listThreads(guildId, channelId) {
+          const app = await read();
+          botGuild(guildId);
+          need(channels.get(channelId));
+          if (!(fake.permissionsFor(app.botUserId, channelId) & PERMISSION_BITS.ManageThreads)) {
+            throw new DiscordPermissionError('Missing Access (fake): listing archived private threads needs Manage Threads.');
+          }
+          return [...threads.values()]
+            .filter((t) => t.channelId === channelId)
+            .map((t) => ({ id: t.id, name: t.name, parentId: t.channelId, type: t.type, archived: t.archived }));
+        },
+        async getLatestMessageId(channelId) {
+          await read();
+          if (!locate(channelId)) return 'gone';
+          let latest: string | null = null;
+          for (const m of messages.values()) if (m.channelId === channelId && (latest === null || BigInt(m.id) > BigInt(latest))) latest = m.id;
+          return latest;
+        },
+        async resolveAttachment(channelId, messageId, attachmentId) {
+          await read();
+          const message = messages.get(messageId);
+          if (!message || message.channelId !== channelId) return { error: 'message_deleted' as const };
+          const attachment = message.attachments.find((a) => a.id === attachmentId);
+          if (!attachment) return { error: 'not_found' as const };
+          const expires = Math.floor((now() + URL_LIFETIME_MS) / 1000).toString(16);
+          const url = `${fake.cdnBase}/attachments/${channelId}/${attachment.id}/${encodeURIComponent(attachment.filename)}?ex=${expires}&is=${snowflake()}`;
+          return { url, bytes: attachment.size };
         },
       };
       const bot: DiscordBotConnection = {
@@ -505,6 +685,24 @@ function refuseUnlessAllowed(guild: FakeGuild, botUserId: string, overwrites: re
 }
 
 const copy = (o: Overwrite): Overwrite => ({ target: { ...o.target }, allow: o.allow, deny: o.deny });
+
+function historyOf(m: FakeMessage, guild: FakeGuild): HistoryMessage {
+  const profile = guild.profiles.get(m.authorId);
+  const card: HistoryEmbed[] = m.embed ? [{ title: m.embed.title, description: m.embed.footer ?? null, url: null, fields: m.embed.fields.map((f) => ({ ...f })) }] : [];
+  return {
+    id: m.id,
+    type: m.referencedMessageId ? 19 : 0,
+    authorId: m.authorId,
+    authorName: profile?.displayName ?? m.authorId,
+    authorBot: profile?.bot ?? false,
+    createdAt: m.createdAt,
+    editedAt: m.editedAt,
+    content: m.content,
+    referencedMessageId: m.referencedMessageId,
+    embeds: [...card, ...m.embeds.map((e) => structuredClone(e))],
+    attachments: m.attachments.map((a) => ({ id: a.id, filename: a.filename, size: a.size, contentType: a.contentType })),
+  };
+}
 
 function view(channel: FakeChannel): ChannelState {
   const { guildId: _guildId, ...state } = channel;
