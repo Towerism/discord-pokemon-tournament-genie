@@ -10,11 +10,14 @@ allowBuilds:
   # Ships prebuilt binaries; its postinstall only re-checks them.
   unrs-resolver: false
 
-# Exact versions newer than pnpm's minimum release age at install time (the kit pin, ADR-0011).
+# Exact versions newer than pnpm's minimum release age at install time.
+# The kit is exempt by name, not version: Renovate pins each kit release within minutes, and pnpm would reject
+# it for a day (selfhost-kit ADR-0005's fast path). The trust root is the kit's npm trusted publishing with
+# provenance from its own CI; package.json still pins it exactly (ADR-0011).
 minimumReleaseAgeExclude:
   - '@iconify-json/lucide@1.2.144'
   - '@playwright/test@1.64.1'
-  - '@towerism/selfhost-kit@0.4.2'
+  - '@towerism/selfhost-kit'
   - playwright-core@1.64.1
   - playwright@1.64.1
 

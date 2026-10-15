@@ -184,7 +184,74 @@ variables → Actions → Variables*). Images still publish, so run `edge` or a 
 **If the Caddy round trip fails,** leave releases off and revisit ADR-0013 before anything else. It is the
 only supported way to log in to the website.
 
-## 8. Connect attendance
+## 8. Dependency updates (Renovate)
+
+Renovate keeps the dependencies current through PRs ([`renovate.json`](../renovate.json)); the design is in the
+architecture's *Supply chain* row and selfhost-kit [ADR-0005](https://github.com/Towerism/selfhost-kit/blob/main/docs/architecture/adr/0005-versioning-and-security-fixes.md).
+
+**What merges on its own.** Only the kit: one `selfhost-kit` PR moves `@towerism/selfhost-kit` and the kit's
+workflow SHAs together, opens as soon as Renovate sees the release (no waiting period, any time of day), and
+automerges a **patch or minor** once the required checks pass. It is committed as `fix(deps)`, so it releases a
+Genie patch once releases are on (section 7). Everything else waits for you:
+- a kit **major** never automerges;
+- other npm packages are proposed only once a release is 3 days old, and are merged by hand;
+- PRs from security alerts are labelled `security` and skip the waiting period;
+- Node (`.node-version` and the Dockerfile's images) and pnpm (`packageManager` and the Dockerfile's
+  `PNPM_VERSION`) each move as one PR;
+- `spikes/` is never touched.
+
+pnpm itself refuses packages newer than a day, so `pnpm-workspace.yaml` exempts the kit by name. What makes
+that safe is the kit's npm trusted publishing with provenance from its own CI. The same trust covers the kit's
+workflow SHAs, whose `image` job is one of the checks that gates the kit's own PR. Other packages aren't exempt: a
+security fix released that same day fails its lockfile update until it is a day old, then succeeds on a later
+run.
+
+**When Renovate runs.** The hosted Renovate app runs on Mend's schedule, about every 4 hours (daily for some
+repository states), so on its own it can miss ADR-0005's one-hour target for a kit security fix. For an urgent
+fix, open the **Dependency Dashboard** issue and tick its box to run Renovate now.
+
+**The `main` ruleset** lives in [`.github/rulesets/main.json`](../.github/rulesets/main.json). It requires a PR
+and the checks CI reports on PRs, blocks force-pushes and deleting `main`, and has no bypass. That's what stops
+an automerge from landing red. Apply it the first time, or re-apply it after editing the file:
+
+```sh
+repo=Towerism/discord-pokemon-tournament-genie
+id=$(gh api "repos/$repo/rulesets?includes_parents=false" -q '.[] | select(.name == "main") | .id')
+if [ -z "$id" ]; then gh api -X POST "repos/$repo/rulesets" --input .github/rulesets/main.json
+else gh api -X PUT "repos/$repo/rulesets/$id" --input .github/rulesets/main.json; fi
+```
+
+It needs the repository settings *Allow auto-merge* and Dependabot alerts on (Renovate reads security alerts
+from GitHub):
+
+```sh
+repo=Towerism/discord-pokemon-tournament-genie
+gh api -X PATCH "repos/$repo" -F allow_auto_merge=true
+gh api -X PUT "repos/$repo/vulnerability-alerts"
+```
+
+The order matters: merge `renovate.json`, then apply the ruleset and the two settings, and only then give the
+Renovate GitHub App access to the repository. Without the ruleset, an automerge wouldn't wait for checks.
+
+**When something goes wrong:**
+- **A kit PR fails CI.** It stays open and nothing merges. Read the failing job. If the kit broke Genie, fix
+  Genie in that PR's branch or a new PR, or close the PR and report it on the kit. Renovate reopens it for the
+  next kit release.
+- **A required check never reports**, so every PR waits on it: a CI job was renamed, or the kit renamed the
+  `image` job inside its `app-image.yml` (the check is named `image / <kit job>`). Fix the context name in
+  `main.json`, re-apply it as above, then merge. The unit tests catch a rename of Genie's own jobs, but not the
+  kit's.
+- **Merging past broken CI in an emergency:** there is no bypass. Turn the ruleset off, merge, and turn it back on:
+
+  ```sh
+  repo=Towerism/discord-pokemon-tournament-genie
+  id=$(gh api "repos/$repo/rulesets?includes_parents=false" -q '.[] | select(.name == "main") | .id')
+  gh api -X PUT "repos/$repo/rulesets/$id" -f enforcement=disabled   # then -f enforcement=active
+  ```
+- **A bad dependency update reached `main`:** revert its commit (a `fix(deps)` revert releases a new patch), and
+  on Unraid pin the previous image tag until then (section 6).
+  
+## 9. Connect attendance
 
 Genie imports each day's tournaments and staff from attendance ([ADR-0008](architecture/adr/0008-attendance-integration.md)).
 

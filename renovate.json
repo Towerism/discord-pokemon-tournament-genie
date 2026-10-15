@@ -1,0 +1,72 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigestsToSemver",
+    "security:minimumReleaseAgeNpm"
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "spikes/**"
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The pnpm the image builds with, kept in step with package.json's packageManager",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[\\w@/.-]+)\\nARG PNPM_VERSION=(?<currentValue>\\d\\S*)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "ci"
+    },
+    {
+      "description": "A new base image changes what ships, so it releases a patch",
+      "matchManagers": ["dockerfile"],
+      "semanticCommitType": "fix"
+    },
+    {
+      "description": "CI (.node-version) tests the Node the image ships",
+      "matchManagers": ["nodenv", "dockerfile"],
+      "matchDepNames": ["node"],
+      "groupName": "node",
+      "semanticCommitType": "fix"
+    },
+    {
+      "matchManagers": ["npm", "custom.regex"],
+      "matchDepNames": ["pnpm"],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "The kit (ADR-0011; selfhost-kit ADR-0005): one PR for the package and its workflow SHAs, opened at once and released as a patch",
+      "matchPackageNames": ["@towerism/selfhost-kit", "Towerism/selfhost-kit"],
+      "groupName": "selfhost-kit",
+      "minimumReleaseAge": null,
+      "schedule": ["at any time"],
+      "semanticCommitType": "fix",
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Kit patches and minors merge on green CI (the main ruleset's required checks); majors never automerge",
+      "matchPackageNames": ["@towerism/selfhost-kit", "Towerism/selfhost-kit"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true
+    }
+  ]
+}
