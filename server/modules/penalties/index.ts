@@ -238,10 +238,14 @@ export function createPenaltiesService(opts: {
     requireOpen(plan);
   };
 
-  /** A staffer of the event with a player ID that an organizer has confirmed or imported (not just claimed). */
-  function judgeOf(plan: ReturnType<EventDaysService['plan']>, eventId: number, staffMemberId: number) {
-    const onEvent = plan.staff.find((s) => s.staffMemberId === staffMemberId && s.events.some((e) => e.eventId === eventId));
-    if (!onEvent) throw new ServiceError(422, 'judge_not_on_event', 'The judge must be on this event’s staff.');
+  /**
+   * A judging staffer of the event (any role but streaming, ADR-0015) with a player ID that an organizer has confirmed or
+   * imported (not just claimed).
+   */
+  function issuingJudge(plan: ReturnType<EventDaysService['plan']>, eventId: number, staffMemberId: number) {
+    const role = plan.staff.find((s) => s.staffMemberId === staffMemberId)?.events.find((e) => e.eventId === eventId)?.role;
+    if (role === undefined) throw new ServiceError(422, 'judge_not_on_event', 'The judge must be on this event’s staff.');
+    if (role === 'streaming') throw new ServiceError(422, 'judge_not_judging', 'The judge must be on this event’s staff in a judging role.');
     const person = directory.get(staffMemberId);
     if (!person?.playerId || person.linkState === 'claimed') throw new ServiceError(422, 'judge_without_player_id', 'The judge needs a confirmed player ID.');
     return person;
@@ -294,7 +298,10 @@ export function createPenaltiesService(opts: {
     return result;
   }
 
-  /** The event's penalties channel, else its first per-event channel; never a day-wide one (ADR-0010). */
+  /**
+   * The event's penalties channel, else its first per-event channel; never a day-wide one (ADR-0010), nor one for
+   * streaming staff, who aren't judges and must never see a penalty (ADR-0015).
+   */
   function cardChannel(dayId: number, eventId: number): string | null {
     const plan = eventDays.plan(dayId);
     const blueprint = eventDays.blueprint(plan.day.blueprintId);
@@ -302,7 +309,7 @@ export function createPenaltiesService(opts: {
       .channels(dayId)
       .filter((c) => c.eventId === eventId && c.state === 'present')
       .flatMap((c) => {
-        const meta = blueprint.channels.find((b) => b.key === c.key && b.scope === 'per_event');
+        const meta = blueprint.channels.find((b) => b.key === c.key && b.scope === 'per_event' && b.audience !== 'streaming');
         return meta ? [{ id: c.discordChannelId, rank: (meta.purpose === 'penalties' ? 0 : 1000) + meta.position }] : [];
       })
       .sort((a, b) => a.rank - b.rank);
@@ -392,10 +399,10 @@ export function createPenaltiesService(opts: {
       return { categories: offered.categories.map((c) => ({ id: c.id, label: c.label })), types: offered.types.map((t) => ({ id: t.id, label: t.label })) };
     },
 
-    /** The event's staffers who can be named as the judge: a player ID not merely claimed. */
+    /** The event's judging staffers who can be named as the judge (not streaming): a player ID not merely claimed. */
     judges(dayId: number, eventId: number) {
       const { day } = dayEvent(dayId, eventId);
-      const ids = day.staff.filter((s) => s.events.some((e) => e.eventId === eventId)).map((s) => s.staffMemberId);
+      const ids = day.staff.filter((s) => s.events.some((e) => e.eventId === eventId && e.role !== 'streaming')).map((s) => s.staffMemberId);
       return directory
         .byIds(ids)
         .filter((p) => p.playerId !== null && p.linkState !== 'claimed')
@@ -435,7 +442,7 @@ export function createPenaltiesService(opts: {
         requireOpen(day);
         checkFields(input);
         checkChoices(day.day.season, ev.game, input);
-        const judge = judgeOf(day, ev.id, input.judgeStaffMemberId);
+        const judge = issuingJudge(day, ev.id, input.judgeStaffMemberId);
         testHooks.beforeInsert?.(input.key);
         const number = (db.select({ n: max(penalty.number) }).from(penalty).where(eq(penalty.eventId, ev.id)).get()?.n ?? 0) + 1;
         let inserted: PenaltyRow;
@@ -492,7 +499,7 @@ export function createPenaltiesService(opts: {
         // An unchanged choice stays valid even if it was deactivated, or the event's game changed, since.
         checkChoices(plan.day.season, ev.game, { categoryId: next.categoryId, penaltyTypeId: next.penaltyTypeId });
         if (patch.judgeStaffMemberId !== undefined && patch.judgeStaffMemberId !== row.judgeStaffId) {
-          const judge = judgeOf(plan, ev.id, patch.judgeStaffMemberId);
+          const judge = issuingJudge(plan, ev.id, patch.judgeStaffMemberId);
           next.judgeStaffId = judge.id;
           next.judgePlayerId = judge.playerId!;
         }

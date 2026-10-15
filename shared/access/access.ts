@@ -63,7 +63,7 @@ export type Resource =
   | { kind: 'day'; action: 'read' | 'preview' | 'sync' | 'edit' | 'open' | 'close' | 'closeout' }
   | { kind: 'channel'; blueprintKey: string; eventId: number | null }
   /**
-   * An event's penalties: `record` with `/penalty`, `list` with `/penalties` (it shows other judges' penalties, so
+   * An event's penalties, for its judging staff only: `record` with `/penalty`, `list` with `/penalties` (it shows other judges' penalties, so
    * only to those the penalties channel shows them to), `manage` on the website and with a card's Void.
    */
   | { kind: 'event_penalties'; eventId: number; action: 'record' | 'list' | 'manage' }
@@ -80,8 +80,11 @@ export type Resource =
 /** What `canSee` needs of one day: its linked staff and the audience of each desired channel. */
 export interface AccessPlan {
   dayId: number;
-  /** `staffOf` holds every event the staffer has any role on, `headJudgeOf` those they head-judge. */
-  staff: { discordUserId: string; headJudgeOf: number[]; staffOf: number[] }[];
+  /**
+   * `staffOf` holds every event the staffer has any role on, `judgeOf` those where the role isn't `streaming`
+   * (streaming staff aren't judges, ADR-0015), `headJudgeOf` those they head-judge.
+   */
+  staff: { discordUserId: string; headJudgeOf: number[]; judgeOf: number[]; staffOf: number[] }[];
   channels: { key: string; eventId: number | null; purpose: Purpose; audienceUserIds: string[] }[];
 }
 
@@ -94,6 +97,7 @@ export function accessPlan(plan: PlanInput, desired: DesiredDay): AccessPlan {
       .map((s) => ({
         discordUserId: s.discordUserId,
         headJudgeOf: s.events.filter((e) => e.role === 'headjudge').map((e) => e.eventId),
+        judgeOf: s.events.filter((e) => e.role !== 'streaming').map((e) => e.eventId),
         staffOf: [...new Set(s.events.map((e) => e.eventId))],
       })),
     channels: desired.channels.map((c) => ({ key: c.key, eventId: c.eventId, purpose: c.purpose, audienceUserIds: c.audience.map((a) => a.discordUserId) })),
@@ -132,7 +136,7 @@ export function canSee(principal: Principal | null, resource: Resource, plan?: A
     }
     case 'event_penalties': {
       const staffer = plan?.staff.find((s) => s.discordUserId === principal.userId);
-      if (!plan || !staffer?.staffOf.includes(resource.eventId)) return false;
+      if (!plan || !staffer?.judgeOf.includes(resource.eventId)) return false;
       if (resource.action === 'manage') return staffer.headJudgeOf.includes(resource.eventId);
       if (resource.action === 'list') {
         const penaltyChannels = plan.channels.filter((c) => c.eventId === resource.eventId && c.purpose === 'penalties');

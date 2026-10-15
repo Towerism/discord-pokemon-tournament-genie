@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator';
+type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator' | 'streaming';
 interface EventView {
   id: number;
   name: string;
@@ -61,6 +61,8 @@ const ROLES: { value: Role; label: string }[] = [
   { value: 'scorekeeper', label: 'Scorekeeper' },
   { value: 'administration', label: 'Administration' },
   { value: 'translator', label: 'Translator' },
+  // Not a judge, and sees only streaming channels (ADR-0015).
+  { value: 'streaming', label: 'Streaming' },
 ];
 
 const route = useRoute();

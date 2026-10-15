@@ -138,10 +138,10 @@ export const staffMember = sqliteTable(
 
 export const SCOPES = ['day', 'per_event'] as const;
 export const CHANNEL_KINDS = ['text', 'voice'] as const;
-export const AUDIENCES = ['all_staff', 'event_staff', 'head_judges'] as const;
+export const AUDIENCES = ['all_staff', 'event_staff', 'head_judges', 'streaming'] as const;
 export const PURPOSES = ['general', 'floor', 'penalties'] as const;
 export const GAMES = ['tcg', 'vgc', 'go', 'other'] as const;
-export const EVENT_ROLES = ['headjudge', 'judge', 'scorekeeper', 'administration', 'translator'] as const;
+export const EVENT_ROLES = ['headjudge', 'judge', 'scorekeeper', 'administration', 'translator', 'streaming'] as const;
 export const DAY_STATES = ['draft', 'open', 'closing', 'closed', 'purged'] as const;
 export const DAY_SOURCES = ['manual', 'attendance'] as const;
 
@@ -181,7 +181,7 @@ export const blueprintChannel = sqliteTable(
     uniqueIndex('blueprint_channel_key').on(t.blueprintId, t.key),
     check('blueprint_channel_scope', sql`${t.scope} in ('day', 'per_event')`),
     check('blueprint_channel_kind', sql`${t.kind} in ('text', 'voice')`),
-    check('blueprint_channel_audience', sql`${t.audience} in ('all_staff', 'event_staff', 'head_judges')`),
+    check('blueprint_channel_audience', sql`${t.audience} in ('all_staff', 'event_staff', 'head_judges', 'streaming')`),
     check('blueprint_channel_purpose', sql`${t.purpose} in ('general', 'floor', 'penalties')`),
   ],
 );
@@ -316,7 +316,7 @@ export const eventStaff = sqliteTable(
   },
   (t) => [
     primaryKey({ columns: [t.eventId, t.staffMemberId] }),
-    check('event_staff_role', sql`${t.role} in ('headjudge', 'judge', 'scorekeeper', 'administration', 'translator')`),
+    check('event_staff_role', sql`${t.role} in ('headjudge', 'judge', 'scorekeeper', 'administration', 'translator', 'streaming')`),
     check('event_staff_imported', sql`${t.imported} in (0, 1)`),
   ],
 );

@@ -1,5 +1,5 @@
 import { silentLogger } from '@towerism/selfhost-kit';
-import type { BlueprintInput } from '../../shared/blueprints';
+import type { BlueprintInput, EventRole } from '../../shared/blueprints';
 import type { StaffMember } from '../../server/modules/directory';
 import type { EventView } from '../../server/modules/event-days';
 import { type PenaltiesService, type RecordInput, createPenaltiesService } from '../../server/modules/penalties';
@@ -19,6 +19,10 @@ export interface PenaltyWorld extends ProvisioningWorld {
   typeId(label: string, season?: string): number;
   /** A valid recording by Ash on the TCG event; override what the test is about. */
   recordInput(over?: Partial<RecordInput>): RecordInput;
+  /** Puts Tracey (the fake's `outsider` member, player ID `00777`) on the day's staff as streaming on `eventId`, keeping everyone else's roles. */
+  addStreamer(eventId: number): StaffMember;
+  /** Sets one staffer's role on one event, keeping everything else. */
+  setRole(staffMemberId: number, eventId: number, role: EventRole): void;
   /** The penalties' messages in the fake, by channel name. */
   messagesIn(channelName: string): ReturnType<ProvisioningWorld['discord']['messages']['get']>[];
 }
@@ -68,6 +72,13 @@ export async function penaltyWorld(opts: { blueprint?: BlueprintInput; beforeIns
       throw new Error(`No ${table} ${label} in ${season}`);
     })();
   let keys = 0;
+  function setRole(staffMemberId: number, eventId: number, role: EventRole) {
+    const staff = w.days.plan(day.id).staff.map((s) => ({ staffMemberId: s.staffMemberId, events: s.events.filter((e) => !(s.staffMemberId === staffMemberId && e.eventId === eventId)) }));
+    const mine = staff.find((s) => s.staffMemberId === staffMemberId);
+    if (mine) mine.events.push({ eventId, role });
+    else staff.push({ staffMemberId, events: [{ eventId, role }] });
+    w.days.putStaff(day.id, staff);
+  }
   return {
     ...w,
     penalties,
@@ -91,6 +102,12 @@ export async function penaltyWorld(opts: { blueprint?: BlueprintInput; beforeIns
       recordedBy: PEOPLE.ash,
       ...over,
     }),
+    addStreamer: (eventId) => {
+      const tracey = person('Tracey', PEOPLE.outsider, '00777');
+      setRole(tracey.id, eventId, 'streaming');
+      return tracey;
+    },
+    setRole,
     messagesIn: (name) => {
       const channel = w.channel(name);
       return [...w.discord.messages.values()].filter((m) => m.channelId === channel.id);

@@ -4,7 +4,7 @@ interface Channel {
   scope: 'day' | 'per_event';
   kind: 'text';
   namePattern: string;
-  audience: 'all_staff' | 'event_staff' | 'head_judges';
+  audience: 'all_staff' | 'event_staff' | 'head_judges' | 'streaming';
   purpose: 'general' | 'floor' | 'penalties';
   topic: string | null;
   position: number;
@@ -111,10 +111,11 @@ const blueprintName = (id: number) => bp.value.blueprints.find((b) => b.id === i
               <option v-if="c.scope === 'day'" value="all_staff">All staff</option>
               <option v-if="c.scope === 'per_event'" value="event_staff">Event staff</option>
               <option value="head_judges">Head judges</option>
+              <option v-if="c.purpose !== 'penalties'" value="streaming">Streaming</option>
             </select>
           </label>
           <label>Purpose
-            <select v-model="c.purpose" class="block border border-accented rounded p-1"><option value="general">General</option><option value="floor">Floor</option><option value="penalties">Penalties</option></select>
+            <select v-model="c.purpose" class="block border border-accented rounded p-1" @change="c.purpose === 'penalties' && c.audience === 'streaming' && (c.audience = 'head_judges')"><option value="general">General</option><option value="floor">Floor</option><option value="penalties">Penalties</option></select>
           </label>
           <UButton size="xs" variant="ghost" @click="editing.channels.splice(i, 1)">Remove</UButton>
         </div>

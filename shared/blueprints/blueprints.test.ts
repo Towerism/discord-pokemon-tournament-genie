@@ -110,6 +110,17 @@ describe('validateBlueprint', () => {
     expect(codes(bp(nine))).toEqual(['too_many_event_channels']);
   });
 
+  it('accepts the streaming audience on day and per-event channels', () => {
+    expect(codes(bp([channel({ audience: 'streaming' }), channel({ key: 'y', scope: 'per_event', namePattern: '{slug}-y', audience: 'streaming', purpose: 'floor' })]))).toEqual([]);
+  });
+
+  it('never lets a penalties channel be for streaming staff, in either scope', () => {
+    expect(codes(bp([channel({ audience: 'streaming', purpose: 'penalties' })]))).toEqual(['audience_not_allowed']);
+    expect(validateBlueprint(bp([channel({ scope: 'per_event', namePattern: '{slug}-p', audience: 'streaming', purpose: 'penalties' })]))).toEqual([
+      { path: 'channels.0.audience', code: 'audience_not_allowed' },
+    ]);
+  });
+
   it('names where each problem is', () => {
     expect(validateBlueprint(bp([channel({}), channel({ key: 'y', kind: 'voice' })]))).toEqual([{ path: 'channels.1.kind', code: 'voice_not_supported' }]);
   });
@@ -196,7 +207,7 @@ describe('desiredChannels', () => {
   });
 
   it('only ever gives access to linked staff of the day, and is deterministic', () => {
-    const roles = fc.constantFrom('headjudge', 'judge', 'scorekeeper', 'administration', 'translator');
+    const roles = fc.constantFrom('headjudge', 'judge', 'scorekeeper', 'administration', 'translator', 'streaming');
     const plans = fc
       .record({
         eventCount: fc.integer({ min: 0, max: 4 }),
@@ -237,6 +248,127 @@ describe('desiredChannels', () => {
           }
         }
         expect(desiredChannels(plan, DEFAULT_BLUEPRINT, c)).toEqual(day);
+      }),
+      { seed: SEED, numRuns: 300 },
+    );
+  });
+});
+
+describe('desiredChannels for streaming staff', () => {
+  const MISTY = 1; // judge on LC
+  const BROCK = 2; // streaming on VGC
+  const ASH = 3; // head judge on VGC
+  const GARY = 4;
+  const TRACEY = 5;
+
+  const streamDay = (extra: PlanInput['staff'] = []): PlanInput => ({
+    day: { id: 1, date: '2026-10-17', title: 'October LC' },
+    events: [
+      { id: LC, name: 'LC', slug: 'lc', startsAt: 1, gameConfirmed: true },
+      { id: VGC, name: 'VGC', slug: 'vgc', startsAt: 2, gameConfirmed: true },
+    ],
+    staff: [
+      { staffMemberId: MISTY, discordUserId: user(MISTY), linkState: 'linked', events: [{ eventId: LC, role: 'judge' }] },
+      { staffMemberId: BROCK, discordUserId: user(BROCK), linkState: 'linked', events: [{ eventId: VGC, role: 'streaming' }] },
+      { staffMemberId: ASH, discordUserId: user(ASH), linkState: 'linked', events: [{ eventId: VGC, role: 'headjudge' }] },
+      ...extra,
+    ],
+  });
+  const withStream: BlueprintInput = {
+    ...DEFAULT_BLUEPRINT,
+    channels: [
+      ...DEFAULT_BLUEPRINT.channels,
+      { key: 'stream', scope: 'day', kind: 'text', namePattern: 'stream', audience: 'streaming', purpose: 'general', topic: null, position: 4 },
+      { key: 'event-stream', scope: 'per_event', kind: 'text', namePattern: '{slug}-stream', audience: 'streaming', purpose: 'general', topic: null, position: 5 },
+    ],
+  };
+
+  it('keeps streaming staff out of the day channel and the event’s floor and penalties', () => {
+    const day = desiredChannels(streamDay(), DEFAULT_BLUEPRINT, ctx());
+    expect(audience(day, 'day-staff', null)).toEqual([MISTY, ASH]);
+    expect(audience(day, 'floor', VGC)).toEqual([ASH]);
+    expect(audience(day, 'penalties', VGC)).toEqual([ASH]);
+    expect(audience(day, 'head-judges', null)).toEqual([ASH]);
+  });
+
+  it('shows a streaming channel to the streaming staff in scope and their head judges', () => {
+    const day = desiredChannels(streamDay(), withStream, ctx());
+    expect(audience(day, 'stream', null)).toEqual([BROCK, ASH]);
+    expect(audience(day, 'event-stream', VGC)).toEqual([BROCK, ASH]);
+    expect(audience(day, 'event-stream', LC)).toEqual([]);
+  });
+
+  it('takes each event’s role on its own for someone who streams one event and judges another', () => {
+    const gary = { staffMemberId: GARY, discordUserId: user(GARY), linkState: 'linked' as const, events: [{ eventId: LC, role: 'streaming' as const }, { eventId: VGC, role: 'judge' as const }] };
+    const day = desiredChannels(streamDay([gary]), withStream, ctx());
+    for (const [key, eventId] of [['day-staff', null], ['floor', VGC], ['penalties', VGC], ['stream', null], ['event-stream', LC]] as const) {
+      expect(audience(day, key, eventId)).toContain(GARY);
+    }
+    expect(audience(day, 'floor', LC)).not.toContain(GARY);
+    expect(audience(day, 'penalties', LC)).not.toContain(GARY);
+  });
+
+  it('keeps day staff with no event in the day channel and out of streaming channels', () => {
+    const tracey = { staffMemberId: TRACEY, discordUserId: user(TRACEY), linkState: 'linked' as const, events: [] };
+    const day = desiredChannels(streamDay([tracey]), withStream, ctx());
+    expect(audience(day, 'day-staff', null)).toContain(TRACEY);
+    expect(audience(day, 'stream', null)).not.toContain(TRACEY);
+  });
+
+  it('treats a streaming head-judge role holder as a day head judge, still outside the event’s channels', () => {
+    const day = desiredChannels(streamDay(), withStream, ctx({ headJudgeRoleHolders: new Set([user(BROCK)]) }));
+    for (const key of ['day-staff', 'head-judges', 'stream']) expect(audience(day, key, null)).toContain(BROCK);
+    expect(audience(day, 'floor', VGC)).not.toContain(BROCK);
+    expect(audience(day, 'penalties', VGC)).not.toContain(BROCK);
+  });
+
+  it('never puts streaming staff in a penalties channel, whatever the blueprint (property)', () => {
+    const roles = fc.constantFrom('headjudge', 'judge', 'scorekeeper', 'administration', 'translator', 'streaming');
+    const channels = fc.array(
+      fc
+        .record({ scope: fc.constantFrom('day', 'per_event'), audience: fc.constantFrom('all_staff', 'event_staff', 'head_judges', 'streaming'), purpose: fc.constantFrom('general', 'floor', 'penalties') })
+        .map((c) => c as Pick<BlueprintChannelInput, 'scope' | 'audience' | 'purpose'>),
+      { minLength: 1, maxLength: 6 },
+    );
+    const blueprints = channels
+      .map(
+        (cs): BlueprintInput => ({
+          name: 'B',
+          categoryNamePattern: '{title}',
+          channels: cs.map((c, i) => ({ ...c, key: `c${i}`, kind: 'text', namePattern: c.scope === 'day' ? `c${i}` : `{slug}-c${i}`, topic: null, position: i })),
+        }),
+      )
+      .filter((b) => validateBlueprint(b).length === 0);
+    const plans = fc
+      .record({
+        eventCount: fc.integer({ min: 1, max: 4 }),
+        staff: fc.array(fc.record({ roleHolder: fc.boolean(), roles: fc.array(fc.option(roles), { maxLength: 4 }) }), { maxLength: 8 }),
+      })
+      .map(({ eventCount, staff }) => ({
+        plan: {
+          day: { id: 1, date: '2026-10-18', title: 'T' },
+          events: Array.from({ length: eventCount }, (_, i) => ({ id: 100 + i, name: `E${i}`, slug: `e${i}`, startsAt: i, gameConfirmed: true })),
+          staff: staff.map((s, i) => ({
+            staffMemberId: i + 1,
+            discordUserId: user(i + 1),
+            linkState: 'linked' as const,
+            events: s.roles.slice(0, eventCount).flatMap((r, e) => (r ? [{ eventId: 100 + e, role: r }] : [])),
+          })),
+        } satisfies PlanInput,
+        holders: new Set(staff.flatMap((s, i) => (s.roleHolder ? [user(i + 1)] : []))),
+      }));
+    fc.assert(
+      fc.property(plans, blueprints, ({ plan, holders }, blueprint) => {
+        const day = desiredChannels(plan, blueprint, ctx({ headJudgeRoleHolders: holders }));
+        const dayHeadJudge = (s: PlanInput['staff'][number]) => s.events.some((e) => e.role === 'headjudge') || holders.has(s.discordUserId!);
+        const streamingOnly = (s: PlanInput['staff'][number]) => s.events.length > 0 && s.events.every((e) => e.role === 'streaming');
+        for (const ch of day.channels.filter((c) => c.purpose === 'penalties')) {
+          for (const a of ch.audience) {
+            const s = plan.staff.find((p) => p.staffMemberId === a.staffMemberId)!;
+            if (ch.eventId !== null) expect(s.events.find((e) => e.eventId === ch.eventId)?.role).not.toBe('streaming');
+            else expect(streamingOnly(s) && !dayHeadJudge(s)).toBe(false);
+          }
+        }
       }),
       { seed: SEED, numRuns: 300 },
     );
@@ -314,6 +446,10 @@ describe('revokesAccess', () => {
     const withoutVgc = octoberDay();
     withoutVgc.events = withoutVgc.events.filter((e) => e.id !== VGC);
     expect(revokesAccess(day(before), day(withoutVgc))).toBe(true);
+
+    const streaming = octoberDay();
+    streaming.staff[1]!.events = [{ eventId: LC, role: 'streaming' }];
+    expect(revokesAccess(day(before), day(streaming))).toBe(true);
 
     const relinked = octoberDay();
     relinked.staff[2]!.discordUserId = user(8);

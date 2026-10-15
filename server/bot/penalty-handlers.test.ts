@@ -183,6 +183,49 @@ describe('/penalty', () => {
   });
 });
 
+describe('streaming staff', () => {
+  const RECORD = "You're on Cup's staff for streaming, so you can't record penalties.";
+
+  it('can’t record, list or pick the event, and are told why', async () => {
+    await world();
+    w.addStreamer(w.tcg.id);
+    const opened = await slash('penalty', PEOPLE.outsider, 'day-staff', { round: 3, event: String(w.tcg.id) });
+    expect(opened.modal ?? null).toBeNull();
+    expect(opened.ephemeral).toEqual([RECORD]);
+    expect((await slash('penalties', PEOPLE.outsider, 'day-staff', { event: String(w.tcg.id) })).ephemeral).toEqual([
+      "You're on Cup's staff for streaming, so you can't list penalties.",
+    ]);
+    const choices = await w.discord.interact({ ...base(PEOPLE.outsider, 'day-staff'), kind: 'autocomplete', name: 'penalty', focused: { name: 'event', value: '' } });
+    expect(choices.choices).toEqual([]);
+    expect(count()).toBe(0);
+  });
+
+  it('still lets an organizer who streams the event record and list, as organizers always may', async () => {
+    await world();
+    const oak = w.directory.create({ displayName: 'Oak', discordUserId: PEOPLE.organizer, playerId: '00001' });
+    w.setRole(oak.id, w.tcg.id, 'streaming');
+    expect((await slash('penalty', PEOPLE.organizer, 'cup-penalties', { round: 3 })).modal).toBeTruthy();
+    expect((await slash('penalties', PEOPLE.organizer, 'cup-penalties')).ephemeral).toEqual(['No penalties yet.']);
+  });
+
+  it('refuses a form submitted after the judge was switched to streaming', async () => {
+    await world();
+    const modal = (await slash('penalty', PEOPLE.ash, 'cup-penalties', { round: 3 })).modal!;
+    w.setRole(w.people.ash.id, w.tcg.id, 'streaming');
+    expect((await submit(modal.customId, PEOPLE.ash, 'cup-penalties', fill(modal))).ephemeral).toEqual([RECORD]);
+    expect(count()).toBe(0);
+  });
+
+  it('takes the card’s edit window from a judge switched to streaming', async () => {
+    await world();
+    const modal = (await slash('penalty', PEOPLE.ash, 'cup-penalties', { round: 3 })).modal!;
+    await submit(modal.customId, PEOPLE.ash, 'cup-penalties', fill(modal));
+    const p = w.penalties.list(w.dayId, [w.tcg.id])[0]!;
+    w.setRole(w.people.ash.id, w.tcg.id, 'streaming');
+    expect((await click(`genie:penalty-edit:${p.id}`, PEOPLE.ash)).ephemeral).toEqual(["You can't edit this penalty."]);
+  });
+});
+
 describe('autocomplete for event', () => {
   it('offers the open day’s events the caller is on, matching what they typed, and nothing elsewhere', async () => {
     await world();

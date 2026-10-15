@@ -3,7 +3,7 @@
  * Import or refresh a day from attendance (ADR-0008, §4.2): pull, show what would change, accept the checked items.
  * Anything that may take access away on an open day starts unchecked, and so does anything that undoes a hand edit.
  */
-type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator';
+type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator' | 'streaming';
 type Game = 'tcg' | 'vgc' | 'go' | 'other';
 interface StaffRef {
   playerId: string;
@@ -64,7 +64,7 @@ const REASONS: Record<string, string> = {
   read_failed: 'couldn’t be read',
   not_connected: 'is no longer connected in attendance',
 };
-const ROLE_LABEL: Record<Role, string> = { headjudge: 'head judge', judge: 'judge', scorekeeper: 'scorekeeper', administration: 'administration', translator: 'translator' };
+const ROLE_LABEL: Record<Role, string> = { headjudge: 'head judge', judge: 'judge', scorekeeper: 'scorekeeper', administration: 'administration', translator: 'translator', streaming: 'streaming' };
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const gameLabel = (g: Game) => (g === 'other' ? 'other' : g.toUpperCase());
 
@@ -113,6 +113,7 @@ function warnings(item: Item): string[] {
   if (item.kind === 'event_removed' && item.byHandStaff.length) out.push(`Also ends roles you added by hand: ${item.byHandStaff.join(', ')}.`);
   if (item.kind === 'event_removed' && item.uncertain) out.push('A professor couldn’t be read: this tournament may have moved to them.');
   if (item.kind === 'role_changed' && item.setByHand) out.push('You set this role by hand.');
+  if (item.kind === 'role_changed' && item.from === 'streaming') out.push('Accepting makes them a judge: they get the event’s floor and penalties channels.');
   return out;
 }
 

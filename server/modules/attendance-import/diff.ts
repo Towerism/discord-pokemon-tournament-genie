@@ -3,6 +3,7 @@
  * one hard rule is property-tested: nothing an unread organizer owns is ever removed, and a refresh only ever
  * proposes removing staff an import put there.
  */
+import type { EventRole } from '../../../shared/blueprints';
 import type { AttendanceDay, AttendanceRole, AttendanceTournament, UnreadReason } from '../attendance/port';
 
 export type Game = 'tcg' | 'vgc' | 'go' | 'other';
@@ -27,7 +28,8 @@ export interface StateStaff {
   playerId: string | null;
   /** An import put them on the day. */
   dayImported: boolean;
-  roles: { eventId: number; role: AttendanceRole; imported: boolean }[];
+  /** Genie's roles, so `streaming` too: only an organizer sets it, attendance never does (ADR-0015). */
+  roles: { eventId: number; role: EventRole; imported: boolean }[];
 }
 
 /** The day as the diff needs it, plus the directory rows for the response's player IDs. */
@@ -78,8 +80,8 @@ export type DiffItem =
       changes: { name?: Change<string>; startsAt?: Change<number>; tournamentId?: Change<string | null>; game?: Change<Game> };
     }
   | { kind: 'staff_added'; key: string; eventId: number; staff: StaffRef }
-  | { kind: 'staff_removed'; key: string; eventId: number; staffMemberId: number; displayName: string; role: AttendanceRole }
-  | { kind: 'role_changed'; key: string; eventId: number; staffMemberId: number; displayName: string; from: AttendanceRole; to: AttendanceRole; setByHand: boolean };
+  | { kind: 'staff_removed'; key: string; eventId: number; staffMemberId: number; displayName: string; role: EventRole }
+  | { kind: 'role_changed'; key: string; eventId: number; staffMemberId: number; displayName: string; from: EventRole; to: AttendanceRole; setByHand: boolean };
 
 export type NotRefreshedStatus = UnreadReason | 'not_connected';
 

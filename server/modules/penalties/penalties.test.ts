@@ -161,6 +161,22 @@ describe('the card', () => {
     expect(w.discord.messages.size).toBe(before);
   });
 
+  it('never falls back to a streaming channel, however low its position', async () => {
+    const stream = { key: 'stream', scope: 'per_event' as const, kind: 'text' as const, namePattern: '{slug}-stream', audience: 'streaming' as const, purpose: 'general' as const, topic: null, position: 0 };
+    const floorOnly = DEFAULT_BLUEPRINT.channels.filter((c) => c.key === 'floor').map((c) => ({ ...c, position: 1 }));
+    w = await penaltyWorld({ blueprint: { ...DEFAULT_BLUEPRINT, name: 'Stream and floor', channels: [stream, ...floorOnly] } });
+    await w.penalties.record(w.recordInput());
+    expect(w.messagesIn('cup-stream')).toHaveLength(0);
+    expect(w.messagesIn('cup-floor')).toHaveLength(1);
+    w.close();
+
+    w = await penaltyWorld({ blueprint: { ...DEFAULT_BLUEPRINT, name: 'Stream only', channels: [stream] } });
+    const before = w.discord.messages.size;
+    const result = await w.penalties.record(w.recordInput());
+    expect(result.penalty.cardState).toBe('none');
+    expect(w.discord.messages.size).toBe(before);
+  });
+
   it('edits the card to the latest revision even when the first card edit is held', async () => {
     w = await penaltyWorld();
     const { penalty } = await w.penalties.record(w.recordInput());
@@ -299,6 +315,33 @@ describe('editing and voiding', () => {
     const { penalty } = await w.penalties.record(w.recordInput());
     const { day } = w.days.createDay({ date: '2026-10-18', title: 'Other' });
     expect(await refusal(w.penalties.edit(day.id, penalty.id, { severity: 'Major' }, { expectedRevision: 1, by: PEOPLE.brock }))).toMatchObject({ status: 404 });
+  });
+});
+
+describe('streaming staff and the judge', () => {
+  it('never offers streaming staff as the judge, and refuses naming one', async () => {
+    w = await penaltyWorld();
+    const tracey = w.addStreamer(w.tcg.id);
+    expect(w.penalties.judges(w.dayId, w.tcg.id).map((j) => j.name)).toEqual(['Ash', 'Brock']);
+    expect(await refusal(w.penalties.record(w.recordInput({ judgeStaffMemberId: tracey.id })))).toMatchObject({ status: 422, code: 'judge_not_judging' });
+    expect(count('penalty')).toBe(0);
+  });
+
+  it('keeps a penalty whose judge now streams, editable without changing the judge, but never re-named to a streamer', async () => {
+    w = await penaltyWorld();
+    const { penalty } = await w.penalties.record(w.recordInput());
+    const csvBefore = w.penalties.csv(w.dayId, w.tcg.id, false).body;
+    w.setRole(w.people.ash.id, w.tcg.id, 'streaming');
+
+    expect(w.penalties.csv(w.dayId, w.tcg.id, false).body).toBe(csvBefore);
+    const edited = await w.penalties.edit(w.dayId, penalty.id, { notes: 'Drew two extra cards.' }, { expectedRevision: 1, by: PEOPLE.brock });
+    expect(edited.penalty).toMatchObject({ revision: 2, notes: 'Drew two extra cards.', judge: { staffMemberId: w.people.ash.id, playerId: '00123' } });
+
+    const tracey = w.addStreamer(w.tcg.id);
+    expect(await refusal(w.penalties.edit(w.dayId, penalty.id, { judgeStaffMemberId: tracey.id }, { expectedRevision: 2, by: PEOPLE.brock }))).toMatchObject({
+      status: 422,
+      code: 'judge_not_judging',
+    });
   });
 });
 

@@ -187,6 +187,56 @@ describe('the preview', () => {
   });
 });
 
+describe('streaming staff', () => {
+  it('are planned like any role, and the preview keeps them out of the day, floor and penalties channels', async () => {
+    const { staff } = ok(await organizer.get('/api/staff')) as { staff: { id: number; displayName: string }[] };
+    const id = (name: string) => staff.find((s) => s.displayName === name)!.id;
+    const day = (ok(await organizer.post('/api/days', { date: '2026-10-19', title: 'Stream' }), 201) as { day: { id: number } }).day.id;
+    const cup = (ok(await organizer.post(`/api/days/${day}/events`, { name: 'Cup', game: 'vgc', startTime: '10:00' }), 201) as { id: number }).id;
+    ok(
+      await organizer.put(`/api/days/${day}/staff`, {
+        staff: [
+          { staffMemberId: id('Misty'), events: [{ eventId: cup, role: 'streaming' }] },
+          { staffMemberId: id('Brock'), events: [{ eventId: cup, role: 'judge' }] },
+        ],
+      }),
+    );
+    const plan = ok(await organizer.get(`/api/days/${day}`)) as { staff: { staffMemberId: number; events: { eventId: number; role: string }[] }[] };
+    expect(plan.staff.find((s) => s.staffMemberId === id('Misty'))!.events).toEqual([{ eventId: cup, role: 'streaming' }]);
+    const preview = ok(await organizer.get(`/api/days/${day}/preview`)) as { channels: { name: string; audience: { displayName: string }[] }[] };
+    for (const name of ['day-staff', 'cup-floor', 'cup-penalties']) {
+      expect(preview.channels.find((c) => c.name === name)!.audience.map((a) => a.displayName), name).toEqual(['Brock']);
+    }
+  });
+
+  it('get blueprint channels of their own, never a penalties one', async () => {
+    const channel = (key: string, scope: string, audience: string, purpose: string) => ({
+      key,
+      scope,
+      kind: 'text',
+      namePattern: scope === 'day' ? key : `{slug}-${key}`,
+      audience,
+      purpose,
+      topic: null,
+      position: 0,
+    });
+    const created = ok(
+      await organizer.post('/api/blueprints', { name: 'With stream', categoryNamePattern: '{title}', channels: [channel('stream', 'day', 'streaming', 'general'), channel('cam', 'per_event', 'streaming', 'floor')] }),
+      201,
+    ) as { id: number };
+    const { blueprints } = ok(await organizer.get('/api/blueprints')) as { blueprints: { id: number; channels: { key: string; audience: string }[] }[] };
+    expect(blueprints.find((b) => b.id === created.id)!.channels.map((c) => [c.key, c.audience]).sort()).toEqual([
+      ['cam', 'streaming'],
+      ['stream', 'streaming'],
+    ]);
+    for (const scope of ['day', 'per_event']) {
+      const refused = await organizer.post('/api/blueprints', { name: `Bad ${scope}`, categoryNamePattern: '{title}', channels: [channel('p', scope, 'streaming', 'penalties')] });
+      expect(refused.status, refused.text).toBe(422);
+      expect(refused.json()).toMatchObject({ data: { code: 'invalid_blueprint', problems: [{ path: 'channels.0.audience', code: 'audience_not_allowed' }] } });
+    }
+  });
+});
+
 describe('editing a staff member', () => {
   // Its own members and draft day: the suite's opened day is read by later tests, and an edit must not queue a sync there.
   const KEN = '100000000000000201';
@@ -365,6 +415,7 @@ describe('every M2 route', () => {
       ['POST', `/api/days/${otherDayId}/events`, { name: 'X', game: 'go', startTime: '10:00', slug: '-bad' }],
       ['POST', `/api/days/${otherDayId}/events`, { name: 'X', game: 'go', startTime: '10:00', tournamentId: '25-12-1050' }],
       ['PUT', `/api/days/${otherDayId}/staff`, { staff: [{ staffMemberId: 'one', events: [] }] }],
+      ['PUT', `/api/days/${otherDayId}/staff`, { staff: [{ staffMemberId: 1, events: [{ eventId: 1, role: 'streamer' }] }] }],
       ['POST', '/api/blueprints', { name: 'B', categoryNamePattern: '{title}', channels: [{ key: 'k' }] }],
       ['POST', '/api/templates', { name: 'T', blueprintId: 1, events: [{ name: 'E', game: 'go', startTime: '9:00' }] }],
     ];

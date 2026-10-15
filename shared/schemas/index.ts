@@ -22,7 +22,7 @@ const name64 = z.string().trim().min(1).max(64);
 const playerId = z.string().regex(/^\d{1,10}$/, 'Player IDs are digits only.');
 const id = z.number().int().positive();
 const game = z.enum(['tcg', 'vgc', 'go', 'other']);
-const eventRole = z.enum(['headjudge', 'judge', 'scorekeeper', 'administration', 'translator']);
+const eventRole = z.enum(['headjudge', 'judge', 'scorekeeper', 'administration', 'translator', 'streaming']);
 const localTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM.');
 const calendarDate = z.string().refine((s) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
@@ -42,7 +42,7 @@ const blueprintChannel = z.strictObject({
   scope: z.enum(['day', 'per_event']),
   kind: z.enum(['text', 'voice']),
   namePattern: z.string().trim().min(1).max(100),
-  audience: z.enum(['all_staff', 'event_staff', 'head_judges']),
+  audience: z.enum(['all_staff', 'event_staff', 'head_judges', 'streaming']),
   purpose: z.enum(['general', 'floor', 'penalties']),
   topic: z.string().max(1024).nullable(),
   position: z.number().int().min(0).max(1000),
