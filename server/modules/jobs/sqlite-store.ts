@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client';
 import { job, jobEvent } from '../../db/schema';
 import type { JobEventView, JobStore, JobView } from './store';
@@ -35,6 +35,19 @@ export function createSqliteJobStore(db: Db): JobStore {
     },
     listByState(state) {
       return db.select().from(job).where(eq(job.state, state)).orderBy(asc(job.id)).all().map(view);
+    },
+    latestForDay(dayId) {
+      const row = db.select().from(job).where(eq(job.dayId, dayId)).orderBy(desc(job.id)).get();
+      return row ? view(row) : null;
+    },
+    findQueued(kinds, dayId) {
+      const row = db
+        .select({ id: job.id })
+        .from(job)
+        .where(and(eq(job.state, 'queued'), eq(job.dayId, dayId), inArray(job.kind, [...kinds])))
+        .orderBy(asc(job.id))
+        .get();
+      return row?.id ?? null;
     },
     leasedDays() {
       const rows = db

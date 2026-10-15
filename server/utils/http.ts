@@ -1,7 +1,8 @@
 import { enforceRateLimit } from '@towerism/selfhost-kit/nitro';
 import type { H3Event } from 'h3';
 import type { ZodType } from 'zod';
-import { type Principal, type Resource, canSee } from '../../shared/access/access';
+import { type Principal, type Resource, canSee, isOrganizer } from '../../shared/access/access';
+import { ServiceError } from '../modules/errors';
 import { SetupError } from '../modules/setup/errors';
 import { allowedOrigin } from './origin';
 
@@ -15,9 +16,35 @@ export async function handled<T>(fn: () => T | Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof SetupError) throw apiError(err.status, err.code, err.message, err.data);
+    if (err instanceof SetupError || err instanceof ServiceError) throw apiError(err.status, err.code, err.message, err.data);
     throw err;
   }
+}
+
+/** A route's integer ID parameter; anything else is an unknown resource. */
+export function idParam(event: H3Event, name = 'id'): number {
+  const raw = getRouterParam(event, name) ?? '';
+  const id = Number(raw);
+  if (!/^[1-9]\d{0,15}$/.test(raw) || !Number.isSafeInteger(id)) throw apiError(404, 'not_found', 'Not found.');
+  return id;
+}
+
+/** A route's Discord ID parameter; anything else is an unknown resource. */
+export function snowflakeParam(event: H3Event, name: string): string {
+  const raw = getRouterParam(event, name) ?? '';
+  if (!/^\d{17,20}$/.test(raw)) throw apiError(404, 'not_found', 'Not found.');
+  return raw;
+}
+
+/**
+ * The principal, if they may act on the day (ADR-0010). An unknown day is 404 for everyone; an existing day a
+ * non-organizer can't use is 403 (§11's auth matrix). Organizers pass without building the plan.
+ */
+export async function requireDay(event: H3Event, dayId: number, action: 'read' | 'preview' | 'sync' | 'edit' | 'open') {
+  const { principal, session } = await requirePrincipal(event, { kind: 'website' });
+  const plan = await handled(() => (isOrganizer(principal.grant) ? (useEventDays().plan(dayId), null) : useProvisioning().accessPlan(dayId, principal)));
+  if (plan && !canSee(principal, { kind: 'day', action }, plan)) throw apiError(403, 'forbidden', 'You can’t see this.');
+  return { principal, session };
 }
 
 export function originConfig() {
@@ -67,7 +94,7 @@ export function rateLimit(event: H3Event, route: 'login' | 'callback' | 'setup')
 export async function requirePrincipal(event: H3Event, resource: Resource) {
   const session = await getUserSession(event);
   if (!session.user || !session.grant) throw apiError(401, 'unauthenticated', 'Log in first.');
-  const principal: Principal = { userId: session.user.id, grant: session.grant };
+  const principal: Principal = { userId: session.user.id, grant: session.grant, holdsHeadJudgeRole: session.holdsHeadJudgeRole ?? false };
   if (!canSee(principal, resource)) {
     throw resource.kind === 'organizer_allowlist'
       ? apiError(403, 'owner_only', 'Only the install owner can do this.')

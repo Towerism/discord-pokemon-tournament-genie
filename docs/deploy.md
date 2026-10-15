@@ -250,3 +250,19 @@ Renovate GitHub App access to the repository. Without the ruleset, an automerge 
   ```
 - **A bad dependency update reached `main`:** revert its commit (a `fix(deps)` revert releases a new patch), and
   on Unraid pin the previous image tag until then (section 6).
+  
+## 9. Connect attendance
+
+Genie imports each day's tournaments and staff from attendance ([ADR-0008](architecture/adr/0008-attendance-integration.md)).
+
+1. In attendance, open *Settings → Integrations* and create a token. It is shown once; copy it.
+2. In Genie, open *Settings → Attendance*. Enter attendance's address as Genie's container reaches it: a
+   shared Docker network name (`http://attendance:3000`) or the host's LAN address (`http://192.168.1.10:3000`).
+   Paste the token and save. Genie keeps it sealed in its vault and only shows its last four characters.
+3. Changing the address needs the token again. To stop importing, remove the connection; days keep what they
+   already imported. To cut Genie off for good, revoke the token in attendance.
+
+Both apps must run with the same `TZ`, or Genie refuses the import and names both zones.
+
+**Before the first release with M3:** import one real day from the owner's attendance and check that each
+connected professor shows as read, or as not refreshed with the right reason.

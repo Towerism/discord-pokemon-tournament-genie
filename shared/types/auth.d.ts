@@ -11,6 +11,8 @@ declare module '#auth-utils' {
   }
   interface UserSession {
     grant?: Grant;
+    /** Holds the mapped head-judge role, as of `checkedAt` (ADR-0010). */
+    holdsHeadJudgeRole?: boolean;
     checkedAt?: number;
     setup?: { bootId: string };
     /** The OAuth state of the login this browser started; sealed, so no other site can plant it. */

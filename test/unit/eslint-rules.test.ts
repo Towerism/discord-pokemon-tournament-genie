@@ -25,6 +25,14 @@ describe('module boundary rules', () => {
     ['a module importing a kit value', 'server/modules/example/bad.ts', "import { createVault } from '@towerism/selfhost-kit';\nexport const x = createVault;\n", 'no-restricted-syntax'],
     ['a module using a Nitro auto-import', 'server/modules/example/bad.ts', 'export const x = () => useRuntimeConfig();\n', 'no-restricted-syntax'],
     ['a module importing the kit Nitro adapters', 'server/modules/example/bad.ts', "import { jsonOnly } from '@towerism/selfhost-kit/nitro';\nexport const x = jsonOnly;\n", 'no-restricted-imports'],
+    // M2's modules reach each other only through injected services, never Genie's wiring.
+    ['provisioning using the wiring', 'server/modules/provisioning/bad.ts', 'export const x = () => useEventDays();\n', 'no-restricted-syntax'],
+    ['event-days using the wiring', 'server/modules/event-days/bad.ts', 'export const x = () => useDirectory();\n', 'no-restricted-syntax'],
+    ['the directory using the wiring', 'server/modules/directory/bad.ts', 'export const x = () => useProvisioning();\n', 'no-restricted-syntax'],
+    ['the directory importing discord.js', 'server/modules/directory/bad.ts', "import { Client } from 'discord.js';\nexport const x = Client;\n", 'no-restricted-imports'],
+    // M3: only the attendance adapter calls attendance (§3), and the import reaches the plan through services.
+    ['a module calling fetch', 'server/modules/attendance-import/bad.ts', "export const x = () => fetch('http://attendance');\n", 'no-restricted-globals'],
+    ['attendance-import using the wiring', 'server/modules/attendance-import/bad.ts', 'export const x = () => useEventDays();\n', 'no-restricted-syntax'],
     ['a route importing the kit testing helpers', 'server/api/example.get.ts', "import { fakeClock } from '@towerism/selfhost-kit/testing';\nexport const x = fakeClock;\n", 'no-restricted-imports'],
     ['a route importing discord.js', 'server/api/example.get.ts', "import { Client } from 'discord.js';\nexport const x = Client;\n", 'no-restricted-imports'],
     ['server code using the console', 'server/utils/example.ts', "export const x = () => console.log('hi');\n", 'no-console'],
@@ -35,6 +43,7 @@ describe('module boundary rules', () => {
 
   it.each([
     ['the discord.js adapter importing discord.js', 'server/modules/discord/adapters/discordjs/example.ts', "import { Client } from 'discord.js';\nexport const x = Client;\n"],
+    ['the attendance adapter calling fetch', 'server/modules/attendance/adapters/http/example.ts', "export const x = () => fetch('http://attendance');\n"],
     ['a module importing kit types', 'server/modules/example/good.ts', "import type { Logger } from '@towerism/selfhost-kit';\nexport type X = Logger;\n"],
     ['server/utils building kit values', 'server/utils/example.ts', "import { createVault } from '@towerism/selfhost-kit';\nexport const x = createVault;\n"],
     ['a test importing the kit testing helpers', 'server/modules/example/good.test.ts', "import { fakeClock } from '@towerism/selfhost-kit/testing';\nexport const x = fakeClock;\n"],

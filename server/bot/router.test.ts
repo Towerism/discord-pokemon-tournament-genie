@@ -12,6 +12,9 @@ const interaction = (over: Partial<InboundInteraction> = {}): InboundInteraction
   guildId: GUILD,
   channelId: '600000000000000001',
   userId: '100000000000000001',
+  options: {},
+  memberRoleIds: [],
+  userDisplayName: 'Ash',
   ...over,
 });
 

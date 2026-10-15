@@ -7,7 +7,7 @@ const TEST_FILES = ['**/*.test.ts', 'test/**'];
 
 // h3 / Nitro / nuxt-auth-utils / server/utils auto-imports: invisible to no-restricted-imports.
 const SERVER_AUTO_IMPORTS =
-  /^(define(EventHandler|NitroPlugin|CachedEventHandler)|useRuntimeConfig|useNitroApp|useStorage|useEvent|createError|send(Error|Redirect|Stream)?|setResponse(Status|Header)|getRequestHeaders?|getQuery|getRouterParams?|readBody|getUserSession|setUserSession|requireUserSession|clearUserSession|useDatabase|useLogger|useSetup|useLogin|useSettings|useBot|useJobs|useVault)$/;
+  /^(define(EventHandler|NitroPlugin|CachedEventHandler)|useRuntimeConfig|useNitroApp|useStorage|useEvent|createError|send(Error|Redirect|Stream)?|setResponse(Status|Header)|getRequestHeaders?|getQuery|getRouterParams?|readBody|getUserSession|setUserSession|requireUserSession|clearUserSession|useDatabase|useLogger|useSetup|useLogin|useSettings|useBot|useJobs|useVault|useDirectory|useEventDays|useProvisioning)$/;
 
 const NO_NUXT_IN_MODULES = {
   selector: `CallExpression[callee.name=${SERVER_AUTO_IMPORTS}]`,
@@ -79,6 +79,12 @@ export default withNuxt(
         },
       ],
     },
+  },
+  {
+    // Only an adapter talks to the outside (§3): attendance through server/modules/attendance/adapters/http alone.
+    files: ['server/modules/**/*.ts'],
+    ignores: [...TEST_FILES, 'server/modules/*/adapters/**'],
+    rules: { 'no-restricted-globals': ['error', { name: 'fetch', message: 'Only an adapter calls the network; use its port.' }] },
   },
   {
     // Server code logs through the kit's logger (redacted, request-tagged), never the console (§10).

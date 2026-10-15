@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { INVITE_PERMISSIONS, PERMISSION_BITS, inviteUrl, missingPermissions } from './permissions';
+import { INVITE_PERMISSIONS, PERMISSION_BITS, bitsOf, inviteUrl, missingPermissions, namesOf } from './permissions';
+
+describe('bitsOf / namesOf', () => {
+  it('round-trips names through bits', () => {
+    expect(namesOf(bitsOf(['SendMessages', 'ViewChannel', 'MentionEveryone']))).toEqual(['ViewChannel', 'SendMessages', 'MentionEveryone']);
+    expect(PERMISSION_BITS.MentionEveryone).toBe(1n << 17n);
+  });
+
+  it('refuses an unknown name', () => {
+    expect(() => bitsOf(['ViewChanel'])).toThrow('Unknown permission: ViewChanel');
+  });
+});
 
 describe('invite permissions (ADR-0012)', () => {
   it('asks for exactly the 13 permissions, never Administrator', () => {

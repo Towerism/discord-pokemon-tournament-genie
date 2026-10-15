@@ -48,6 +48,7 @@ describe('logging in', () => {
       grant: 'organizer_role',
       isOwner: false,
       isOrganizer: true,
+      headJudgeDays: [],
     });
     expect((await auditRows()).at(-1)).toEqual({ user: IDS.organizer, grant: 'organizer_role' });
   });
@@ -119,6 +120,7 @@ describe('route authorization', () => {
   it('answers each route by grant: nobody 401, organizer role, owner', async () => {
     const anonymous = browser(genie.url);
     const organizer = await signedIn(IDS.organizer);
+    // M3's import and attendance-connection routes have their matrix in attendance.test.ts, beside the fake attendance.
     const routes = [
       ['GET', '/api/me'],
       ['GET', '/api/settings'],
