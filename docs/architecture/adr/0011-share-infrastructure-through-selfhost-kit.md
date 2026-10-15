@@ -2,6 +2,8 @@
 
 - Status: Accepted (2026-10-13)
 - Date: 2026-10-13
+- Updated 2026-10-15 (#34): the **Pin** paragraph, now that the kit is on 1.x. The decision is unchanged; it said 0.x
+  only until 1.0.
 
 ## Context
 
