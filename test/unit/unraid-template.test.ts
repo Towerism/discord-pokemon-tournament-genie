@@ -83,7 +83,9 @@ describe('the Unraid template', () => {
   it('leaves the timezone default to the image, which sets Central time', () => {
     const dockerfile = readFileSync('Dockerfile', 'utf8');
     const appStage = dockerfile.slice(dockerfile.indexOf(' AS app\n'));
-    expect(appStage).toMatch(/^ENV [^]*?\bTZ=America\/Chicago\b/m);
+    // The ENV instruction runs until the first line that doesn't end in a backslash.
+    const envBlock = /^ENV (?:.*\\\n)*.*$/m.exec(appStage)?.[0] ?? '';
+    expect(envBlock.split(/\s+/)).toContain('TZ=America/Chicago');
   });
 
   it('never asks for Discord credentials', () => {
