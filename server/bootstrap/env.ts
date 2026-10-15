@@ -1,4 +1,5 @@
 import { type Env, InvalidConfigError, prepareRuntimeEnv } from '@towerism/selfhost-kit';
+import { parsePurgeGrace } from '../../shared/closeout/grace';
 import { canonicalTimeZone } from '../../shared/time';
 import { SECRETS } from './secrets';
 
@@ -20,6 +21,7 @@ export const DEFAULT_TIME_ZONE = 'America/Chicago';
  * - session cookies are always `Secure` (ADR-0013; Chrome treats `http://localhost` as secure);
  * - the default port is 3001, beside attendance's 3000 (ADR-0009);
  * - the store's zone (`TZ`, §5.1) is Central unless set, and an unknown one stops the boot;
+ * - `GENIE_PURGE_GRACE` (§6.5) becomes `NUXT_PURGE_GRACE_MS`, and a value it can't read stops the boot;
  * - `NUXT_PUBLIC_SITE_URL`, when set, must be an https origin (ADR-0013).
  */
 export function prepareGenieEnv(input: Env) {
@@ -28,6 +30,7 @@ export function prepareGenieEnv(input: Env) {
   // Before the kit's steps, so a refused zone writes no secret files.
   const zone = resolveStoreTimeZone(env.TZ);
   env.TZ = zone.name;
+  env.NUXT_PURGE_GRACE_MS = String(purgeGrace(env.GENIE_PURGE_GRACE));
   const prepared = prepareRuntimeEnv(env, { secrets: SECRETS, positiveIntegerVars: RATE_LIMIT_VARS, validate: validateSiteUrl });
   prepared.log.push(`Store time zone: ${zone.name} (${zone.defaulted ? 'default; set TZ to change it' : 'from TZ'})`);
   return prepared;
@@ -47,6 +50,15 @@ function resolveStoreTimeZone(raw: string | undefined): { name: string; defaulte
     );
   }
   return { name, defaulted: false };
+}
+
+/** The close-out grace period (§6.5): a bad value stops the boot rather than purging early or never. */
+function purgeGrace(raw: string | undefined): number {
+  try {
+    return parsePurgeGrace(raw);
+  } catch (err) {
+    throw new InvalidConfigError((err as Error).message);
+  }
 }
 
 function validateSiteUrl(env: Env): void {
