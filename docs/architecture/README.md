@@ -460,6 +460,7 @@ erDiagram
 | Table | Key columns | Notes |
 | ----- | ----------- | ----- |
 | `guild_binding` | `guild_id`, `name`, `organizer_role_id`, `head_judge_role_id`, `organizer_allowlist_enabled` | Single row. Roles map Discord roles to Genie permissions (§9). |
+| `app_setting` | `current_season` | Single row (M4). Settings' *current season*: a new day copies it. A new season starts as a copy of an existing one's catalog. |
 | `organizer_allowlist` | `discord_user_id` (PK) | Optional, edited only by the install owner. When enabled, organizers are the owner plus members who hold the organizer role **and** are listed here (§9). |
 | `login_audit` | `discord_user_id`, `grant` (`owner`/`organizer_role`/`allowlist`/`event_head_judge`), `at` | One row per website login: which grant let them in. |
 | `staff_member` | `id`, `discord_user_id?` (unique), `player_id?` (unique), `display_name`, `link_state` (`linked`/`claimed`/`unlinked`) | The directory: one person, at most one Discord account and one player ID. A judge needs a player ID to record penalties (it is the CSV's *Judge Player ID*). |
@@ -473,8 +474,8 @@ erDiagram
 | `attendance_snapshot` | `day_id` (PK), `snapshot_id`, `payload`, `plan_revision`, `day_state`, `fetched_at`, `fetched_by` | The day's latest pull, waiting to be accepted (owner: `attendance-import`, §4.2). |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`) | The **only** record of which Discord channels Genie owns. Written immediately after each create. |
 | `job`, `job_event` | `kind` (`provision`/`sync`/`lock`/`export`/`reexport`/`attachments_retry`/`purge`/`retention_sweep`/`attendance_import`), `state`, `day_id`, `due_at?`, step log | Owned by Genie's own `jobs` module (§3): lease per day, event log, boot recovery, retry. `due_at` holds timer work (purge after grace, retention sweep), §10. |
-| `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7), editable in Settings. The CSV writes `label` as is. A guideline change is an edit, not a release. |
-| `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `discord_message_id`, `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the ID of the `/penalty` command interaction, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4). |
+| `penalty_category`, `penalty_type` | `id`, `label` (e.g. `Game Play`, `GL`), `games`, `rank`, `active`, `season` | The catalog, as data: seeded from the judges' clipboard penalty sheet (2024-05, §6.7) as season `2026-27`, editable in Settings. Labels are unique per season in any case. Rows are deactivated, never deleted, because penalties refer to them; at most 24 are active per game and list, leaving the Edit modal's select room for a choice no longer offered. The CSV writes `label` as is, so a relabel applies to the whole season. A guideline change is an edit, not a release. |
+| `penalty` | `id`, `event_id`, `idempotency_key` (unique), `round` (≥ 1; top-cut rounds keep counting, as in the sample), `competitor_player_id`, `category_id`, `severity` (`Minor`/`Major`/`Severe`), `penalty_type_id`, `notes`, `judge_staff_id`, `judge_player_id` (copied at recording), `recorded_by` (the Discord user who recorded it), `recorded_at`, `state` (`active`/`voided`), `void_reason?`, `number` (per event, from 1, never reused: "#12"), `discord_channel_id?`, `discord_message_id?`, `card_state` (`pending`/`posted`/`failed`/`missing`/`none`), `revision` | Structured, one row per CSV line. **No competitor name**: the report doesn't need one, so Genie never collects it. The Discord card is a view of this row, never the source. `idempotency_key` is the ID of the `/penalty` command interaction, or a UUID the website form generates, so a repeated submission returns the existing row (§6.4), but only to the same recorder on the same event: any other reuse is `409 idempotency_conflict` and reveals nothing. |
 | `penalty_revision` | `penalty_id`, `revision`, full row snapshot, `edited_by`, `edited_at` | Edits and voids are auditable. |
 | `export_file` | `day_id`, `kind` (`penalties_csv`/`penalties_voided_csv`/`transcript_json`/`transcript_html`/`thread_transcript_json`/`thread_transcript_html`/`attachment`), `event_id?`, `channel_id?`, `thread_id?`, `high_water_message_id?`, `path`, `sha256`, `bytes`, `created_at`, `superseded_by?` | Files live in `/data/exports/<day-id>/`. `high_water_message_id` is the newest message a transcript holds (§6.5). A re-exported CSV gets a new row, and the old row points to it through `superseded_by` and is kept. |
 | `export_attachment` | `export_file_id` (the transcript), `attachment_id`, `message_id`, `file_id?` (the saved `attachment` file), `state` (`saved`/`skipped`/`discarded`), `reason?` (`over_cap`/`download_failed`/`message_deleted`), `discarded_by?`, `discarded_at?` | One row per attachment in a transcript. Purge refuses while any row is `skipped` (§6.5). |
@@ -657,7 +658,15 @@ sequenceDiagram
 - **The card is a view.** If someone deletes the bot's card, the penalty still exists; the website shows
   it and "Repost card" restores it.
 - **Website parity.** An event's head judges can also view, edit and void that event's penalties on the
-  Penalties page, and add one there if Discord is down.
+  Penalties page, and add one there if Discord is down. The website form names the issuing judge (a staffer of
+  the event whose player ID isn't merely claimed); the caller is stored as `recorded_by`.
+- **As M4 builds it.** Recording, editing and voiding need an `open` day (`409 day_not_open` otherwise); the
+  corrections after close and the re-exported `export_file` rows come with M5, and M4's CSV is generated on
+  demand. Every edit and void names the revision it was made against (`409 revision_conflict`). The database
+  commits first; card work for a penalty runs one piece at a time and is recorded in `card_state`. A card goes to
+  the event's `penalties` channel, else its first per-event channel, and **never** to a day-wide channel, whose
+  audience spans events (ADR-0010). `/penalties` lists only to those the penalties channel shows them to. The
+  Discord Edit modal reuses the record modal's five components, so the round is changed on the website.
 
 ### 6.5 Close the day
 
@@ -805,14 +814,14 @@ shared Zod schemas. Errors carry `data.code`.
 | `GET/PUT/DELETE /api/settings/attendance` | organizer | The attendance connection: base URL and a token hint, never the token. `PUT` needs an allowed origin (ADR-0013) and the token again for a new base URL (`422 token_required`) |
 | `POST /api/days/{id}/open`, `/sync`, `/close`, `/purge` | organizer; `sync` and `close` also day head judges | Start jobs (202 + job id) |
 | `GET /api/jobs/{id}`, `GET /api/jobs/{id}/events` (SSE) | as the day | Progress |
-| `GET /api/days/{id}/penalties`, `POST`, `PATCH /{pid}`, `POST /{pid}/void`, `POST /{pid}/repost` | head judges of the event (that event's penalties only, until close), organizer | Penalties. `POST` with an already-used `idempotencyKey` returns `200` and the existing row. After close, `PATCH`/`void` are organizer-only (`403 closed_organizer_only`) and answer `{ penalty, exportFileId }` for the re-exported CSV |
+| `GET /api/days/{id}/penalties`, `POST`, `PATCH /{pid}`, `POST /{pid}/void`, `POST /{pid}/repost`, `GET /api/days/{id}/penalties.csv?eventId=&voided=` | head judges of the event (that event's penalties only, until close), organizer | Penalties and the CSV (`no-store`, logged; `422 export_blocked` without a Tournament ID). `POST` with an already-used `idempotencyKey` returns `200` and the existing row. Another event's penalty and a missing one get the same `403`. After close, `PATCH`/`void` are organizer-only (`403 closed_organizer_only`) and answer `{ penalty, exportFileId }` for the re-exported CSV |
 | `GET /api/days/{id}/exports`, `GET /api/exports/{fileId}` | `canSee()` on each file: an event's files go to its head judges and organizers; a day-wide channel's transcript goes to organizers and to head judges in that channel's audience | Download CSVs and transcripts (`no-store`, audited, served as §6.5 says; `403 not_in_audience`) |
 | `POST /api/days/{id}/reexport` | organizer | Re-export after messages newer than the high-water marks (202; `409` unless the day is `closed`) |
 | `POST /api/days/{id}/exports/attachments/retry` | organizer | Retry `skipped` attachments after raising the cap (202; `409 nothing_skipped`) |
 | `POST /api/days/{id}/exports/attachments/discard` | organizer | Body `{ attachmentIds, confirm: true }`; marks them `discarded` and logs it (`422` without `confirm`) |
 | `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim`, `POST /api/staff/{id}/reject-claim` | organizer | Directory; rejecting a claim deletes a row the claim itself created |
 | `GET /api/discord/members?q=` | organizer | Member picker |
-| `GET/POST/PUT/DELETE /api/blueprints[/{id}]`, `GET/POST/PUT/DELETE /api/templates[/{id}]`, `GET/PUT /api/catalog…`, `GET/PUT /api/settings` | organizer | Configuration (a blueprint an opened day uses is frozen: `409 blueprint_in_use`) |
+| `GET/POST/PUT/DELETE /api/blueprints[/{id}]`, `GET/POST/PUT/DELETE /api/templates[/{id}]`, `GET /api/catalog?season=`, `PUT /api/catalog/{season}`, `GET /api/settings`, `PUT /api/settings/season` | organizer | Configuration (a blueprint an opened day uses is frozen: `409 blueprint_in_use`) |
 | `POST /api/days/{id}/orphans/{channelId}/adopt`, `…/delete` | organizer | Adopt or delete a channel found in the day's category that Genie didn't record (§6.3) |
 | `GET /api/me` | signed in | The user and grant; for a head judge, `headJudgeDays`, their way to their days (`GET /api/days` is organizer only) |
 | `GET/PUT /api/settings/organizer-allowlist` | install owner only (`403 owner_only`) | Optional organizer allowlist (§9) |
@@ -897,7 +906,8 @@ logged (§4.1).
   replicates only the database, never `secrets/`. Restore `secrets/` with `app.db`.
 - **Logs:** structured, through the kit's logger. Redaction is the kit's base key list (credentials such
   as token, secret, clientSecret, authorization, cookie) plus Genie's extras: `content`, `notes`,
-  `botToken`, `attendanceToken` and the env names of Genie's secrets (`secretKeyNames`). Keys match by
+  `competitorPlayerId`, `voidReason`, `botToken`, `attendanceToken` and the env names of Genie's secrets
+  (`secretKeyNames`). Keys match by
   name, so a secret logged under any other property name needs its own entry.
 
 ## 11. Testing strategy (outline)
