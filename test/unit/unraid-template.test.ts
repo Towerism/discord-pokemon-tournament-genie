@@ -77,7 +77,13 @@ describe('the Unraid template', () => {
 
   it('offers the trusted proxies and the timezone as optional advanced fields', () => {
     expect(config('NUXT_TRUSTED_PROXIES')).toMatchObject({ Display: 'advanced', Default: '', Mask: 'false' });
-    expect(config('TZ')).toMatchObject({ Required: 'false' });
+    expect(config('TZ')).toMatchObject({ Display: 'advanced', Required: 'false', Default: '' });
+  });
+
+  it('leaves the timezone default to the image, which sets Central time', () => {
+    const dockerfile = readFileSync('Dockerfile', 'utf8');
+    const appStage = dockerfile.slice(dockerfile.indexOf(' AS app\n'));
+    expect(appStage).toMatch(/^ENV [^]*?\bTZ=America\/Chicago\b/m);
   });
 
   it('never asks for Discord credentials', () => {

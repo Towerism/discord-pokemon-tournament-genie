@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, isCalendarDate, isLocalTime, localTimeOf, zonedInstant } from './index';
+import { addDays, canonicalTimeZone, isCalendarDate, isLocalTime, localTimeOf, zonedInstant } from './index';
 
 const CHICAGO = 'America/Chicago';
 
@@ -37,5 +37,17 @@ describe('date helpers', () => {
   it('adds calendar days', () => {
     expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
     expect(addDays('2026-01-01', -1)).toBe('2025-12-31');
+  });
+});
+
+describe('canonicalTimeZone', () => {
+  it('names a zone by its canonical IANA name, folding aliases', () => {
+    expect(canonicalTimeZone(CHICAGO)).toBe(CHICAGO);
+    expect(canonicalTimeZone('US/Central')).toBe(CHICAGO);
+  });
+
+  it("answers null for a zone Intl doesn't know, like ICU's Etc/Unknown placeholder", () => {
+    expect(canonicalTimeZone('Etc/Unknown')).toBeNull();
+    expect(canonicalTimeZone('America/Chicgo')).toBeNull();
   });
 });

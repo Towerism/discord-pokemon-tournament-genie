@@ -83,7 +83,10 @@ export const useSettings = once(() =>
 /** The guild this install serves, once setup bound it (§5.1). */
 export const useBoundGuildId = (): string | null => useStore().binding()?.guildId ?? null;
 
-/** The store's zone (`TZ`, §5.1): days are its calendar dates. */
+/**
+ * The store's zone (`TZ`, §5.1): days are its calendar dates. In production the launcher has already defaulted
+ * and checked `TZ` (`prepareGenieEnv`); the fallback only serves `nuxt dev`.
+ */
 const storeTimeZone = () => process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /** Discord through the stored bot token (the port caches one REST client per token). */

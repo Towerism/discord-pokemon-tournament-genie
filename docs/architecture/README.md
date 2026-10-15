@@ -876,7 +876,8 @@ logged (§4.1).
 - **One Genie container on Unraid**, beside attendance ([ADR-0009](adr/0009-docker-on-unraid.md)):
   - port 3001 in the container, published only on the host's loopback (`127.0.0.1:3001`) or not at all,
     never to the LAN;
-  - `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ`;
+  - `/data` appdata (`app.db`, `secrets/`, `exports/`), PUID/PGID 99/100, `TZ` (the store's zone: Central,
+    `America/Chicago`, when blank, set in the image and by the launcher; an unknown zone stops the boot);
   - no required template fields; `NUXT_PUBLIC_SITE_URL` is optional, and without it `/setup` is reachable
     only through an SSH tunnel to the host's loopback (§6.1).
 

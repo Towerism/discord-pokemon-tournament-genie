@@ -3,6 +3,7 @@
  * The token goes to `{baseUrl}/api/integrations/v1/days/{date}` and nowhere else: redirects are never followed.
  */
 import { z } from 'zod';
+import { canonicalTimeZone } from '../../../../../shared/time';
 import {
   type AttendanceDay,
   AttendanceAuthError,
@@ -12,7 +13,6 @@ import {
   type AttendanceSource,
   AttendanceUnavailableError,
   EVENT_ROLES,
-  canonicalTimeZone,
 } from '../../port';
 
 export interface AttendanceHttpOptions {

@@ -262,7 +262,9 @@ Genie imports each day's tournaments and staff from attendance ([ADR-0008](archi
 3. Changing the address needs the token again. To stop importing, remove the connection; days keep what they
    already imported. To cut Genie off for good, revoke the token in attendance.
 
-Both apps must run with the same `TZ`, or Genie refuses the import and names both zones.
+Both apps must run with the same `TZ`, or Genie refuses the import and names both zones. Genie's container
+uses Central time (`America/Chicago`) when the template's **Timezone** is blank; set it to attendance's zone
+if the store is elsewhere. An unknown zone (a typo) stops Genie at boot, with the bad value in the log.
 
 **Before the first release with M3:** import one real day from the owner's attendance and check that each
 connected professor shows as read, or as not refreshed with the right reason.

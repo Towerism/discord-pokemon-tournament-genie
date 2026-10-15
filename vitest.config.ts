@@ -26,6 +26,8 @@ export default defineConfig({
         'server/modules/penalties/**': { branches: 90 },
         'shared/penalties/**': { branches: 90 },
         'server/bot/**': { branches: 85 },
+        // Every boot passes through it: a wrong zone shifts every start time, a missed refusal answers 500s.
+        'server/bootstrap/env.ts': { branches: 100 },
       },
     },
     projects: [

@@ -40,6 +40,15 @@ export function zonedInstant(date: string, time: string, timeZone: string): numb
   return Math.max(first, second);
 }
 
+/** The canonical name of an IANA zone, or `null` when `Intl` doesn't know it. Node folds some aliases, not all. */
+export function canonicalTimeZone(zone: string): string | null {
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: zone }).resolvedOptions().timeZone;
+  } catch {
+    return null;
+  }
+}
+
 /** The `HH:MM` of `instant` in `timeZone`. */
 export function localTimeOf(instant: number, timeZone: string): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(instant));
