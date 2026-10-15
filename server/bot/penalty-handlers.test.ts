@@ -200,6 +200,14 @@ describe('streaming staff', () => {
     expect(count()).toBe(0);
   });
 
+  it('still lets an organizer who streams the event record and list, as organizers always may', async () => {
+    await world();
+    const oak = w.directory.create({ displayName: 'Oak', discordUserId: PEOPLE.organizer, playerId: '00001' });
+    w.setRole(oak.id, w.tcg.id, 'streaming');
+    expect((await slash('penalty', PEOPLE.organizer, 'cup-penalties', { round: 3 })).modal).toBeTruthy();
+    expect((await slash('penalties', PEOPLE.organizer, 'cup-penalties')).ephemeral).toEqual(['No penalties yet.']);
+  });
+
   it('refuses a form submitted after the judge was switched to streaming', async () => {
     await world();
     const modal = (await slash('penalty', PEOPLE.ash, 'cup-penalties', { round: 3 })).modal!;

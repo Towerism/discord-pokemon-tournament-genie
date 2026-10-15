@@ -113,6 +113,7 @@ function warnings(item: Item): string[] {
   if (item.kind === 'event_removed' && item.byHandStaff.length) out.push(`Also ends roles you added by hand: ${item.byHandStaff.join(', ')}.`);
   if (item.kind === 'event_removed' && item.uncertain) out.push('A professor couldn’t be read: this tournament may have moved to them.');
   if (item.kind === 'role_changed' && item.setByHand) out.push('You set this role by hand.');
+  if (item.kind === 'role_changed' && item.from === 'streaming') out.push('Accepting makes them a judge: they get the event’s floor and penalties channels.');
   return out;
 }
 

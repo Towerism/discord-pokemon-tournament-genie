@@ -161,6 +161,22 @@ describe('the card', () => {
     expect(w.discord.messages.size).toBe(before);
   });
 
+  it('never falls back to a streaming channel, however low its position', async () => {
+    const stream = { key: 'stream', scope: 'per_event' as const, kind: 'text' as const, namePattern: '{slug}-stream', audience: 'streaming' as const, purpose: 'general' as const, topic: null, position: 0 };
+    const floorOnly = DEFAULT_BLUEPRINT.channels.filter((c) => c.key === 'floor').map((c) => ({ ...c, position: 1 }));
+    w = await penaltyWorld({ blueprint: { ...DEFAULT_BLUEPRINT, name: 'Stream and floor', channels: [stream, ...floorOnly] } });
+    await w.penalties.record(w.recordInput());
+    expect(w.messagesIn('cup-stream')).toHaveLength(0);
+    expect(w.messagesIn('cup-floor')).toHaveLength(1);
+    w.close();
+
+    w = await penaltyWorld({ blueprint: { ...DEFAULT_BLUEPRINT, name: 'Stream only', channels: [stream] } });
+    const before = w.discord.messages.size;
+    const result = await w.penalties.record(w.recordInput());
+    expect(result.penalty.cardState).toBe('none');
+    expect(w.discord.messages.size).toBe(before);
+  });
+
   it('edits the card to the latest revision even when the first card edit is held', async () => {
     w = await penaltyWorld();
     const { penalty } = await w.penalties.record(w.recordInput());

@@ -59,6 +59,8 @@ Option 1.
   `head_judges` is unchanged. Organizers see every channel through the organizer-role overwrite.
 - **No penalties channel for streaming.** A blueprint channel whose purpose is `penalties` can't use the
   `streaming` audience (`audience_not_allowed`). So no penalties channel ever shows an event's streaming staff.
+  The penalty card's fallback, used when the event has no present penalties channel, skips `streaming` channels
+  too. With nothing else, no card is posted.
 - **Not a judge.** `canSee`'s access plan gains `judgeOf`, the events where the staffer's role isn't
   `streaming`. Recording and listing penalties require it, so streaming staff:
   - can't run `/penalty` or `/penalties` for that event, and are told why;
@@ -66,7 +68,9 @@ Option 1.
   - lose a card's 15-minute Edit window;
   - can't be named as the judge on the website (`422 judge_not_judging`).
 
-  Penalties already recorded by someone who later switches to streaming stay as recorded.
+  Organizers are unchanged: one who lists themselves as streaming on an event can still record and list.
+  Penalties already recorded by someone who later switches to streaming stay as recorded. An attendance refresh
+  that would turn a streaming role back into a judging one says so in the dialog.
 - **The head-judge Discord role still wins.** A member with the mapped head-judge role who is on the day's staff
   is a day head judge (ADR-0004), whatever their event roles. The organizer grants that role as trust.
 

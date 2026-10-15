@@ -298,7 +298,10 @@ export function createPenaltiesService(opts: {
     return result;
   }
 
-  /** The event's penalties channel, else its first per-event channel; never a day-wide one (ADR-0010). */
+  /**
+   * The event's penalties channel, else its first per-event channel; never a day-wide one (ADR-0010), nor one for
+   * streaming staff, who aren't judges and must never see a penalty (ADR-0015).
+   */
   function cardChannel(dayId: number, eventId: number): string | null {
     const plan = eventDays.plan(dayId);
     const blueprint = eventDays.blueprint(plan.day.blueprintId);
@@ -306,7 +309,7 @@ export function createPenaltiesService(opts: {
       .channels(dayId)
       .filter((c) => c.eventId === eventId && c.state === 'present')
       .flatMap((c) => {
-        const meta = blueprint.channels.find((b) => b.key === c.key && b.scope === 'per_event');
+        const meta = blueprint.channels.find((b) => b.key === c.key && b.scope === 'per_event' && b.audience !== 'streaming');
         return meta ? [{ id: c.discordChannelId, rank: (meta.purpose === 'penalties' ? 0 : 1000) + meta.position }] : [];
       })
       .sort((a, b) => a.rank - b.rank);

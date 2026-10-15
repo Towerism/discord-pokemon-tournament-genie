@@ -115,7 +115,7 @@ const blueprintName = (id: number) => bp.value.blueprints.find((b) => b.id === i
             </select>
           </label>
           <label>Purpose
-            <select v-model="c.purpose" class="block border border-accented rounded p-1"><option value="general">General</option><option value="floor">Floor</option><option value="penalties">Penalties</option></select>
+            <select v-model="c.purpose" class="block border border-accented rounded p-1" @change="c.purpose === 'penalties' && c.audience === 'streaming' && (c.audience = 'head_judges')"><option value="general">General</option><option value="floor">Floor</option><option value="penalties">Penalties</option></select>
           </label>
           <UButton size="xs" variant="ghost" @click="editing.channels.splice(i, 1)">Remove</UButton>
         </div>
