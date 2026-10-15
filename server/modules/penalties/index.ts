@@ -7,9 +7,10 @@
  * so Discord failing never loses a penalty and a later revision is never overwritten by an earlier one.
  */
 import type { Clock, Logger } from '@towerism/selfhost-kit';
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, max, sql } from 'drizzle-orm';
 import {
   type Catalog,
+  EDIT_WINDOW_MS,
   type CatalogRow,
   type Game,
   GAMES,
@@ -226,6 +227,17 @@ export function createPenaltiesService(opts: {
     if (plan.day.state !== 'open') throw new ServiceError(409, 'day_not_open', 'Penalties change only while the day is open.');
   };
 
+  /**
+   * Edits and voids: while the day is open, or after close as an organizer's correction (§6.4). Never while the day is
+   * closing, when its export may be reading the penalties.
+   */
+  const requireChangeable = (plan: ReturnType<EventDaysService['plan']>, correction: boolean) => {
+    const state = plan.day.state;
+    if (state === 'closing') throw new ServiceError(409, 'day_closing', 'The day is closing: wait for its export.');
+    if (correction && (state === 'closed' || state === 'purged')) return;
+    requireOpen(plan);
+  };
+
   /** A staffer of the event with a player ID that an organizer has confirmed or imported (not just claimed). */
   function judgeOf(plan: ReturnType<EventDaysService['plan']>, eventId: number, staffMemberId: number) {
     const onEvent = plan.staff.find((s) => s.staffMemberId === staffMemberId && s.events.some((e) => e.eventId === eventId));
@@ -324,6 +336,8 @@ export function createPenaltiesService(opts: {
     serialize(id, async () => {
       const r = rowById(id)!;
       if (!r.discordChannelId || !r.discordMessageId) return;
+      // A purged day's channels are gone: nothing to edit (§6.4).
+      if (eventDays.plan(dayIdOf(r)).day.state === 'purged') return;
       try {
         const outcome = await gateway().editMessage(r.discordChannelId, r.discordMessageId, cardFor(r));
         setCard(id, { cardState: outcome === 'gone' ? 'missing' : 'posted' });
@@ -463,10 +477,10 @@ export function createPenaltiesService(opts: {
       return { penalty: view(rowById(outcome.id)!), created: outcome.created };
     },
 
-    async edit(dayId: number, id: number, patch: PenaltyPatch, opts: { expectedRevision: number; by: string }): Promise<{ penalty: PenaltyView }> {
+    async edit(dayId: number, id: number, patch: PenaltyPatch, opts: { expectedRevision: number; by: string; correction?: boolean }): Promise<{ penalty: PenaltyView }> {
       const changed = db.transaction(() => {
         const { row, plan, event: ev } = penaltyOfDay(dayId, id);
-        refuseChange(row, plan, opts.expectedRevision);
+        refuseChange(row, plan, opts.expectedRevision, opts.correction ?? false);
         checkFields(patch);
         const next: Partial<PenaltyRow> = {};
         if (patch.round !== undefined && patch.round !== row.round) next.round = patch.round;
@@ -499,10 +513,10 @@ export function createPenaltiesService(opts: {
       return { penalty: view(rowById(id)!) };
     },
 
-    async voidPenalty(dayId: number, id: number, opts: { reason: string; expectedRevision: number; by: string }): Promise<{ penalty: PenaltyView }> {
+    async voidPenalty(dayId: number, id: number, opts: { reason: string; expectedRevision: number; by: string; correction?: boolean }): Promise<{ penalty: PenaltyView }> {
       db.transaction(() => {
         const { row, plan } = penaltyOfDay(dayId, id);
-        refuseChange(row, plan, opts.expectedRevision);
+        refuseChange(row, plan, opts.expectedRevision, opts.correction ?? false);
         const reason = opts.reason.trim();
         if (!reason || reason.length > VOID_REASON_MAX) throw invalid('reason', `Reason: 1 to ${VOID_REASON_MAX} characters.`);
         const updated = db
@@ -520,7 +534,7 @@ export function createPenaltiesService(opts: {
 
     /** Posts a fresh card, stores it, then removes the old one best-effort (§6.4: "Repost card"). */
     repost(dayId: number, id: number): Promise<PenaltyView> {
-      penaltyOfDay(dayId, id);
+      requireOpen(penaltyOfDay(dayId, id).plan);
       return serialize(id, async () => {
         const r = rowById(id)!;
         const channelId = cardChannel(dayId, r.eventId);
@@ -542,6 +556,35 @@ export function createPenaltiesService(opts: {
         logger.info('Penalty card reposted.', { penaltyId: id, dayId });
         return view(rowById(id)!);
       });
+    },
+
+    /** Active penalties of the day whose recording judge may still be editing them (§6.5 step 1's confirmation). */
+    recentPenalties(dayId: number): { penaltyId: number; eventId: number; number: number; recordedAt: number }[] {
+      const eventIds = eventDays.plan(dayId).events.map((e) => e.id);
+      const since = clock.now() - EDIT_WINDOW_MS;
+      return db
+        .select({ penaltyId: penalty.id, eventId: penalty.eventId, number: penalty.number, recordedAt: penalty.recordedAt })
+        .from(penalty)
+        .where(and(inArray(penalty.eventId, [...eventIds, -1]), eq(penalty.state, 'active'), gte(penalty.recordedAt, since)))
+        .orderBy(asc(penalty.recordedAt), asc(penalty.id))
+        .all();
+    },
+
+    /** The event's penalty state as a number that only grows: its newest revision's rowid (0 without any). A CSV records it. */
+    sourceRevision(eventId: number): number {
+      const row = db
+        .select({ latest: sql<number | null>`max(${penaltyRevision}.rowid)` })
+        .from(penaltyRevision)
+        .innerJoin(penalty, eq(penalty.id, penaltyRevision.penaltyId))
+        .where(eq(penalty.eventId, eventId))
+        .get();
+      return row?.latest ?? 0;
+    },
+
+    /** Retention (§15 Q3): every penalty of the day and its revisions. Answers how many penalties went. */
+    deleteForDay(dayId: number): number {
+      const eventIds = eventDays.plan(dayId).events.map((e) => e.id);
+      return db.transaction(() => db.delete(penalty).where(inArray(penalty.eventId, [...eventIds, -1])).returning({ id: penalty.id }).all().length);
     },
 
     /** One event's file (§6.6): the active penalties, or the voided ones. */
@@ -574,9 +617,9 @@ export function createPenaltiesService(opts: {
   };
 
   /** The penalty's own refusals, after the caller was authorized: voided, then the day, then a stale revision. */
-  function refuseChange(row: PenaltyRow, plan: ReturnType<EventDaysService['plan']>, expectedRevision: number) {
+  function refuseChange(row: PenaltyRow, plan: ReturnType<EventDaysService['plan']>, expectedRevision: number, correction: boolean) {
     if (row.state === 'voided') throw new ServiceError(409, 'penalty_voided', 'This penalty was voided.');
-    requireOpen(plan);
+    requireChangeable(plan, correction);
     if (row.revision !== expectedRevision) throw new ServiceError(409, 'revision_conflict', 'Someone changed this penalty since.', { revision: row.revision });
   }
 }

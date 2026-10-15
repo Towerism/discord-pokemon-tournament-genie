@@ -251,7 +251,7 @@ describe('editing and voiding', () => {
 
     const other = await w.penalties.record(w.recordInput());
     w.database.sqlite.prepare("UPDATE event_day SET state = 'closing' WHERE id = ?").run(w.dayId);
-    expect(await refusal(w.penalties.edit(w.dayId, other.penalty.id, { severity: 'Major' }, { expectedRevision: 1, by: PEOPLE.brock }))).toMatchObject({ code: 'day_not_open' });
+    expect(await refusal(w.penalties.edit(w.dayId, other.penalty.id, { severity: 'Major' }, { expectedRevision: 1, by: PEOPLE.brock }))).toMatchObject({ code: 'day_closing' });
   });
 
   it('shows a voided card without buttons and with who voided it', async () => {
@@ -433,5 +433,60 @@ describe('the CSV', () => {
     expect(voided.body.split('\n')[1]).toMatch(/^26-10-000123,1,/);
     expect(kept.penalty.id).not.toBe(gone.penalty.id);
     expect(await refusal(() => w.penalties.csv(w.dayId, w.vgc.id, false))).toMatchObject({ status: 422, code: 'export_blocked', data: { problems: [{ code: 'tournament_id_missing' }] } });
+  });
+});
+
+describe('after the day closes', () => {
+  const close = () => {
+    w.days.markClosing(w.dayId, PEOPLE.brock, () => 0);
+    w.days.markClosed(w.dayId, w.clock.now());
+  };
+
+  it('takes corrections only as corrections, and edits the card while the channel is there', async () => {
+    w = await penaltyWorld();
+    const { penalty } = await w.penalties.record(w.recordInput());
+    close();
+    expect(await refusal(w.penalties.edit(w.dayId, penalty.id, { notes: 'x' }, { expectedRevision: 1, by: PEOPLE.brock }))).toMatchObject({ code: 'day_not_open' });
+    const edited = await w.penalties.edit(w.dayId, penalty.id, { notes: 'Corrected.' }, { expectedRevision: 1, by: PEOPLE.organizer, correction: true });
+    expect(edited.penalty).toMatchObject({ revision: 2, notes: 'Corrected.' });
+    expect(w.messagesIn('cup-penalties')[0]!.embed!.fields.some((f) => f.value === 'Corrected.')).toBe(true);
+    expect(await refusal(w.penalties.record(w.recordInput()))).toMatchObject({ code: 'day_not_open' });
+    expect(await refusal(() => w.penalties.repost(w.dayId, penalty.id))).toMatchObject({ code: 'day_not_open' });
+  });
+
+  it('makes no Discord call for a correction on a purged day', async () => {
+    w = await penaltyWorld();
+    const { penalty } = await w.penalties.record(w.recordInput());
+    close();
+    w.days.markPurged(w.dayId);
+    const before = w.discord.restCalls;
+    const voided = await w.penalties.voidPenalty(w.dayId, penalty.id, { reason: 'duplicate', expectedRevision: 1, by: PEOPLE.organizer, correction: true });
+    expect(voided.penalty.state).toBe('voided');
+    expect(w.discord.restCalls).toBe(before);
+  });
+
+  it('refuses every change while the day is closing, corrections too', async () => {
+    w = await penaltyWorld();
+    const { penalty } = await w.penalties.record(w.recordInput());
+    w.days.markClosing(w.dayId, PEOPLE.brock, () => 0);
+    expect(await refusal(w.penalties.edit(w.dayId, penalty.id, { notes: 'x' }, { expectedRevision: 1, by: PEOPLE.organizer, correction: true }))).toMatchObject({ status: 409, code: 'day_closing' });
+  });
+
+  it('answers the preflight’s recent penalties, the CSV’s source revision, and deletes a day’s penalties for retention', async () => {
+    w = await penaltyWorld();
+    const first = await w.penalties.record(w.recordInput());
+    w.clock.advance(60_000);
+    const second = await w.penalties.record(w.recordInput());
+    w.clock.advance(14 * 60_000 + 1);
+    expect(w.penalties.recentPenalties(w.dayId).map((p) => p.penaltyId)).toEqual([second.penalty.id]);
+    const revision = w.penalties.sourceRevision(w.tcg.id);
+    expect(revision).toBeGreaterThan(0);
+    expect(w.penalties.sourceRevision(w.vgc.id)).toBe(0);
+    await w.penalties.edit(w.dayId, first.penalty.id, { notes: 'x' }, { expectedRevision: 1, by: PEOPLE.brock });
+    expect(w.penalties.sourceRevision(w.tcg.id)).toBeGreaterThan(revision);
+
+    expect(w.penalties.deleteForDay(w.dayId)).toBe(2);
+    expect(count('penalty')).toBe(0);
+    expect(count('penalty_revision')).toBe(0);
   });
 });

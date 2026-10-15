@@ -228,11 +228,16 @@ export function createPenaltyHandlers(opts: {
     const access = provisioning.accessPlan(found.dayId, principal);
     const right = editRight({ eventId: found.penalty.eventId, judgeDiscordUserId: found.penalty.judgeDiscordUserId, recordedAt: found.penalty.recordedAt }, principal, access, clock.now());
     const isJudge = found.penalty.judgeDiscordUserId === i.userId && canSee(principal, { kind: 'event_penalties', eventId: found.penalty.eventId, action: 'record' }, access);
-    return { ...found, right, isJudge };
+    const closed = ['closing', 'closed', 'purged'].includes(eventDays.plan(found.dayId).day.state);
+    return { ...found, right, isJudge, closed };
   }
+
+  /** After close only organizers correct penalties, on the website, so the CSV is written again (§6.4). */
+  const CLOSED = 'This day is closed. Corrections are made on the website.';
 
   const editClick: CommandHandler = async (i, reply) => {
     const ctx = changeContext(i, Number(CHANGE_ID.exec(i.name)?.[2] ?? NaN));
+    if (ctx?.closed) return reply.ephemeral(CLOSED);
     if (!ctx || ctx.right === null) return reply.ephemeral(ctx?.isJudge ? 'Your 15 minutes to edit are up. Ask a head judge.' : CANT_EDIT);
     if (ctx.penalty.state === 'voided') return reply.ephemeral(`#${ctx.penalty.number} was voided.`);
     const ev = eventDays.plan(ctx.dayId).events.find((e) => e.id === ctx.penalty.eventId)!;
@@ -241,6 +246,7 @@ export function createPenaltyHandlers(opts: {
 
   const voidClick: CommandHandler = async (i, reply) => {
     const ctx = changeContext(i, Number(CHANGE_ID.exec(i.name)?.[2] ?? NaN));
+    if (ctx?.closed) return reply.ephemeral(CLOSED);
     if (!ctx || ctx.right !== 'manage') return reply.ephemeral(CANT_EDIT);
     if (ctx.penalty.state === 'voided') return reply.ephemeral(`#${ctx.penalty.number} was voided.`);
     await reply.showModal({
@@ -256,6 +262,7 @@ export function createPenaltyHandlers(opts: {
     const [, kind, id, revision] = parsed as unknown as [string, 'edit' | 'void', string, string];
     await reply.deferEphemeral();
     const ctx = changeContext(i, Number(id));
+    if (ctx?.closed) return reply.ephemeral(CLOSED);
     if (!ctx || ctx.right === null || (kind === 'void' && ctx.right !== 'manage')) return reply.ephemeral(CANT_EDIT);
     const n = ctx.penalty.number;
     try {
