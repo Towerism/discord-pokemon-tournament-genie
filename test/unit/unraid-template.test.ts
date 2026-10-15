@@ -13,6 +13,7 @@ interface Config {
   Display: string;
   Required: 'true' | 'false';
   Mask: 'true' | 'false';
+  Description?: string;
   value?: string;
 }
 const container = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'value', parseTagValue: false }).parse(xml)
@@ -35,6 +36,11 @@ describe('the Unraid template', () => {
     expect(new Set(imageNames).size).toBe(1);
     expect(container.Repository).toBe(`${imageNames[0]}:latest`);
     expect(container.Repository).toBe('ghcr.io/towerism/discord-pokemon-tournament-genie:latest');
+  });
+
+  it('offers the close-out grace period as an optional advanced field, blank meaning 7 days', () => {
+    expect(config('GENIE_PURGE_GRACE')).toMatchObject({ Display: 'advanced', Required: 'false', Default: '', Mask: 'false' });
+    expect(config('GENIE_PURGE_GRACE').Description).toMatch(/7d/);
   });
 
   it('offers the optional Litestream replica as advanced fields, with the keys masked', () => {
