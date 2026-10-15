@@ -2,7 +2,8 @@ import { type Page, expect, test } from '@playwright/test';
 import { IDS } from '../support/discord-world';
 import { ensureSetup, login } from './support';
 
-// The second critical journey of architecture §11: plan a day, open it, and see its channels.
+// The second critical journey of architecture §11: plan a day, open it, see its channels, then close it, download
+// its exports and purge it.
 
 /** Waits on the job through the API, never on a timeout. */
 async function jobDone(page: Page, dayId: string) {
@@ -12,7 +13,14 @@ async function jobDone(page: Page, dayId: string) {
   return ((await (await page.request.get(`/api/days/${dayId}`)).json()) as { latestJob: { state: string; error: string | null } }).latestJob;
 }
 
-test('an organizer plans a day, opens it, and a head judge finds it', async ({ page, request, browser }) => {
+/** Waits on the day's state through the API, never on a timeout. */
+async function dayState(page: Page, dayId: string, state: string) {
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/days/${dayId}`)).json()) as { day: { state: string } }).day.state, { timeout: 30_000 })
+    .toBe(state);
+}
+
+test('an organizer plans a day, opens it, a head judge closes it and downloads its exports, and the organizer purges it', async ({ page, request, browser }) => {
   await ensureSetup(page, request);
   await page.context().clearCookies();
   await login(page, request, IDS.owner);
@@ -36,6 +44,7 @@ test('an organizer plans a day, opens it, and a head judge finds it', async ({ p
   const dayId = page.url().split('/').at(-1)!;
 
   await page.getByLabel('Event name').fill('LC');
+  await page.getByLabel('Tournament ID').fill('26-10-000123');
   await page.getByRole('button', { name: 'Add event' }).click();
   await expect(page.getByRole('cell', { name: 'lc', exact: true })).toBeVisible();
   await page.getByLabel('Add staff').selectOption({ label: 'user0003' });
@@ -64,5 +73,38 @@ test('an organizer plans a day, opens it, and a head judge finds it', async ({ p
   await expect(judge.locator('[data-channel="lc-floor"]')).toBeVisible();
   await expect(judge.getByRole('button', { name: 'Sync' })).toBeVisible();
   await expect(judge.getByRole('button', { name: 'Add event' })).toHaveCount(0);
+
+  // The head judge closes the day; the confirmation names what will be locked.
+  await judge.getByRole('button', { name: 'Close the day' }).click();
+  await expect(judge.getByRole('alertdialog')).toContainText('Its 4 channels will be locked');
+  await judge.getByRole('button', { name: 'Confirm close' }).click();
+  await dayState(judge, dayId, 'closed');
+  await judge.reload();
+  await expect(judge.getByRole('status').filter({ hasText: 'Closed.' })).toBeVisible();
+  await judge.getByRole('link', { name: 'Exports' }).click();
+  await expect(judge.locator('[data-csv="LC"]')).toBeVisible();
+  await expect(judge.locator('[data-transcript="lc-floor"]')).toBeVisible();
+  await expect(judge.locator('[data-transcript="lc-penalties"]')).toBeVisible();
+  const href = await judge.locator('[data-csv="LC"] a').first().getAttribute('href');
+  const csv = await judge.request.get(href!);
+  expect(csv.status()).toBe(200);
+  expect(csv.headers()['content-type']).toBe('text/csv; charset=utf-8');
+  expect((await csv.text()).split('\n')[0]).toBe("Tournament ID,Round of Issue,Judge Player ID,Competitor's Player ID,Category,Severity,Penalty,Notes");
+  await judge.goto(`/days/${dayId}/penalties`);
+  await expect(judge.getByRole('status').filter({ hasText: 'This day is closed.' })).toBeVisible();
+  await expect(judge.getByRole('button', { name: 'Add penalty' })).toHaveCount(0);
   await context.close();
+
+  // The organizer keeps transcripts 120 days, then deletes the channels now.
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await expect(page.getByTestId('grace')).toHaveText('7 days');
+  await page.getByLabel('Keep transcripts (days)').fill('120');
+  await page.getByRole('button', { name: 'Save close-out' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await page.goto(`/days/${dayId}`);
+  await page.getByRole('button', { name: 'Delete now' }).click();
+  await page.getByRole('button', { name: 'Confirm delete' }).click();
+  await dayState(page, dayId, 'purged');
+  await page.reload();
+  await expect(page.getByRole('status').filter({ hasText: 'Closed and purged' })).toBeVisible();
 });

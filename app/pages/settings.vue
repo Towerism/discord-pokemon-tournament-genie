@@ -6,6 +6,7 @@ interface Settings {
   ownerId: string;
   organizerAllowlistEnabled: boolean;
   currentSeason: string;
+  closeOut: { transcriptRetentionDays: number; penaltyRetentionDays: number; attachmentCapMb: number; purgeGraceHours: number };
 }
 
 const { user } = useUserSession();
@@ -63,6 +64,8 @@ const roleName = (r: { id: string; name: string | null } | null) => (r ? (r.name
     <AttendanceCard />
 
     <PenaltyCatalogCard />
+
+    <CloseOutCard :initial="settings.closeOut" />
 
     <form v-if="isOwner" class="space-y-2" @submit.prevent="saveAllowlist">
       <h2 class="font-semibold">Organizer allowlist</h2>

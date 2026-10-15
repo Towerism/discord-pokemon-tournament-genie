@@ -30,6 +30,10 @@ interface DayPlan {
     blueprintId: number;
     categoryId: string | null;
     attendance: { source: 'manual' | 'attendance'; refreshedAt: number | null };
+    closingAt: number | null;
+    closedAt: number | null;
+    graceUntil: number | null;
+    purgedAt: number | null;
   };
   events: EventView[];
   staff: { staffMemberId: number; displayName: string; linkState: string; events: { eventId: number; role: Role }[] }[];
@@ -37,7 +41,12 @@ interface DayPlan {
   latestJob: JobView | null;
   channels: { key: string; eventId: number | null; discordChannelId: string; state: string }[];
   orphans: { discordChannelId: string; kind: string; name: string }[];
-  can: { edit: boolean; open: boolean; sync: boolean; penalties: boolean };
+  can: { edit: boolean; open: boolean; sync: boolean; penalties: boolean; close: boolean; closeout: boolean; exports: boolean };
+}
+interface ClosePreflight {
+  recentPenalties: { penaltyId: number; eventId: number; number: number; recordedAt: number }[];
+  csvBlocked: { eventId: number; name: string }[];
+  channels: number;
 }
 interface Preview {
   category: { name: string };
@@ -105,6 +114,29 @@ const sync = () =>
     follow(jobId);
   });
 
+// ---- close-out (§6.5): close with a confirmation, then Delete now once the day is closed.
+const preflight = ref<ClosePreflight | null>(null);
+const askClose = () =>
+  act(async () => {
+    preflight.value = await apiFetch<ClosePreflight>(`/api/days/${dayId}/close`);
+  });
+const close = () =>
+  act(async () => {
+    const { jobId } = await apiFetch<{ jobId: number }>(`/api/days/${dayId}/close`, { method: 'POST', body: { confirm: true } });
+    preflight.value = null;
+    follow(jobId);
+  });
+const confirmingDelete = ref(false);
+const deleteNow = () =>
+  act(async () => {
+    const { jobId } = await apiFetch<{ jobId: number }>(`/api/days/${dayId}/purge`, { method: 'POST', body: { confirm: true } });
+    confirmingDelete.value = false;
+    follow(jobId);
+  });
+const when = (ms: number | null) => (ms === null ? '' : new Date(ms).toLocaleString());
+/** The plan freezes once the day is closing: nothing may change who can see its locked channels. */
+const editable = computed(() => plan.value?.can.edit === true && (plan.value.day.state === 'draft' || plan.value.day.state === 'open'));
+
 // ---- events
 const newEvent = reactive({ name: '', game: 'tcg', startTime: '10:00', tournamentId: '' });
 const addEvent = () =>
@@ -119,7 +151,7 @@ const addEvent = () =>
 const removeEvent = (eventId: number) => act(() => apiFetch(`/api/days/${dayId}/events/${eventId}`, { method: 'DELETE' }));
 /** Setting the game confirms it: an imported tournament whose game attendance didn't know. */
 const setGame = (eventId: number, game: string) => act(() => apiFetch(`/api/days/${dayId}/events/${eventId}`, { method: 'PATCH', body: { game } }));
-const importable = computed(() => plan.value?.can.edit === true && (plan.value.day.state === 'draft' || plan.value.day.state === 'open'));
+const importable = editable;
 const imported = () => Promise.all([refreshPlan(), refreshPreview()]);
 
 // ---- staff and roles: edited locally, saved whole (PUT replaces).
@@ -174,10 +206,37 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
       <p class="text-sm text-muted">{{ plan.day.date }} · {{ plan.day.state }}</p>
       <UAlert v-if="plan.sync.revocationPending" color="error" title="Access not yet revoked: a sync that removes someone's access hasn't succeeded." />
       <p v-else-if="plan.day.state === 'open'" role="status" class="text-sm">{{ plan.sync.inSync ? 'Discord matches the plan.' : 'Discord is out of sync with the plan: Sync applies it.' }}</p>
+      <p v-if="plan.day.state === 'closing'" role="status" class="text-sm">Closing: the channels are being locked and exported.</p>
+      <p v-else-if="plan.day.state === 'closed'" role="status" class="text-sm">Closed. The channels stay locked until {{ when(plan.day.graceUntil) }}, then they are deleted.</p>
+      <p v-else-if="plan.day.state === 'purged'" role="status" class="text-sm">Closed and purged on {{ when(plan.day.purgedAt) }}: the channels are gone; the exports remain.</p>
       <div class="flex gap-2 pt-2">
         <UButton v-if="plan.can.open && plan.day.state === 'draft'" @click="open">Open the day</UButton>
         <UButton v-if="plan.can.sync && plan.day.state === 'open'" @click="sync">Sync</UButton>
+        <UButton v-if="plan.can.close && plan.day.state === 'open'" color="error" variant="soft" @click="askClose">Close the day</UButton>
         <UButton v-if="plan.can.penalties && plan.day.state !== 'draft'" :to="`/days/${dayId}/penalties`" variant="outline">Penalties</UButton>
+        <UButton v-if="plan.can.exports" :to="`/days/${dayId}/exports`" variant="outline">Exports</UButton>
+        <UButton v-if="plan.can.closeout && plan.day.state === 'closed' && !confirmingDelete" color="error" variant="ghost" @click="confirmingDelete = true">Delete now</UButton>
+      </div>
+      <div v-if="preflight" role="alertdialog" aria-labelledby="close-heading" class="border border-error rounded p-3 space-y-2 text-sm">
+        <h2 id="close-heading" class="font-semibold">Close {{ plan.day.title }}?</h2>
+        <p>Its {{ preflight.channels }} channels will be locked, so nobody but Genie can post, then exported. This can't be undone.</p>
+        <p v-if="preflight.recentPenalties.length" data-testid="recent-penalties">
+          Still in their judge's 15 minutes to edit:
+          {{ preflight.recentPenalties.map((p) => `#${p.number} (${eventName(p.eventId)})`).join(', ') }}.
+        </p>
+        <p v-if="preflight.csvBlocked.length">No Tournament ID, so no CSV until one is set: {{ preflight.csvBlocked.map((e) => e.name).join(', ') }}.</p>
+        <div class="flex gap-2">
+          <UButton color="error" @click="close">Confirm close</UButton>
+          <UButton variant="ghost" @click="preflight = null">Cancel</UButton>
+        </div>
+      </div>
+      <div v-if="confirmingDelete" role="alertdialog" aria-labelledby="delete-heading" class="border border-error rounded p-3 space-y-2 text-sm">
+        <h2 id="delete-heading" class="font-semibold">Delete the channels now?</h2>
+        <p>The grace period ends now. Genie deletes the channels only if the export holds everything in them.</p>
+        <div class="flex gap-2">
+          <UButton color="error" @click="deleteNow">Confirm delete</UButton>
+          <UButton variant="ghost" @click="confirmingDelete = false">Cancel</UButton>
+        </div>
       </div>
       <UAlert v-if="error" color="error" :title="error" />
     </div>
@@ -213,7 +272,7 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
               <span v-else class="flex items-center gap-1">
                 <UBadge color="warning" variant="soft">game not confirmed</UBadge>
                 <select
-                  v-if="plan.can.edit"
+                  v-if="editable"
                   :aria-label="`Game of ${e.name}`"
                   class="border border-accented rounded p-1"
                   @change="setGame(e.id, ($event.target as HTMLSelectElement).value)"
@@ -226,11 +285,11 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
             <td>{{ e.startTime }}</td>
             <td>{{ e.tournamentId ?? '—' }}</td>
             <td>{{ e.attendance?.organizerName ?? (e.attendance ? e.attendance.organizerPlayerId : '—') }}</td>
-            <td><UButton v-if="plan.can.edit && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
+            <td><UButton v-if="editable && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
           </tr>
         </tbody>
       </table>
-      <form v-if="plan.can.edit" class="flex flex-wrap items-end gap-2" @submit.prevent="addEvent">
+      <form v-if="editable" class="flex flex-wrap items-end gap-2" @submit.prevent="addEvent">
         <label class="text-sm">Event name <input v-model="newEvent.name" required maxlength="64" class="block border border-accented rounded p-1" ></label>
         <label class="text-sm">Game
           <select v-model="newEvent.game" class="block border border-accented rounded p-1">
@@ -258,16 +317,16 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
               </span>
             </td>
             <td v-for="e in plan.events" :key="e.id">
-              <select v-model="r.roles[e.id]" :disabled="!plan.can.edit" :aria-label="`${r.displayName}'s role in ${e.name}`" class="border border-accented rounded p-1">
+              <select v-model="r.roles[e.id]" :disabled="!editable" :aria-label="`${r.displayName}'s role in ${e.name}`" class="border border-accented rounded p-1">
                 <option value="">—</option>
                 <option v-for="role in ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
               </select>
             </td>
-            <td><UButton v-if="plan.can.edit" size="xs" variant="ghost" @click="removeStaffer(r.staffMemberId)">Remove</UButton></td>
+            <td><UButton v-if="editable" size="xs" variant="ghost" @click="removeStaffer(r.staffMemberId)">Remove</UButton></td>
           </tr>
         </tbody>
       </table>
-      <div v-if="plan.can.edit" class="flex flex-wrap items-end gap-2">
+      <div v-if="editable" class="flex flex-wrap items-end gap-2">
         <label class="text-sm">Add staff
           <select v-model="toAdd" class="block border border-accented rounded p-1" @change="addStaffer">
             <option value="">Choose…</option>
@@ -301,7 +360,7 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
       </ul>
       <div v-for="o in plan.orphans" :key="o.discordChannelId" class="flex flex-wrap items-center gap-2 text-sm">
         <span>Found {{ o.kind }} <strong>{{ o.name }}</strong>, which Genie didn't create.</span>
-        <template v-if="plan.can.edit">
+        <template v-if="editable">
           <label v-if="o.kind === 'channel'">Adopt as
             <select v-model="adoptTarget[o.discordChannelId]" class="border border-accented rounded p-1">
               <option v-for="k in keys" :key="k.value" :value="k.value">#{{ k.label }}</option>

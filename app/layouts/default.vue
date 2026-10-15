@@ -5,7 +5,11 @@ interface BotStatus {
   latencyMs?: number;
   missingPermissions: string[];
   extraGuilds: { id: string; name: string }[];
-  alarms: { kind: 'access_not_revoked'; dayId: number; title: string; since: number }[];
+  alarms: (
+    | { kind: 'access_not_revoked'; dayId: number; title: string; since: number }
+    | { kind: 'closeout_failed'; dayId: number; title: string; jobKind: string; since: number }
+    | { kind: 'purge_refused'; dayId: number; title: string; reasons: number; since: number }
+  )[];
 }
 
 const { loggedIn, user, clear } = useUserSession();
@@ -58,9 +62,19 @@ async function logout() {
         <UButton size="sm" variant="ghost" @click="logout">Log out</UButton>
       </template>
     </header>
-    <div v-for="alarm in status?.alarms ?? []" :key="alarm.dayId" role="alert" class="px-4 py-2 bg-error/10 text-sm">
-      Access not yet revoked on <NuxtLink :to="`/days/${alarm.dayId}`" class="underline">{{ alarm.title }}</NuxtLink>: a sync that removes
-      someone's access hasn't succeeded yet.
+    <div v-for="alarm in status?.alarms ?? []" :key="`${alarm.kind}:${alarm.dayId}`" role="alert" class="px-4 py-2 bg-error/10 text-sm">
+      <template v-if="alarm.kind === 'access_not_revoked'">
+        Access not yet revoked on <NuxtLink :to="`/days/${alarm.dayId}`" class="underline">{{ alarm.title }}</NuxtLink>: a sync that removes
+        someone's access hasn't succeeded yet.
+      </template>
+      <template v-else-if="alarm.kind === 'closeout_failed'">
+        Close-out of <NuxtLink :to="`/days/${alarm.dayId}/exports`" class="underline">{{ alarm.title }}</NuxtLink> failed at the
+        {{ alarm.jobKind.replace('_', ' ') }} step.
+      </template>
+      <template v-else>
+        The purge of <NuxtLink :to="`/days/${alarm.dayId}/exports`" class="underline">{{ alarm.title }}</NuxtLink> was refused
+        ({{ alarm.reasons }} reason{{ alarm.reasons === 1 ? '' : 's' }}): nothing was deleted.
+      </template>
     </div>
     <div v-if="status && status.missingPermissions.length" role="alert" class="px-4 py-2 bg-warning/10 text-sm">
       The bot is missing permissions: {{ status.missingPermissions.join(', ') }}.
