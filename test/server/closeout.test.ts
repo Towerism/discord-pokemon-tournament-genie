@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeDiscord } from '../../server/modules/discord/fake';
 import { CSP_TRANSCRIPT } from '../../shared/closeout';
@@ -208,6 +209,19 @@ describe('the exports, after close', () => {
     expect([csvReply.headers['content-type'], String(csvReply.headers['content-disposition'])]).toEqual(['text/csv; charset=utf-8', expect.stringMatching(/^attachment; filename="26-10-000123-penalties\.csv"/)]);
     expect(sha(csvReply.text)).toBe(csv.sha256);
     expect(csvReply.headers['cache-control']).toBe('no-store');
+  });
+
+  it('refuses a stored path that leaves the exports folder, without serving anything', async () => {
+    const floor = view.transcripts.find((t) => t.name === 'lc-penalties')!;
+    const db = new Database(genie.dataDir.databasePath);
+    try {
+      db.prepare("UPDATE export_file SET path = '../../app.db' WHERE id = ?").run(floor.json.id);
+    } finally {
+      db.close();
+    }
+    const reply = await organizer.get(`/api/exports/${floor.json.id}`);
+    expect([reply.status, code(reply)]).toEqual([404, 'not_found']);
+    expect(reply.text).not.toContain('SQLite format');
   });
 
   it('gives each head judge their event’s files only, and the same answer for files they may not see and files that don’t exist', async () => {
