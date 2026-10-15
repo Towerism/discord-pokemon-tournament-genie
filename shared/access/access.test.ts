@@ -229,6 +229,95 @@ describe('canSee for days and channels (ADR-0010)', () => {
   });
 });
 
+describe('canSee for close-out (ADR-0010)', () => {
+  const LC = 11;
+  const VGC = 12;
+  const HJ = '100000000000000011';
+  const ROLE_HJ = '100000000000000012';
+  const JUDGE = '100000000000000013';
+  const VGC_HJ = '100000000000000014';
+  const plan: AccessPlan = {
+    dayId: 1,
+    staff: [
+      { discordUserId: HJ, headJudgeOf: [LC], staffOf: [LC] },
+      { discordUserId: ROLE_HJ, headJudgeOf: [], staffOf: [] },
+      { discordUserId: JUDGE, headJudgeOf: [], staffOf: [LC] },
+      { discordUserId: VGC_HJ, headJudgeOf: [VGC], staffOf: [VGC] },
+    ],
+    channels: [
+      { key: 'day-staff', eventId: null, purpose: 'general', audienceUserIds: [HJ, ROLE_HJ, JUDGE, VGC_HJ] },
+      { key: 'head-judges', eventId: null, purpose: 'general', audienceUserIds: [HJ, ROLE_HJ, VGC_HJ] },
+      { key: 'floor', eventId: LC, purpose: 'floor', audienceUserIds: [HJ, JUDGE] },
+      { key: 'floor', eventId: VGC, purpose: 'floor', audienceUserIds: [VGC_HJ] },
+    ],
+  };
+  const hj = (userId: string, holdsHeadJudgeRole = false): Principal => ({ userId, grant: 'event_head_judge', holdsHeadJudgeRole });
+  const organizer: Principal = { userId: USER, grant: 'organizer_role', holdsHeadJudgeRole: false };
+  const csv = (eventId: number, dayPurged = false): Resource => ({ kind: 'export_file', file: { kind: 'csv', eventId }, dayPurged });
+  const transcript = (blueprintKey: string, eventId: number | null, opts: { privateThread?: boolean; dayPurged?: boolean } = {}): Resource => ({
+    kind: 'export_file',
+    file: { kind: 'transcript', blueprintKey, eventId, privateThread: opts.privateThread ?? false },
+    dayPurged: opts.dayPurged ?? false,
+  });
+
+  it('lets day head judges close, and only organizers act on the close-out', () => {
+    expect(canSee(hj(HJ), { kind: 'day', action: 'close' }, plan)).toBe(true);
+    expect(canSee(hj(ROLE_HJ, true), { kind: 'day', action: 'close' }, plan)).toBe(true);
+    expect(canSee(hj(JUDGE), { kind: 'day', action: 'close' }, plan)).toBe(false);
+    expect(canSee(hj(HJ), { kind: 'day', action: 'closeout' }, plan)).toBe(false);
+    expect(canSee(organizer, { kind: 'day', action: 'closeout' })).toBe(true);
+  });
+
+  it('gives an event’s CSVs to its head judges, and transcripts as Discord showed the channel', () => {
+    expect(canSee(hj(HJ), csv(LC), plan)).toBe(true);
+    expect(canSee(hj(HJ), csv(VGC), plan)).toBe(false);
+    expect(canSee(hj(JUDGE), csv(LC), plan)).toBe(false);
+    expect(canSee(hj(HJ), transcript('floor', LC), plan)).toBe(true);
+    expect(canSee(hj(HJ), transcript('floor', VGC), plan)).toBe(false);
+    expect(canSee(hj(VGC_HJ), transcript('head-judges', null), plan)).toBe(true);
+    expect(canSee(hj(ROLE_HJ, true), transcript('head-judges', null), plan)).toBe(true);
+    expect(canSee(hj(ROLE_HJ, true), transcript('floor', LC), plan)).toBe(false);
+    expect(canSee(hj(HJ), transcript('retired', LC), plan)).toBe(false);
+  });
+
+  it('keeps private threads and a purged day’s files to organizers', () => {
+    expect(canSee(hj(HJ), transcript('floor', LC, { privateThread: true }), plan)).toBe(false);
+    expect(canSee(hj(HJ), csv(LC, true), plan)).toBe(false);
+    expect(canSee(hj(HJ), transcript('floor', LC, { dayPurged: true }), plan)).toBe(false);
+    for (const r of [transcript('floor', LC, { privateThread: true }), csv(LC, true), transcript('retired', VGC, { dayPurged: true })]) expect(canSee(organizer, r)).toBe(true);
+  });
+
+  it('never gives a non-organizer a file of a channel outside their Discord audience (property)', () => {
+    const ids = ['100000000000000021', '100000000000000022', '100000000000000023'];
+    const plans = fc.record({
+      staff: fc.uniqueArray(fc.record({ discordUserId: fc.constantFrom(...ids), headJudgeOf: fc.uniqueArray(fc.constantFrom(1, 2)), staffOf: fc.uniqueArray(fc.constantFrom(1, 2)) }), {
+        selector: (s) => s.discordUserId,
+      }),
+      channels: fc.array(fc.record({ key: fc.constantFrom('a', 'b'), eventId: fc.constantFrom(null, 1, 2), purpose: fc.constantFrom<'general' | 'penalties'>('general', 'penalties'), audienceUserIds: fc.uniqueArray(fc.constantFrom(...ids)) })),
+    });
+    const files = fc.oneof(
+      fc.record({ kind: fc.constant('csv' as const), eventId: fc.constantFrom(1, 2) }),
+      fc.record({ kind: fc.constant('transcript' as const), blueprintKey: fc.constantFrom('a', 'b'), eventId: fc.constantFrom(null, 1, 2), privateThread: fc.boolean() }),
+    );
+    fc.assert(
+      fc.property(fc.constantFrom(...ids), fc.boolean(), plans, files, fc.boolean(), (userId, holdsHeadJudgeRole, rawPlan, file, dayPurged) => {
+        const access: AccessPlan = { dayId: 1, ...rawPlan };
+        const p: Principal = { userId, grant: 'event_head_judge', holdsHeadJudgeRole };
+        if (!canSee(p, { kind: 'export_file', file, dayPurged }, access)) return;
+        expect(dayPurged).toBe(false);
+        const staffer = access.staff.find((s) => s.discordUserId === userId);
+        if (file.kind === 'csv') {
+          expect(staffer?.headJudgeOf).toContain(file.eventId);
+        } else {
+          expect(file.privateThread).toBe(false);
+          expect(access.channels.find((c) => c.key === file.blueprintKey && c.eventId === file.eventId)?.audienceUserIds).toContain(userId);
+        }
+      }),
+      { seed: 20261015, numRuns: 1000 },
+    );
+  });
+});
+
 describe('canSee', () => {
   const principal = (grant: Grant): Principal => ({ userId: USER, grant, holdsHeadJudgeRole: false });
 
