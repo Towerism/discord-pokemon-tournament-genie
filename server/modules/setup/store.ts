@@ -29,6 +29,15 @@ export function createSetupStore(db: Db) {
       db.update(appSetting).set({ currentSeason: season, updatedAt: now }).where(eq(appSetting.id, 1)).run();
     },
 
+    /** Close-out's settings (§6.5, §15 Q3): retention after a day closes, and the attachment cap. */
+    closeOutSettings(): { transcriptRetentionDays: number; penaltyRetentionDays: number; attachmentCapBytes: number } {
+      const row = db.select().from(appSetting).where(eq(appSetting.id, 1)).get()!;
+      return { transcriptRetentionDays: row.transcriptRetentionDays, penaltyRetentionDays: row.penaltyRetentionDays, attachmentCapBytes: row.attachmentCapBytes };
+    },
+    putCloseOutSettings(settings: { transcriptRetentionDays: number; penaltyRetentionDays: number; attachmentCapBytes: number }, now: number): void {
+      db.update(appSetting).set({ ...settings, updatedAt: now }).where(eq(appSetting.id, 1)).run();
+    },
+
     sealed(name: SealedSecretName): Buffer | null {
       return db.select().from(sealedSecret).where(eq(sealedSecret.name, name)).get()?.ciphertext ?? null;
     },

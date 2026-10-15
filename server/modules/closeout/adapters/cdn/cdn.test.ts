@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createAttachmentFetcher } from './fetcher';
+import { createAttachmentFetcher } from './index';
 
 const BODY = Buffer.from('a'.repeat(1000));
 let server: Server;

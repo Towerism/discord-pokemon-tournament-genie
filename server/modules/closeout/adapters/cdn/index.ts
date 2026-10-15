@@ -44,7 +44,7 @@ export function createAttachmentFetcher(opts: { hosts: readonly string[]; allowH
       const hash = createHash('sha256');
       let bytes = 0;
       let tooLarge = false;
-      for await (const chunk of response.body as AsyncIterable<Uint8Array>) {
+      for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
         bytes += chunk.byteLength;
         if (bytes > maxBytes) {
           tooLarge = true;
@@ -59,7 +59,7 @@ export function createAttachmentFetcher(opts: { hosts: readonly string[]; allowH
       file = null;
       await rename(partial, destination);
       return { ok: true, bytes, sha256: hash.digest('hex') };
-    } catch (err) {
+    } catch {
       const timedOut = controller.signal.aborted && (controller.signal.reason as Error | undefined)?.name === 'TimeoutError';
       return await fail(timedOut ? 'timeout' : 'network');
     } finally {

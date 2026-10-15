@@ -48,7 +48,7 @@ const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;
 
 /** Text for an element body or a quoted attribute; NUL becomes the replacement character. */
 export function escapeHtml(text: string): string {
-  return text.replace(/\u0000/g, '�').replace(/[&<>"']/g, (c) => ENTITIES[c]!);
+  return text.replaceAll(String.fromCharCode(0), '�').replace(/[&<>"']/g, (c) => ENTITIES[c]!);
 }
 
 const STYLE =

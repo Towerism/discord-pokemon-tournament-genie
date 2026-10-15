@@ -28,6 +28,11 @@ export default defineConfig({
         'server/bot/**': { branches: 85 },
         // Every boot passes through it: a wrong zone shifts every start time, a missed refusal answers 500s.
         'server/bootstrap/env.ts': { branches: 100 },
+        // M5: where a bug deletes a channel before its content is safe, or serves a transcript to the wrong person.
+        'shared/discord/lock.ts': { branches: 95 },
+        'shared/closeout/**': { branches: 95 },
+        'server/modules/closeout/adapters/**': { branches: 95 },
+        'server/modules/closeout/**': { branches: 90 },
       },
     },
     projects: [
