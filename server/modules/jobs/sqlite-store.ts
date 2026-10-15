@@ -49,6 +49,36 @@ export function createSqliteJobStore(db: Db): JobStore {
         .get();
       return row?.id ?? null;
     },
+    findQueuedOf(kind, dayId) {
+      const row = db
+        .select({ id: job.id })
+        .from(job)
+        .where(and(eq(job.state, 'queued'), eq(job.kind, kind), dayId === null ? isNull(job.dayId) : eq(job.dayId, dayId)))
+        .orderBy(asc(job.id))
+        .get();
+      return row?.id ?? null;
+    },
+    setDue(id, dueAt) {
+      db.update(job).set({ dueAt }).where(and(eq(job.id, id), eq(job.state, 'queued'))).run();
+    },
+    active(dayId) {
+      return db
+        .select()
+        .from(job)
+        .where(and(eq(job.dayId, dayId), inArray(job.state, ['queued', 'running'])))
+        .orderBy(asc(job.id))
+        .all()
+        .map(view);
+    },
+    latestOf(dayId, kinds) {
+      const row = db
+        .select()
+        .from(job)
+        .where(and(eq(job.dayId, dayId), inArray(job.kind, [...kinds])))
+        .orderBy(desc(job.id))
+        .get();
+      return row ? view(row) : null;
+    },
     leasedDays() {
       const rows = db
         .selectDistinct({ dayId: job.dayId })

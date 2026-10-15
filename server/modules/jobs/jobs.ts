@@ -18,6 +18,15 @@ export interface Jobs {
   enqueue(job: { kind: JobKind; dayId?: number; payload?: unknown; dueAt?: number }): number;
   /** A sync or provision for the day, unless one is already queued: then that one. Atomic. */
   enqueueUnlessQueued(job: { kind: 'provision' | 'sync'; dayId: number }): { jobId: number; coalesced: boolean };
+  /**
+   * At most one queued job of `kind` for the day (`dayId` null: install-wide): moves the queued one's due time, or
+   * queues one. Timer work (the purge after grace, the retention sweep) uses it.
+   */
+  schedule(job: { kind: JobKind; dayId: number | null; dueAt: number }): number;
+  /** The day's queued and running jobs, oldest first. */
+  active(dayId: number): JobView[];
+  /** The day's newest job of one of `kinds`, or `null`. */
+  latestOf(dayId: number, kinds: readonly JobKind[]): JobView | null;
   /** Claims every due job the per-day lease allows and resolves when they have all finished. */
   runDue(): Promise<void>;
   /** At boot, before the first `runDue`: running jobs become interrupted; retry-on-boot kinds are queued again. */
@@ -151,6 +160,21 @@ export function createJobs(opts: {
       if (!result.coalesced) kick();
       return result;
     },
+    schedule(job) {
+      if (!handlers.has(job.kind)) throw new UnknownJobKindError(`No handler is registered for job kind ${job.kind}.`);
+      const id = store.transaction(() => {
+        const queued = store.findQueuedOf(job.kind, job.dayId);
+        if (queued !== null) {
+          store.setDue(queued, job.dueAt);
+          return queued;
+        }
+        return store.insert({ kind: job.kind, dayId: job.dayId, payload: null, dueAt: job.dueAt, createdAt: clock.now() });
+      });
+      kick();
+      return id;
+    },
+    active: (dayId) => store.active(dayId),
+    latestOf: (dayId, kinds) => store.latestOf(dayId, kinds),
     runDue,
     recover() {
       for (const job of store.listByState('running')) {
