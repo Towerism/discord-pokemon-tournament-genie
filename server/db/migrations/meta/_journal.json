@@ -36,6 +36,13 @@
       "when": 1792040095840,
       "tag": "0004_m5_close_out",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792082173283,
+      "tag": "0005_streaming_staff_role",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,8 @@
 # ADR-0010: One audience model for Discord and the website
 
 - Status: Accepted (2026-10-13)
+- Amended by [ADR-0015](0015-streaming-staff-role.md) (accepted 2026-10-15). Streaming staff are event staff
+  who aren't judges: they record and list no penalties and see only `streaming` channels.
 - Date: 2026-10-13
 
 ## Context

@@ -14,6 +14,7 @@ const MISTY = '100000000000000203'; // VGC judge
 const GARY = '100000000000000204'; // VGC head judge
 const ROLE_HJ = '100000000000000205'; // holds the head-judge role, on the day's staff, heads no event
 const OTHER = '100000000000000206'; // head judge of another day
+const TRACEY = '100000000000000207'; // LC streaming: on the event's staff, never its judge
 const XSS = '<img src=x onerror=alert(1)>';
 const SQLI = "'); DROP TABLE penalty; --";
 const NOTE = 'Shuffled-the-deck-poorly-note-4471';
@@ -35,6 +36,7 @@ let vgcId: number;
 let brockId: number;
 let ashId: number;
 let garyId: number;
+let traceyId: number;
 let catalog: { categories: { id: number; label: string }[]; types: { id: number; label: string }[] };
 
 const ok = (r: Reply, status = 200) => {
@@ -87,6 +89,7 @@ beforeAll(async () => {
     [MISTY, 'Misty'],
     [GARY, 'Gary'],
     [OTHER, 'Other'],
+    [TRACEY, 'Tracey'],
   ] as const) {
     fake.addMember(IDS.guild, userId, [], { displayName: name, username: name.toLowerCase() });
   }
@@ -107,6 +110,7 @@ beforeAll(async () => {
   garyId = await staff('Gary', GARY, '00444');
   const roleId = await staff('Role HJ', ROLE_HJ, '00555');
   const otherId = await staff('Other', OTHER, '00666');
+  traceyId = await staff('Tracey', TRACEY, '00777');
 
   dayId = (ok(await organizer.post('/api/days', { date: '2026-10-17', title: 'October LC' }), 201) as { day: { id: number } }).day.id;
   lcId = (ok(await organizer.post(`/api/days/${dayId}/events`, { name: 'LC', game: 'tcg', startTime: '10:00', tournamentId: '26-10-000123' }), 201) as { id: number }).id;
@@ -119,6 +123,7 @@ beforeAll(async () => {
         { staffMemberId: mistyId, events: [{ eventId: vgcId, role: 'judge' }] },
         { staffMemberId: garyId, events: [{ eventId: vgcId, role: 'headjudge' }] },
         { staffMemberId: roleId, events: [] },
+        { staffMemberId: traceyId, events: [{ eventId: lcId, role: 'streaming' }] },
       ],
     }),
   );
@@ -141,7 +146,7 @@ afterAll(async () => {
 });
 
 describe('recording and changing penalties on the website', () => {
-  it('lists only the head judge’s event, with its judges and options', async () => {
+  it('lists only the head judge’s event, with its judges (never its streaming staff) and options', async () => {
     const view = ok(await ash.get(`/api/days/${dayId}/penalties`)) as { events: { id: number; judges: { name: string }[]; options: { types: { label: string }[] } }[] };
     expect(view.events.map((e) => e.id)).toEqual([lcId]);
     expect(view.events[0]!.judges.map((j) => j.name)).toEqual(['Ash', 'Brock']);
@@ -285,6 +290,8 @@ describe('the input matrix', () => {
     }
     const vgcByAsh = await post(createBody({ eventId: vgcId }));
     expect([vgcByAsh.status, code(vgcByAsh)]).toEqual([403, 'forbidden']);
+    const byStreamer = await post(createBody({ judgeStaffMemberId: traceyId }));
+    expect([byStreamer.status, code(byStreamer)]).toEqual([422, 'judge_not_judging']);
     const dpcOnVgc = await gary.post(`/api/days/${dayId}/penalties`, createBody({ eventId: vgcId, judgeStaffMemberId: garyId, penaltyTypeId: id('DPC', catalog.types) }));
     expect([dpcOnVgc.status, code(dpcOnVgc)]).toEqual([422, 'invalid_catalog_choice']);
   });

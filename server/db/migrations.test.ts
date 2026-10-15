@@ -277,3 +277,46 @@ describe('the M5 migration', () => {
     database.close();
   });
 });
+
+describe('the streaming staff role migration', () => {
+  it('keeps every staff role and blueprint channel, and admits the streaming role and audience', () => {
+    const database = openDatabase(':memory:');
+    migrateDatabase(database.db, migrationsUpTo(5));
+    const roles = ['headjudge', 'judge', 'scorekeeper', 'administration', 'translator'];
+    database.sqlite.exec(`
+      INSERT INTO event_day (id, guild_id, date, title, blueprint_id, state, created_at, updated_at) VALUES (1, 'g', '2026-10-17', 'T', 1, 'open', 1, 1);
+      INSERT INTO event (id, day_id, name, slug, game, starts_at) VALUES (1, 1, 'LC', 'lc', 'tcg', 1), (2, 1, 'VGC', 'vgc', 'vgc', 2);
+      INSERT INTO blueprint (id, name, category_name_pattern, is_default, created_at, updated_at) VALUES (2, 'Custom', '{title}', 0, 1, 1);
+      INSERT INTO blueprint_channel (blueprint_id, key, scope, kind, name_pattern, audience, purpose, topic, position)
+        VALUES (2, 'talk', 'day', 'text', 'talk', 'all_staff', 'general', 'chat {date}', 0), (2, 'hj', 'per_event', 'text', '{slug}-hj', 'head_judges', 'floor', NULL, 1);
+    `);
+    roles.forEach((role, i) => {
+      database.sqlite.prepare(`INSERT INTO staff_member (id, display_name, link_state, created_at, updated_at) VALUES (?, ?, 'unlinked', 1, 1)`).run(i + 1, `S${i}`);
+      database.sqlite.prepare('INSERT INTO day_staff (day_id, staff_member_id, imported) VALUES (1, ?, ?)').run(i + 1, i % 2);
+      database.sqlite.prepare('INSERT INTO event_staff (event_id, staff_member_id, role, imported) VALUES (1, ?, ?, ?)').run(i + 1, role, i % 2);
+    });
+    database.sqlite.exec(`
+      INSERT INTO penalty (event_id, number, idempotency_key, round, competitor_player_id, category_id, severity, penalty_type_id, judge_staff_id, judge_player_id, recorded_by, recorded_at, revision, card_state)
+        VALUES (1, 1, 'web:a', 1, '0042', 1, 'Minor', 1, 1, '123', 'u', 1, 1, 'posted');
+    `);
+    const snapshot = () => ({
+      eventStaff: database.sqlite.prepare('SELECT * FROM event_staff ORDER BY event_id, staff_member_id').all(),
+      blueprintChannels: database.sqlite.prepare('SELECT * FROM blueprint_channel ORDER BY id').all(),
+      counts: ['event_day', 'event', 'day_staff', 'penalty', 'blueprint', 'staff_member'].map((t) => database.sqlite.prepare(`SELECT count(*) AS n FROM ${t}`).get()),
+    });
+    const before = snapshot();
+
+    migrateDatabase(database.db, MIGRATIONS);
+
+    expect(snapshot()).toEqual(before);
+    database.sqlite.exec(`INSERT INTO event_staff (event_id, staff_member_id, role) VALUES (2, 1, 'streaming')`);
+    database.sqlite.exec(`INSERT INTO blueprint_channel (blueprint_id, key, scope, kind, name_pattern, audience, purpose, position) VALUES (2, 'stream', 'day', 'text', 'stream', 'streaming', 'general', 2)`);
+    expect(() => database.sqlite.exec(`INSERT INTO event_staff (event_id, staff_member_id, role) VALUES (2, 2, 'streamer')`)).toThrow(/CHECK/);
+    expect(() =>
+      database.sqlite.exec(`INSERT INTO blueprint_channel (blueprint_id, key, scope, kind, name_pattern, audience, purpose, position) VALUES (2, 'x', 'day', 'text', 'x', 'streamers', 'general', 3)`),
+    ).toThrow(/CHECK/);
+    expect(database.sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
+    database.close();
+  });
+});

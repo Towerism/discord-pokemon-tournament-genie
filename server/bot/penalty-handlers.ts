@@ -93,8 +93,16 @@ export function createPenaltyHandlers(opts: {
     return v === undefined ? null : String(v);
   };
 
-  /** Who may record here, in order: on the event's staff, a player ID, something to offer. A string answers the caller. */
+  /** On the event's staff only for streaming (ADR-0015): such staff aren't judges, and are told so. */
+  function streamsFor(at: Located, userId: string): boolean {
+    const staffer = at.access.staff.find((s) => s.discordUserId === userId);
+    return staffer !== undefined && staffer.staffOf.includes(at.event.id) && !staffer.judgeOf.includes(at.event.id);
+  }
+  const streamingRefusal = (at: Located, what: 'record' | 'list') => `You're on ${at.event.name}'s staff for streaming, so you can't ${what} penalties.`;
+
+  /** Who may record here, in order: judging the event, a player ID, something to offer. A string answers the caller. */
   function recordCheck(i: InboundInteraction, principal: Principal, at: Located): string | null {
+    if (streamsFor(at, i.userId)) return streamingRefusal(at, 'record');
     const staffer = at.access.staff.find((s) => s.discordUserId === i.userId);
     const onStaff = staffer?.staffOf.includes(at.event.id) ?? false;
     if (!canSee(principal, { kind: 'event_penalties', eventId: at.event.id, action: 'record' }, at.access) || !onStaff) {
@@ -282,6 +290,7 @@ export function createPenaltyHandlers(opts: {
     const principal = principalOf(i);
     const at = locate(i, principal, optionText(i, 'event'));
     if (typeof at === 'string') return reply.ephemeral(at);
+    if (streamsFor(at, i.userId)) return reply.ephemeral(streamingRefusal(at, 'list'));
     if (!canSee(principal, { kind: 'event_penalties', eventId: at.event.id, action: 'record' }, at.access)) return reply.ephemeral(`You're not on ${at.event.name}'s staff.`);
     if (!canSee(principal, { kind: 'event_penalties', eventId: at.event.id, action: 'list' }, at.access)) return reply.ephemeral(`You can't list ${at.event.name}'s penalties.`);
     const active = penalties

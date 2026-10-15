@@ -3,7 +3,7 @@
  * Import or refresh a day from attendance (ADR-0008, §4.2): pull, show what would change, accept the checked items.
  * Anything that may take access away on an open day starts unchecked, and so does anything that undoes a hand edit.
  */
-type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator';
+type Role = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator' | 'streaming';
 type Game = 'tcg' | 'vgc' | 'go' | 'other';
 interface StaffRef {
   playerId: string;
@@ -64,7 +64,7 @@ const REASONS: Record<string, string> = {
   read_failed: 'couldn’t be read',
   not_connected: 'is no longer connected in attendance',
 };
-const ROLE_LABEL: Record<Role, string> = { headjudge: 'head judge', judge: 'judge', scorekeeper: 'scorekeeper', administration: 'administration', translator: 'translator' };
+const ROLE_LABEL: Record<Role, string> = { headjudge: 'head judge', judge: 'judge', scorekeeper: 'scorekeeper', administration: 'administration', translator: 'translator', streaming: 'streaming' };
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const gameLabel = (g: Game) => (g === 'other' ? 'other' : g.toUpperCase());
 

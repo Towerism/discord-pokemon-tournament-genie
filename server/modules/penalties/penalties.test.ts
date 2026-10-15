@@ -302,6 +302,33 @@ describe('editing and voiding', () => {
   });
 });
 
+describe('streaming staff and the judge', () => {
+  it('never offers streaming staff as the judge, and refuses naming one', async () => {
+    w = await penaltyWorld();
+    const tracey = w.addStreamer(w.tcg.id);
+    expect(w.penalties.judges(w.dayId, w.tcg.id).map((j) => j.name)).toEqual(['Ash', 'Brock']);
+    expect(await refusal(w.penalties.record(w.recordInput({ judgeStaffMemberId: tracey.id })))).toMatchObject({ status: 422, code: 'judge_not_judging' });
+    expect(count('penalty')).toBe(0);
+  });
+
+  it('keeps a penalty whose judge now streams, editable without changing the judge, but never re-named to a streamer', async () => {
+    w = await penaltyWorld();
+    const { penalty } = await w.penalties.record(w.recordInput());
+    const csvBefore = w.penalties.csv(w.dayId, w.tcg.id, false).body;
+    w.setRole(w.people.ash.id, w.tcg.id, 'streaming');
+
+    expect(w.penalties.csv(w.dayId, w.tcg.id, false).body).toBe(csvBefore);
+    const edited = await w.penalties.edit(w.dayId, penalty.id, { notes: 'Drew two extra cards.' }, { expectedRevision: 1, by: PEOPLE.brock });
+    expect(edited.penalty).toMatchObject({ revision: 2, notes: 'Drew two extra cards.', judge: { staffMemberId: w.people.ash.id, playerId: '00123' } });
+
+    const tracey = w.addStreamer(w.tcg.id);
+    expect(await refusal(w.penalties.edit(w.dayId, penalty.id, { judgeStaffMemberId: tracey.id }, { expectedRevision: 2, by: PEOPLE.brock }))).toMatchObject({
+      status: 422,
+      code: 'judge_not_judging',
+    });
+  });
+});
+
 describe('who can be named the judge', () => {
   it('lists the event’s staff with a player ID that isn’t merely claimed, and refuses a claimed one', async () => {
     w = await penaltyWorld();

@@ -10,6 +10,7 @@ import {
   stateStaff,
   tournament,
 } from '../../../test/support/attendance-builders';
+import type { EventRole } from '../../../shared/blueprints';
 import type { AttendanceDay, AttendanceRole } from '../attendance/port';
 import { type DiffItem, type ImportState, buildEvent, refreshDiff } from './diff';
 
@@ -165,6 +166,14 @@ describe('refreshDiff: staff of a refreshed event', () => {
     expect(refreshDiff(state, day).items).toEqual([expect.objectContaining({ kind: 'role_changed', setByHand: true, from: 'headjudge', to: 'judge' })]);
   });
 
+  it('keeps a streaming role set by hand, and flags it when attendance lists the person in another role', () => {
+    const state = importState({ events: [stateEvent(1, linkedTo('lc'))], staff: [stateStaff(2, '222', [[1, 'streaming', false]])] });
+    const absent = attendanceDay({ tournaments: [tournament('lc', { name: 'Event 1' })] });
+    expect(refreshDiff(state, absent).items).toEqual([]);
+    const listed = attendanceDay({ tournaments: [tournament('lc', { name: 'Event 1', staff: [['222', 'judge']] })] });
+    expect(refreshDiff(state, listed).items).toEqual([expect.objectContaining({ kind: 'role_changed', setByHand: true, from: 'streaming', to: 'judge' })]);
+  });
+
   it('adds a directory member who isn’t on the event yet, with their row', () => {
     const state = importState({
       events: [stateEvent(1, linkedTo('lc'))],
@@ -241,6 +250,8 @@ describe('refreshDiff ordering', () => {
 
 const ORGANIZERS = ['oak', 'elm', 'birch', 'rowan'];
 const ROLES: AttendanceRole[] = ['headjudge', 'judge', 'scorekeeper', 'administration', 'translator'];
+/** Genie's roles: attendance's, plus streaming, which only an organizer sets (ADR-0015). */
+const STATE_ROLES: EventRole[] = [...ROLES, 'streaming'];
 const PLAYERS = ['100', '101', '102', '103', '104', '105'];
 
 const scenario = fc
@@ -252,7 +263,7 @@ const scenario = fc
         organizer: fc.constantFrom(...ORGANIZERS),
         inResponse: fc.boolean(),
         hour: fc.integer({ min: 8, max: 20 }),
-        roles: fc.array(fc.record({ player: fc.constantFrom(...PLAYERS), role: fc.constantFrom(...ROLES), imported: fc.boolean() }), { maxLength: 4 }),
+        roles: fc.array(fc.record({ player: fc.constantFrom(...PLAYERS), role: fc.constantFrom(...STATE_ROLES), imported: fc.boolean() }), { maxLength: 4 }),
         responseStaff: fc.array(fc.record({ player: fc.constantFrom(...PLAYERS, 'bad!'), role: fc.constantFrom(...ROLES) }), { maxLength: 4 }),
       }),
       { maxLength: 6 },

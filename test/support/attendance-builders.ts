@@ -1,3 +1,4 @@
+import type { EventRole } from '../../shared/blueprints';
 import type { ImportState, StateEvent, StateStaff } from '../../server/modules/attendance-import/diff';
 import type { AttendanceDay, AttendanceRole, AttendanceTournament, ProfessorStatus } from '../../server/modules/attendance/port';
 
@@ -62,7 +63,7 @@ export const linkedTo = (tournamentId: string, organizerPlayerId = 'oak') => ({
 export function stateStaff(
   staffMemberId: number,
   playerId: string | null,
-  roles: [number, AttendanceRole, boolean][] = [],
+  roles: [number, EventRole, boolean][] = [],
   over: Partial<StateStaff> = {},
 ): StateStaff {
   return {

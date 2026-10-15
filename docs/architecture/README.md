@@ -463,12 +463,12 @@ erDiagram
 | `organizer_allowlist` | `discord_user_id` (PK) | Optional, edited only by the install owner. When enabled, organizers are the owner plus members who hold the organizer role **and** are listed here (§9). |
 | `login_audit` | `discord_user_id`, `grant` (`owner`/`organizer_role`/`allowlist`/`event_head_judge`), `at` | One row per website login: which grant let them in. |
 | `staff_member` | `id`, `discord_user_id?` (unique), `player_id?` (unique), `display_name`, `link_state` (`linked`/`claimed`/`unlinked`) | The directory: one person, at most one Discord account and one player ID. A judge needs a player ID to record penalties (it is the CSV's *Judge Player ID*). |
-| `blueprint`, `blueprint_channel` | channel `key`, `scope` (`day`/`per_event`), `kind` (`text`/`voice`), `name_pattern` (e.g. `{event}-penalties`), `audience` (`all_staff`/`event_staff`/`head_judges`), `purpose` (`general`/`floor`/`penalties`), `topic`, `position` | Pure data; `shared/blueprints` turns it into the desired channel set. A default blueprint is seeded (§6.2). |
+| `blueprint`, `blueprint_channel` | channel `key`, `scope` (`day`/`per_event`), `kind` (`text`/`voice`), `name_pattern` (e.g. `{event}-penalties`), `audience` (`all_staff`/`event_staff`/`head_judges`/`streaming`), `purpose` (`general`/`floor`/`penalties`), `topic`, `position` | Pure data; `shared/blueprints` turns it into the desired channel set. A default blueprint is seeded (§6.2). |
 | `day_template`, `day_template_event` | template: `id`, `name` (unique), `blueprint_id`; event: `template_id`, `name`, `game`, `start_time`, `position` | Pre-fills a new day's events ("Saturday: TCG LC + VGC"). |
 | `event_day` | `id`, `date` (store-TZ `YYYY-MM-DD`), `title`, `blueprint_id`, `season`, `state` (`draft`/`open`/`closing`/`closed`/`purged`), `category_id?`, `closing_at?`, `closed_by?`, `closed_at?`, `grace_until?`, `purged_at?`, `source` (`manual`/`attendance`), `attendance_refreshed_at?` | Never reuses a category: each day owns its own. `season` is copied from Settings' *current season* when the day is created and selects the catalog rows `/penalty` offers. The state never moves backwards. |
 | `event` | `id`, `day_id`, `name`, `slug`, `game` (`tcg`/`vgc`/`go`/`other`), `game_confirmed`, `starts_at`, `attendance_tournament_id?`, `attendance_organizer_player_id?`, `attendance_organizer_name?`, `tournament_id?` | `slug` is unique within the day and drives channel names. `game_confirmed` is false only when attendance sent `game: null`, and opening the day requires it. The attendance organizer fields record which connected professor the tournament came from, for display and for the refresh rule (§4.2). `tournament_id` is the play-tools display ID (`25-12-001050`), the CSV's *Tournament ID*: imported from attendance or typed in, and required before the event's CSV can be exported. |
 | `day_staff` | `day_id`, `staff_member_id`, `is_day_lead`, `imported` | Who has access to the day's channels at all. `imported`: an attendance import put them on the day, so a refresh may take them off again (§4.2). |
-| `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`), `imported` | Same role codes as play-tools/attendance. Head judges of an event can edit/void its penalties. Only `imported` roles are ever proposed for removal by a refresh (§4.2). |
+| `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`/`streaming`), `imported` | play-tools/attendance's role codes, plus Genie's own `streaming`, which only an organizer sets ([ADR-0015](adr/0015-streaming-staff-role.md)): streaming staff aren't judges and see only `streaming` channels. Head judges of an event can edit/void its penalties. Only `imported` roles are ever proposed for removal by a refresh (§4.2). |
 | `attendance_connection` | `id` (= 1), `base_url`, `token_hint`, `updated_at` | Where attendance answers; the token itself is the sealed `attendance_token` (owner: `setup`). |
 | `attendance_snapshot` | `day_id` (PK), `snapshot_id`, `payload`, `plan_revision`, `day_state`, `fetched_at`, `fetched_by` | The day's latest pull, waiting to be accepted (owner: `attendance-import`, §4.2). |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`), `locked_at?` | The **only** record of which Discord channels Genie owns. Written immediately after each create. `locked_at`: the close-out lock reached it, so a retried lock never writes it again (§6.5). |
@@ -538,7 +538,10 @@ The default blueprint (editable, more can be saved):
 
 **Rule:** every per-event channel is visible only to that event's staff (plus the organizer role and
 the bot). Blueprints can't widen a per-event channel's audience; day-wide channels are for all of the
-day's staff or its head judges.
+day's staff, its head judges, or its streaming staff. **Streaming staff** ([ADR-0015](adr/0015-streaming-staff-role.md))
+are left out of `event_staff` channels of the events they stream, and out of `all_staff` channels when they
+stream every event they work. They see a channel only through the `streaming` audience, which also always
+shows the head judges in scope. No penalties channel may use the `streaming` audience.
 
 The organizer creates a day (date, title, blueprint), then either **imports from attendance** (every
 connected organizer's tournaments for the date, each shown with its organizer, §4.2) or adds events and
@@ -660,7 +663,7 @@ sequenceDiagram
   it and "Repost card" restores it.
 - **Website parity.** An event's head judges can also view, edit and void that event's penalties on the
   Penalties page, and add one there if Discord is down. The website form names the issuing judge (a staffer of
-  the event whose player ID isn't merely claimed); the caller is stored as `recorded_by`.
+  the event, not streaming, whose player ID isn't merely claimed); the caller is stored as `recorded_by`.
 - **As M4 builds it.** Recording, editing and voiding need an `open` day (`409 day_not_open` otherwise); the
   corrections after close and the re-exported `export_file` rows come with M5, and M4's CSV is generated on
   demand. Every edit and void names the revision it was made against (`409 revision_conflict`). The database
@@ -855,8 +858,8 @@ shared Zod schemas. Errors carry `data.code`.
 
 | Command / component | Who | Where | What |
 | ------------------- | --- | ----- | ---- |
-| `/penalty` | event staff | penalty channel (or any day channel, with `event:`) | Record a penalty (§6.4) |
-| `/penalties` | event staff who can see the event's penalties channel (a blueprint may make it head judges only) | that event's channels (or a day channel, with `event:`, for staff of that event) | Ephemeral list of the event's 20 newest active penalties, without notes |
+| `/penalty` | judging event staff (not streaming, ADR-0015) | penalty channel (or any day channel, with `event:`) | Record a penalty (§6.4) |
+| `/penalties` | judging event staff who can see the event's penalties channel (a blueprint may make it head judges only) | that event's channels (or a day channel, with `event:`, for staff of that event) | Ephemeral list of the event's 20 newest active penalties, without notes |
 | `/link player-id:` | any guild member | anywhere in the bound guild | Claim a player ID (§5.3) |
 | `/day status` | day staff | day channels | Ephemeral: events, staff, sync state |
 | Card buttons **Edit**, **Void** | Edit: the recording judge for 15 minutes, the event's head judges and organizers; Void: head judges and organizers (§6.4) | penalty card | Modal edit (the record modal, pre-filled) / void with reason; each form names the revision it was opened at |
@@ -1115,3 +1118,4 @@ Answered by the owner on 2026-10-13:
 | [0012](adr/0012-genie-overwrite-without-manage-roles.md) | Genie's channel overwrite without Manage Roles, and an invite set that covers the lock | Accepted (2026-10-14) |
 | [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin, through Caddy | Accepted (2026-10-14) |
 | [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Accepted (2026-10-14) |
+| [0015](adr/0015-streaming-staff-role.md) | A Streaming event role that isn't a judge, and a `streaming` blueprint audience | Accepted (2026-10-15) |

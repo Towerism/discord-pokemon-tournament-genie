@@ -6,10 +6,10 @@ import { type Overwrite, everyone, member, role } from '../discord/overwrites';
 import { PERMISSION_BITS as P } from '../discord/permissions';
 
 export type Scope = 'day' | 'per_event';
-export type Audience = 'all_staff' | 'event_staff' | 'head_judges';
+export type Audience = 'all_staff' | 'event_staff' | 'head_judges' | 'streaming';
 export type Purpose = 'general' | 'floor' | 'penalties';
 export type ChannelKind = 'text' | 'voice';
-export type EventRole = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator';
+export type EventRole = 'headjudge' | 'judge' | 'scorekeeper' | 'administration' | 'translator' | 'streaming';
 export type LinkState = 'unlinked' | 'claimed' | 'linked';
 
 export interface BlueprintChannelInput {
@@ -75,8 +75,9 @@ export function validateBlueprint(b: BlueprintInput): BlueprintProblem[] {
     else if (keys.has(c.key)) problems.push({ path: at('key'), code: 'duplicate_key' });
     keys.add(c.key);
     if (c.kind !== 'text') problems.push({ path: at('kind'), code: 'voice_not_supported' });
-    const allowed: Audience[] = c.scope === 'day' ? ['all_staff', 'head_judges'] : ['event_staff', 'head_judges'];
-    if (!allowed.includes(c.audience)) problems.push({ path: at('audience'), code: 'audience_not_allowed' });
+    const allowed: Audience[] = c.scope === 'day' ? ['all_staff', 'head_judges', 'streaming'] : ['event_staff', 'head_judges', 'streaming'];
+    // Streaming staff aren't judges (ADR-0015): no blueprint can show them penalties.
+    if (!allowed.includes(c.audience) || (c.audience === 'streaming' && c.purpose === 'penalties')) problems.push({ path: at('audience'), code: 'audience_not_allowed' });
     const tokens = tokensIn(c.namePattern);
     if (tokens.some((t) => !(TOKENS as readonly string[]).includes(t)) || (c.topic !== null && tokensIn(c.topic).some((t) => !(TOKENS as readonly string[]).includes(t)))) {
       problems.push({ path: at('namePattern'), code: 'unknown_token' });
@@ -179,10 +180,21 @@ export function desiredChannels(plan: PlanInput, blueprint: BlueprintInput, ctx:
   const ordered = (scope: Scope) => blueprint.channels.filter((c) => c.scope === scope).sort((a, b) => a.position - b.position || a.key.localeCompare(b.key));
 
   const dayHeadJudge = (s: (typeof eligible)[number]) => s.events.some((e) => e.role === 'headjudge') || ctx.headJudgeRoleHolders.has(s.discordUserId);
+  // ADR-0015: streaming staff see only `streaming` channels, unless they are a head judge some other way. Someone with
+  // a judging role on any of the day's events is day staff; each event's channels follow the role on that event.
+  const streamingOnly = new Set(eligible.filter((s) => s.events.length > 0 && s.events.every((e) => e.role === 'streaming')).map((s) => s.staffMemberId));
   const audienceOf = (c: BlueprintChannelInput, eventId: number | null): AudienceMember[] => {
     const inAudience = (s: (typeof eligible)[number]) => {
-      if (eventId === null) return c.audience === 'all_staff' || dayHeadJudge(s);
-      return s.events.some((e) => e.eventId === eventId && (c.audience === 'event_staff' || e.role === 'headjudge'));
+      if (eventId === null) {
+        if (dayHeadJudge(s)) return true;
+        if (c.audience === 'all_staff') return !streamingOnly.has(s.staffMemberId);
+        return c.audience === 'streaming' && s.events.some((e) => e.role === 'streaming');
+      }
+      const role = s.events.find((e) => e.eventId === eventId)?.role;
+      if (role === undefined) return false;
+      if (role === 'headjudge') return true;
+      if (c.audience === 'event_staff') return role !== 'streaming';
+      return c.audience === 'streaming' && role === 'streaming';
     };
     return eligible
       .filter(inAudience)

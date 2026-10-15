@@ -108,6 +108,8 @@ describe('the attendance HTTP adapter', () => {
     ['duplicate_tournament', () => http.raw.set(DATE, day({ tournaments: [tournament('t1'), tournament('t1')] }))],
     ['schema', () => http.raw.set(DATE, day({ tournaments: [tournament('x'.repeat(58))] }))],
     ['schema', () => http.raw.set(DATE, day({ tournaments: [{ ...tournament('t1'), startsAt: 'Saturday' }] }))],
+    // Streaming is Genie's own role (ADR-0015): attendance never sends it.
+    ['schema', () => http.raw.set(DATE, day({ tournaments: [{ ...tournament('t1'), staff: [{ playerId: '2', name: 'Brock', role: 'streaming' }] }] }))],
     ['invalid_time_zone', () => http.raw.set(DATE, day({ timezone: 'Mars/Base' }))],
   ])('refuses an unusable answer (%s)', async (reason, arrange) => {
     arrange();

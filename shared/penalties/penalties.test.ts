@@ -50,9 +50,9 @@ describe('editRight', () => {
   const plan: AccessPlan = {
     dayId: 1,
     staff: [
-      { discordUserId: JUDGE, headJudgeOf: [], staffOf: [EVENT] },
-      { discordUserId: HJ, headJudgeOf: [EVENT], staffOf: [EVENT] },
-      { discordUserId: OTHER_HJ, headJudgeOf: [6], staffOf: [6] },
+      { discordUserId: JUDGE, headJudgeOf: [], judgeOf: [EVENT], staffOf: [EVENT] },
+      { discordUserId: HJ, headJudgeOf: [EVENT], judgeOf: [EVENT], staffOf: [EVENT] },
+      { discordUserId: OTHER_HJ, headJudgeOf: [6], judgeOf: [6], staffOf: [6] },
     ],
     channels: [],
   };

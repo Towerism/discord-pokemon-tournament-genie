@@ -4,7 +4,7 @@ interface Channel {
   scope: 'day' | 'per_event';
   kind: 'text';
   namePattern: string;
-  audience: 'all_staff' | 'event_staff' | 'head_judges';
+  audience: 'all_staff' | 'event_staff' | 'head_judges' | 'streaming';
   purpose: 'general' | 'floor' | 'penalties';
   topic: string | null;
   position: number;
@@ -111,6 +111,7 @@ const blueprintName = (id: number) => bp.value.blueprints.find((b) => b.id === i
               <option v-if="c.scope === 'day'" value="all_staff">All staff</option>
               <option v-if="c.scope === 'per_event'" value="event_staff">Event staff</option>
               <option value="head_judges">Head judges</option>
+              <option v-if="c.purpose !== 'penalties'" value="streaming">Streaming</option>
             </select>
           </label>
           <label>Purpose
