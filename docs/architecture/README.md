@@ -819,7 +819,7 @@ shared Zod schemas. Errors carry `data.code`.
 | `POST /api/days/{id}/reexport` | organizer | Re-export after messages newer than the high-water marks (202; `409` unless the day is `closed`) |
 | `POST /api/days/{id}/exports/attachments/retry` | organizer | Retry `skipped` attachments after raising the cap (202; `409 nothing_skipped`) |
 | `POST /api/days/{id}/exports/attachments/discard` | organizer | Body `{ attachmentIds, confirm: true }`; marks them `discarded` and logs it (`422` without `confirm`) |
-| `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim`, `POST /api/staff/{id}/reject-claim` | organizer | Directory; rejecting a claim deletes a row the claim itself created |
+| `GET/POST/PATCH /api/staff[/{id}]`, `POST /api/staff/{id}/confirm-claim`, `POST /api/staff/{id}/reject-claim` | organizer | Directory; rejecting a claim deletes a row the claim itself created, unless a day's staff or a penalty names it |
 | `GET /api/discord/members?q=` | organizer | Member picker |
 | `GET/POST/PUT/DELETE /api/blueprints[/{id}]`, `GET/POST/PUT/DELETE /api/templates[/{id}]`, `GET /api/catalog?season=`, `PUT /api/catalog/{season}`, `GET /api/settings`, `PUT /api/settings/season` | organizer | Configuration (a blueprint an opened day uses is frozen: `409 blueprint_in_use`) |
 | `POST /api/days/{id}/orphans/{channelId}/adopt`, `…/delete` | organizer | Adopt or delete a channel found in the day's category that Genie didn't record (§6.3) |

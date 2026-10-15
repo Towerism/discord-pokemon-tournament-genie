@@ -464,7 +464,8 @@ function base(interaction: Interaction, kind: InboundInteraction['kind'], name: 
   };
 }
 
-function translate(err: unknown): Error {
+/** Discord's errors in Genie's terms. Exported for its test: nothing discord.js attaches may escape the adapter. */
+export function translate(err: unknown): Error {
   if (err instanceof DiscordAPIError && err.status === 401) return new DiscordAuthError('Discord refused the bot token.');
   if (err instanceof DiscordAPIError && err.code === MISSING_PERMISSIONS) return new DiscordPermissionError(`Discord refused the write: ${err.message}`);
   if (err instanceof DiscordjsError && err.code === DiscordjsErrorCodes.TokenInvalid) return new DiscordAuthError('Discord refused the bot token.');
