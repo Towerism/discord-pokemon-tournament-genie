@@ -4,8 +4,10 @@
  */
 import { runLauncher } from '@towerism/selfhost-kit';
 import { prepareGenieEnv } from './env';
+import { startupLogger } from './logging';
 
 await runLauncher({
   prepare: prepareGenieEnv,
   server: new URL('./server/index.mjs', import.meta.url),
+  logger: startupLogger(),
 });

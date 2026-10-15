@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: Towerism/selfhost-kit/.github/workflows/app-image.yml@4c453910482af10fad937ff27f3d72c8f31a3bf1 # v0.4.2
+    uses: Towerism/selfhost-kit/.github/workflows/app-image.yml@4692fe46c64d522f611301cb4341fc2efa3bad48 # v1.0.0
     with:
       # Must match deploy/unraid/tournament-genie.xml (test/unit/unraid-template.test.ts).
       image-name: ghcr.io/towerism/discord-pokemon-tournament-genie
@@ -87,7 +87,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: Towerism/selfhost-kit/.github/workflows/app-release.yml@4c453910482af10fad937ff27f3d72c8f31a3bf1 # v0.4.2
+    uses: Towerism/selfhost-kit/.github/workflows/app-release.yml@4692fe46c64d522f611301cb4341fc2efa3bad48 # v1.0.0
     with:
       image-name: ghcr.io/towerism/discord-pokemon-tournament-genie
       digest: ${{ needs.image.outputs.digest }}

@@ -176,7 +176,7 @@ the kit's issue specs fix their exact signatures.
 | App auth      | `nuxt-auth-utils` with its **Discord OAuth** provider                     | Staff already have Discord accounts; access follows guild roles ([ADR-0004](adr/0004-discord-login-and-roles.md)). |
 | Database      | SQLite (WAL) + Drizzle ORM + drizzle-kit migrations, `better-sqlite3`    | Hundreds of rows per day. Zero ops ([ADR-0002](adr/0002-sqlite-drizzle.md)). |
 | Files         | `/data/exports/<day>/` for CSVs and transcripts                           | Big blobs stay out of the DB; one folder to back up. |
-| Platform      | **`@towerism/selfhost-kit`** (core, `/nitro`, `/testing`), exact 0.x pin | One shared copy of the security-sensitive infrastructure ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)). |
+| Platform      | **`@towerism/selfhost-kit`** (core, `/nitro`, `/testing`), exact version pin | One shared copy of the security-sensitive infrastructure ([ADR-0011](adr/0011-share-infrastructure-through-selfhost-kit.md)). |
 | Crypto        | The kit's AES-256-GCM vault (`createVault` + `stringVault`) for the bot token, OAuth secret and attendance token | One key, declared with the kit's `aes256Key`: env `NUXT_VAULT_KEY`, file `vault.key` in `secrets/`. Each ciphertext is bound to its row with an AAD `<table>:<key>` (selfhost-kit ADR-0006); M1's spec defines the table. |
 | Packaging     | Single `linux/amd64` image on GHCR, Unraid template                      | [ADR-0009](adr/0009-docker-on-unraid.md). |
 | Testing       | Vitest + `@nuxt/test-utils`; an in-memory **fake Discord** behind `DiscordGateway`; an in-process HTTP fake of attendance; Playwright for website journeys | No real Discord or attendance calls in tests. |

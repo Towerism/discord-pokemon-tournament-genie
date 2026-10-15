@@ -23,7 +23,7 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.144",
     "@nuxt/ui": "^4.11.3",
-    "@towerism/selfhost-kit": "0.4.2",
+    "@towerism/selfhost-kit": "1.0.0",
     "better-sqlite3": "^13.0.3",
     "discord.js": "14.27.0",
     "drizzle-orm": "^0.45.4",
