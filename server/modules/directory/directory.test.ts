@@ -61,6 +61,28 @@ describe('the staff directory', () => {
     expect(refusal(() => directory.update(999, { displayName: 'x' }))).toBe('404 not_found');
   });
 
+  it('refuses another member’s player ID on update, keeps a member’s own, and clears one', () => {
+    const ash = directory.create({ displayName: 'Ash', playerId: '1112223', discordUserId: U(1) });
+    const brock = directory.create({ displayName: 'Brock', playerId: '4445556' });
+    expect(refusal(() => directory.update(brock.id, { playerId: '1112223' }))).toBe('409 player_id_taken');
+    expect(directory.get(brock.id)?.playerId).toBe('4445556');
+    expect(directory.update(ash.id, { displayName: 'Ash', playerId: '1112223' }).staff.playerId).toBe('1112223');
+    const cleared = directory.update(brock.id, { playerId: null });
+    expect(cleared.staff).toMatchObject({ playerId: null, displayName: 'Brock', linkState: 'unlinked', discordUserId: null });
+    expect(cleared.syncJobIds).toEqual([]);
+    // A second member without a player ID is fine: only a held ID is unique.
+    expect(directory.update(ash.id, { playerId: null }).staff.playerId).toBeNull();
+    expect(linkChanges).toEqual([]);
+  });
+
+  it('edits a claimed member without touching the claim', () => {
+    directory.claim({ userId: U(1), playerId: '7654321', displayName: 'Ash Ketchum' });
+    const claimed = directory.list()[0]!;
+    const { staff, syncJobIds } = directory.update(claimed.id, { displayName: 'Ash', playerId: '7654322' });
+    expect(staff).toMatchObject({ displayName: 'Ash', playerId: '7654322', linkState: 'claimed', claimedDiscordUserId: U(1), discordUserId: null });
+    expect(syncJobIds).toEqual([]);
+  });
+
   it('lists members by display name', () => {
     directory.create({ displayName: 'Misty' });
     directory.create({ displayName: 'ash' });

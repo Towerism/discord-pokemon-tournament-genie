@@ -353,5 +353,6 @@ describe('channel privacy over random days', () => {
       }),
       { seed: 20261014, numRuns: 60 },
     );
-  });
+    // Sixty seeded days take about 7 s on a CI runner under coverage: past the default 5 s, so it gets its own limit.
+  }, 30_000);
 });
