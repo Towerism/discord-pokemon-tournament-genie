@@ -8,7 +8,7 @@ ARG NODE_SLIM_IMAGE=node:24.21.0-slim
 ARG NODE_ALPINE_IMAGE=node:24.21.0-alpine3.23
 # Keep in step with package.json's packageManager: Renovate bumps both in one PR (the comment below is its marker).
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=11.28.5
+ARG PNPM_VERSION=12.13.0
 
 FROM ${NODE_SLIM_IMAGE} AS app-build
 ARG PNPM_VERSION
