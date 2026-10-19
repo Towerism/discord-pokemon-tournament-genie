@@ -1,2 +1,18 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Every data table: room around each cell so columns don't run together, and a line under each row. */
+@layer components {
+  .data-table {
+    @apply w-full text-sm;
+  }
+  .data-table :is(th, td) {
+    @apply px-2 py-1.5 align-top;
+  }
+  .data-table thead tr {
+    @apply text-left whitespace-nowrap;
+  }
+  .data-table tr {
+    @apply border-b border-default;
+  }
+}

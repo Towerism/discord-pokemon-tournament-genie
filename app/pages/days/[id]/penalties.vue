@@ -161,15 +161,15 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
 
       <!-- Only the table scrolls sideways on a narrow screen; the region lets a keyboard scroll it too. -->
       <div role="region" aria-label="Penalties" tabindex="0" class="overflow-x-auto">
-        <table class="w-full text-sm [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top [&_th]:px-2 [&_th]:py-1.5">
+        <table class="data-table">
           <thead>
-            <tr class="border-b border-default text-left whitespace-nowrap">
+            <tr>
               <th>#</th><th>Round</th><th>Competitor</th><th>Category</th><th>Severity</th><th>Penalty</th><th>Notes</th><th>Judge</th><th>Recorded</th><th>State</th><th>Card</th><th />
             </tr>
           </thead>
           <tbody>
             <template v-for="p in rows" :key="p.id">
-              <tr :data-penalty="p.number" class="border-b border-default" :class="{ 'text-muted': p.state === 'voided' }">
+              <tr :data-penalty="p.number" :class="{ 'text-muted': p.state === 'voided' }">
                 <td class="whitespace-nowrap">
                   <button type="button" class="underline" :aria-expanded="expanded === p.id" @click="expanded = expanded === p.id ? null : p.id">{{ p.number }}</button>
                 </td>
@@ -194,7 +194,7 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
                   <UButton v-if="isOpen && ['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
                 </td>
               </tr>
-              <tr v-if="expanded === p.id" class="border-b border-default">
+              <tr v-if="expanded === p.id">
                 <td colspan="12" class="bg-muted">
                   <ol class="ps-6 text-xs">
                     <li v-for="r in p.revisions" :key="r.revision">Revision {{ r.revision }}: {{ r.action }} by {{ r.editedByName ?? 'an organizer' }} at {{ time(r.editedAt) }}</li>
