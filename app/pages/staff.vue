@@ -114,40 +114,45 @@ const save = () =>
       <UButton type="submit">Add staff member</UButton>
     </form>
 
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-left"><th>Name</th><th>Player ID</th><th>Discord</th><th /></tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in data.staff" :key="s.id" :data-staff="s.displayName">
-          <td v-if="editing?.id === s.id" colspan="2">
-            <form class="flex items-center gap-1" @submit.prevent="save">
-              <input v-model="editing.displayName" :aria-label="`Display name for ${s.displayName}`" required maxlength="64" class="border border-accented rounded p-1" >
-              <input v-model="editing.playerId" :aria-label="`Player ID for ${s.displayName}`" inputmode="numeric" pattern="\d{1,10}" class="w-28 border border-accented rounded p-1" >
-              <UButton type="submit" size="xs">Save</UButton>
-              <UButton size="xs" variant="ghost" @click="editing = null">Cancel</UButton>
-            </form>
-          </td>
-          <template v-else>
-            <td>{{ s.displayName }}</td>
-            <td>{{ s.playerId ?? '—' }}</td>
-          </template>
-          <td>
-            <template v-if="s.linkState === 'linked'">linked ({{ s.discordUserId }})</template>
-            <template v-else-if="s.linkState === 'claimed'">claimed by {{ s.claimedDiscordUserId }}</template>
-            <template v-else>not linked</template>
-          </td>
-          <td class="flex gap-1">
-            <UButton v-if="editing?.id !== s.id" size="xs" variant="ghost" @click="edit(s)">Edit</UButton>
-            <template v-if="s.linkState === 'claimed'">
-              <UButton size="xs" @click="confirm(s)">Confirm claim</UButton>
-              <UButton size="xs" variant="soft" @click="reject(s)">Reject</UButton>
+    <!-- Only the table scrolls sideways on a narrow screen; the region lets a keyboard scroll it too. -->
+    <div role="region" aria-label="Staff table" tabindex="0" class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Name</th><th>Player ID</th><th>Discord</th><th /></tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in data.staff" :key="s.id" :data-staff="s.displayName">
+            <td v-if="editing?.id === s.id" colspan="2">
+              <form class="flex items-center gap-1" @submit.prevent="save">
+                <input v-model="editing.displayName" :aria-label="`Display name for ${s.displayName}`" required maxlength="64" class="border border-accented rounded p-1" >
+                <input v-model="editing.playerId" :aria-label="`Player ID for ${s.displayName}`" inputmode="numeric" pattern="\d{1,10}" class="w-28 border border-accented rounded p-1" >
+                <UButton type="submit" size="xs">Save</UButton>
+                <UButton size="xs" variant="ghost" @click="editing = null">Cancel</UButton>
+              </form>
+            </td>
+            <template v-else>
+              <td>{{ s.displayName }}</td>
+              <td>{{ s.playerId ?? '—' }}</td>
             </template>
-            <UButton v-if="s.linkState === 'linked'" size="xs" variant="ghost" @click="unlink(s)">Unlink</UButton>
-            <UButton v-else size="xs" variant="ghost" @click="linkFor = s.id">Link…</UButton>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td>
+              <template v-if="s.linkState === 'linked'">linked ({{ s.discordUserId }})</template>
+              <template v-else-if="s.linkState === 'claimed'">claimed by {{ s.claimedDiscordUserId }}</template>
+              <template v-else>not linked</template>
+            </td>
+            <td>
+              <div class="flex gap-1">
+                <UButton v-if="editing?.id !== s.id" size="xs" variant="ghost" @click="edit(s)">Edit</UButton>
+                <template v-if="s.linkState === 'claimed'">
+                  <UButton size="xs" @click="confirm(s)">Confirm claim</UButton>
+                  <UButton size="xs" variant="soft" @click="reject(s)">Reject</UButton>
+                </template>
+                <UButton v-if="s.linkState === 'linked'" size="xs" variant="ghost" @click="unlink(s)">Unlink</UButton>
+                <UButton v-else size="xs" variant="ghost" @click="linkFor = s.id">Link…</UButton>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </template>
