@@ -600,6 +600,9 @@ export function createFakeDiscord(): FakeDiscord {
           const channel = channels.get(channelId);
           if (!channel) throw new DiscordUnavailableError('Unknown channel (fake).');
           await write('pinMessage', messageId, channel.guildId, null, null, () => {
+            // Discord requires Pin Messages for a pin; Manage Messages no longer counts (ADR-0016).
+            const bits = fake.permissionsFor(appOf().botUserId, channelId);
+            if (!(bits & PERMISSION_BITS.ViewChannel) || !(bits & PERMISSION_BITS.PinMessages)) throw new DiscordPermissionError('Missing Permissions (fake): pinning needs Pin Messages.');
             need(messages.get(messageId)).pinned = true;
           });
         },

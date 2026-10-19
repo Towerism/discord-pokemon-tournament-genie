@@ -102,12 +102,38 @@ describe('the fake gateway', () => {
   });
 
   it('posts and pins messages with buttons', async () => {
-    const { discord, gateway } = world();
+    const { discord, gateway } = world(MOST | P.PinMessages);
     const category = await gateway.createCategory(GUILD, { name: 'day', overwrites: [] });
     const channel = await gateway.createChannel(GUILD, { name: 'staff', parentId: category, overwrites: [] });
     const id = await gateway.postMessage(channel, { content: 'hi', buttons: [{ customId: 'x', label: 'Sync' }] });
     await gateway.pinMessage(channel, id);
     expect(discord.messages.get(id)).toMatchObject({ content: 'hi', pinned: true, buttons: [{ customId: 'x', label: 'Sync' }] });
+  });
+
+  it('refuses a pin like Discord does: without Pin Messages, or in a channel the bot can’t see', async () => {
+    const { discord, gateway } = world();
+    const category = await gateway.createCategory(GUILD, { name: 'day', overwrites: [] });
+    const channel = await gateway.createChannel(GUILD, { name: 'staff', parentId: category, overwrites: [] });
+    const id = await gateway.postMessage(channel, { content: 'hi' });
+    await expect(gateway.pinMessage(channel, id)).rejects.toBeInstanceOf(DiscordPermissionError);
+    expect(discord.messages.get(id)!.pinned).toBe(false);
+
+    // Pin Messages held, but View Channels taken from both the bot's role and @everyone.
+    const roles = discord.guilds.get(GUILD)!.roles;
+    const botRole = roles.find((r) => r.managed)!;
+    botRole.permissions = (botRole.permissions | P.PinMessages) & ~P.ViewChannel;
+    roles.find((r) => r.id === GUILD)!.permissions &= ~P.ViewChannel;
+    await expect(gateway.pinMessage(channel, id)).rejects.toBeInstanceOf(DiscordPermissionError);
+    expect(discord.messages.get(id)!.pinned).toBe(false);
+  });
+
+  it('pins for a bot with Administrator', async () => {
+    const { discord, gateway } = world(P.Administrator);
+    const category = await gateway.createCategory(GUILD, { name: 'day', overwrites: [] });
+    const channel = await gateway.createChannel(GUILD, { name: 'staff', parentId: category, overwrites: [] });
+    const id = await gateway.postMessage(channel, { content: 'hi' });
+    await gateway.pinMessage(channel, id);
+    expect(discord.messages.get(id)!.pinned).toBe(true);
   });
 
   it('posts an embed, edits it in place, and answers gone for a deleted message or channel', async () => {
