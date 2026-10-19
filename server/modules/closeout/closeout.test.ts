@@ -72,12 +72,23 @@ describe('closing a day', () => {
       code: 'close_preconditions_failed',
       data: { problems: [{ code: 'missing_permissions', permissions: ['CreatePrivateThreads'] }] },
     });
+    // Pin Messages alone never blocks the close, and isn't named beside a permission that does.
+    botRole.permissions &= ~P.PinMessages;
+    expect(await refusal(() => w.closeout.close(w.dayId, PEOPLE.brock))).toMatchObject({ data: { problems: [{ code: 'missing_permissions', permissions: ['CreatePrivateThreads'] }] } });
     botRole.permissions |= P.CreatePrivateThreads;
     w.discord.unavailable = true;
     expect(await refusal(() => w.closeout.close(w.dayId, PEOPLE.brock))).toMatchObject({ status: 503, code: 'discord_unavailable' });
     w.discord.unavailable = false;
     expect(state()).toBe('open');
     expect(w.jobsOf('lock')).toEqual([]);
+  });
+
+  it('closes a day for a bot invited before Pin Messages was in the invite', async () => {
+    w = await closeoutWorld();
+    w.discord.guilds.get(IDS.guild)!.roles.find((r) => r.managed)!.permissions &= ~P.PinMessages;
+    const { jobId } = await w.closeout.close(w.dayId, PEOPLE.brock);
+    expect(state()).toBe('closing');
+    expect(w.jobsOf('lock').map((j) => [j.id, j.state])).toEqual([[jobId, 'queued']]);
   });
 
   it('lists penalties still in their judge’s window, events without a Tournament ID, and the channels', async () => {

@@ -177,6 +177,15 @@ describe('opening a day', () => {
     await expect(w.provisioning.open(second.day.id)).rejects.toMatchObject({ data: { problems: [{ code: 'channel_limit', needed: 7, available: 6 }] } });
   });
 
+  it('opens a day for a bot invited before Pin Messages was in the invite', async () => {
+    w.close();
+    w = provisioningWorld({ botPermissions: ALL_PERMISSIONS & ~P.PinMessages });
+    const { day } = octoberDay();
+    const { jobId } = await w.provisioning.open(day.id);
+    expect(w.days.plan(day.id).day.state).toBe('open');
+    expect(w.jobs.get(jobId)!.state).toBe('queued');
+  });
+
   it('refuses to open a day twice', async () => {
     const { day } = octoberDay();
     await openAndRun(day.id);

@@ -15,7 +15,7 @@ test('an organizer sets up Genie from the container log to the signed-in home pa
   await page.getByLabel('Client secret').fill(CLIENT_SECRET);
   await page.getByRole('button', { name: 'Save application' }).click();
   await expect(page.locator('[data-check="token_valid"]')).toHaveAttribute('data-ok', 'true');
-  await expect(page.getByRole('link', { name: 'Invite the bot to your server' })).toHaveAttribute('href', /permissions=397553028176/);
+  await expect(page.getByRole('link', { name: 'Invite the bot to your server' })).toHaveAttribute('href', /permissions=2252197366713424/);
 
   await page.getByRole('button', { name: 'Load servers' }).click();
   await page.getByLabel('Server').selectOption({ label: 'Pallet Town Games' });

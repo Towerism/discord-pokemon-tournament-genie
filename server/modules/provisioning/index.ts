@@ -8,7 +8,7 @@ import { type AccessPlan, type Principal, accessPlan, canSee, isOrganizer } from
 import { type BlueprintInput, type DesiredContext, type DesiredDay, type PlanProblem, baseOverwrites, desiredChannels } from '../../../shared/blueprints';
 import { lockedOverwrites } from '../../../shared/discord/lock';
 import { type Overwrite, canonical, overwritesEqual } from '../../../shared/discord/overwrites';
-import { PERMISSION_BITS, type PermissionName, missingPermissions } from '../../../shared/discord/permissions';
+import { PERMISSION_BITS, type PermissionName, missingDayPermissions, missingPermissions } from '../../../shared/discord/permissions';
 import type { Db } from '../../db/client';
 import { type ChannelState, DiscordAuthError, type DiscordGateway, DiscordPermissionError, DiscordUnavailableError, type GuildInfo } from '../discord/port';
 import { ServiceError, notFound } from '../errors';
@@ -324,7 +324,7 @@ export function createProvisioningService(opts: {
       const { guild, members, channelCount } = await liveGuild(b);
       const { desired } = desiredWith(dayId, b, guild, members);
       const problems: OpenProblem[] = [...desired.problems];
-      const missing = missingPermissions(guild.botPermissions);
+      const missing = missingDayPermissions(guild.botPermissions);
       if (missing.length) problems.push({ code: 'missing_permissions', permissions: missing });
       const needed = desired.channels.length + 1;
       if (channelCount + needed > GUILD_CHANNEL_LIMIT) problems.push({ code: 'channel_limit', needed, available: GUILD_CHANNEL_LIMIT - channelCount });

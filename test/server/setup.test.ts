@@ -109,13 +109,13 @@ describe('the Discord application step', () => {
     expect((await b.post('/api/setup/discord', { botToken: 'x' })).json()).toMatchObject({ statusCode: 400, data: { code: 'invalid_body' } });
   });
 
-  it('stores the application and answers the checks and the 13-permission invite URL', async () => {
+  it('stores the application and answers the checks and the 14-permission invite URL', async () => {
     const b = browser(genie.url);
     await unlock(b, genie);
     const res = await b.post('/api/setup/discord', credentials);
     expect(res.status).toBe(200);
     const body = res.json<{ inviteUrl: string; checks: { id: string; ok: boolean }[] }>();
-    expect(new URL(body.inviteUrl).searchParams.get('permissions')).toBe('397553028176');
+    expect(new URL(body.inviteUrl).searchParams.get('permissions')).toBe('2252197366713424');
     expect(body.checks.find((c) => c.id === 'token_valid')?.ok).toBe(true);
     expectNoSecrets(replyTexts(b));
   });

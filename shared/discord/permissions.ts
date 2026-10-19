@@ -18,6 +18,7 @@ export const PERMISSION_BITS = {
   CreatePublicThreads: 1n << 35n,
   CreatePrivateThreads: 1n << 36n,
   SendMessagesInThreads: 1n << 38n,
+  PinMessages: 1n << 51n,
 } as const;
 
 export type PermissionName = keyof typeof PERMISSION_BITS;
@@ -40,8 +41,9 @@ export function namesOf(bits: bigint): PermissionName[] {
 }
 
 /**
- * What the invite URL requests and the setup wizard checks (§4.1): the original nine plus the four the lock
- * denies, because a bot without Administrator can only allow or deny what it holds (ADR-0012).
+ * What the invite URL requests and the setup wizard checks (§4.1): the original nine, the four the lock denies,
+ * because a bot without Administrator can only allow or deny what it holds (ADR-0012), and Pin Messages for the
+ * day intro (ADR-0016).
  */
 export const INVITE_PERMISSIONS = [
   'ViewChannel',
@@ -57,6 +59,7 @@ export const INVITE_PERMISSIONS = [
   'CreatePublicThreads',
   'CreatePrivateThreads',
   'AddReactions',
+  'PinMessages',
 ] as const satisfies readonly PermissionName[];
 
 const INVITE_BITS = INVITE_PERMISSIONS.reduce((sum, name) => sum | PERMISSION_BITS[name], 0n);
@@ -73,4 +76,12 @@ export function inviteUrl(clientId: string): string {
 export function missingPermissions(held: bigint): PermissionName[] {
   if (held & PERMISSION_BITS.Administrator) return [];
   return INVITE_PERMISSIONS.filter((name) => (held & PERMISSION_BITS[name]) === 0n);
+}
+
+/** Only the intro's pin needs it: a day opens and closes without it, and the sync warns instead (ADR-0016). */
+const NOT_NEEDED_FOR_DAYS: readonly PermissionName[] = ['PinMessages'];
+
+/** The invite permissions opening or closing a day can't do without. */
+export function missingDayPermissions(held: bigint): PermissionName[] {
+  return missingPermissions(held).filter((name) => !NOT_NEEDED_FOR_DAYS.includes(name));
 }

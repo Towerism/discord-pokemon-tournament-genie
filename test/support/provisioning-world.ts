@@ -45,7 +45,7 @@ export interface ProvisioningWorld {
 }
 
 /**
- * A store guild (default `@everyone` base with Send, or `nosend`), the bot with exactly the 13 invite permissions,
+ * A store guild (default `@everyone` base with Send, or `nosend`), the bot with exactly the 14 invite permissions,
  * an Administrator, an organizer-role holder, and staff by name; and Genie's modules on a fresh database.
  */
 export function provisioningWorld(opts: { everyone?: 'default' | 'nosend'; botPermissions?: bigint } = {}): ProvisioningWorld {

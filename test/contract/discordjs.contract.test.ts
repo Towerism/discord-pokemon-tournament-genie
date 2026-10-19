@@ -60,7 +60,7 @@ if (missing.length) {
         const liveBase = everyone & PERMISSION_BITS.SendMessages ? 'default' : 'nosend';
         if (caseBase(c) !== liveBase) return { skip: `the guild's @everyone base is ${liveBase}; this is a ${caseBase(c)} case` };
         const botRole = info.roles.filter((r) => info.botRoleIds.includes(r.id)).reduce((bits, r) => bits | r.permissions, 0n);
-        if (botRole !== guild.genieRole) throw new Error(`The bot's role must hold exactly the 13 invite permissions (it holds ${botRole}, the case wants ${guild.genieRole}).`);
+        if (botRole !== guild.genieRole) throw new Error(`The bot's role must hold exactly spike S3's 13 permissions, without Pin Messages (it holds ${botRole}, the case wants ${guild.genieRole}).`);
         if (admin) {
           const adminGuild = await admin.getGuild(guildId);
           if (!adminGuild) throw new Error('GENIE_CONTRACT_ADMIN_TOKEN is not a bot in GENIE_CONTRACT_GUILD_ID.');
