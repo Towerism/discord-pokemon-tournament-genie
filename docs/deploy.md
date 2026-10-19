@@ -58,7 +58,7 @@ In the [Discord developer portal](https://discord.com/developers/applications):
    - `https://<site>/auth/discord` (once Caddy is in place).
 3. In the wizard:
    - paste the three values;
-   - invite the bot with the link it shows (it asks for exactly the 13 permissions Genie needs, never
+   - invite the bot with the link it shows (it asks for exactly the 14 permissions Genie needs, never
      Administrator);
    - choose the server;
    - **log in with Discord** (that account becomes the install owner);
@@ -67,6 +67,21 @@ In the [Discord developer portal](https://discord.com/developers/applications):
 
    The wizard checks every step live against Discord. Drag the bot's role above both mapped roles in
    **Server Settings → Roles** if it asks you to.
+
+### A bot invited before Pin Messages was added
+
+Installs set up before 2026-10-19 invited the bot with 13 permissions, without **Pin Messages**. Such a bot
+still opens and closes days, but it can't pin the day intro. The page header then says the bot is missing
+`PinMessages`, and every sync's job log warns "Couldn't pin the intro: the bot needs the Pin Messages
+permission."
+
+To fix it:
+
+1. In Discord, open **Server Settings → Roles** and select the bot's role (it has the bot's name).
+2. Turn on **Pin Messages** and save. If setup isn't finished yet, opening the wizard's invite link again
+   does the same.
+3. In Genie, press **Sync** on each open day. Nothing syncs on its own after a role change. The sync pins the
+   intro already posted, and the warnings stop.
 
 Anyone in the server with *Manage Roles* can hand out the organizer role, and with it full access. The owner can
 limit organizers with the allowlist in **Settings**.
