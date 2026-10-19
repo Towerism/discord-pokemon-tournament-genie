@@ -1,6 +1,10 @@
 <script setup lang="ts">
 // An event's penalties for its head judges and organizers (§6.4, ADR-0006): the list with its history, recording one
 // when Discord is down, corrections and voids, reposting a lost card, and the CSV the head judge submits (§6.6).
+import { cardStateLabel } from '#shared/penalties/labels';
+
+definePageMeta({ wide: true });
+
 type Severity = 'Minor' | 'Major' | 'Severe';
 interface Option {
   id: number;
@@ -155,46 +159,52 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digi
         </div>
       </form>
 
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left">
-            <th>#</th><th>Round</th><th>Competitor</th><th>Category</th><th>Severity</th><th>Penalty</th><th>Notes</th><th>Judge</th><th>Recorded</th><th>State</th><th>Card</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="p in rows" :key="p.id">
-            <tr :data-penalty="p.number" :class="{ 'text-muted line-through': p.state === 'voided' }">
-              <td>
-                <button type="button" class="underline" :aria-expanded="expanded === p.id" @click="expanded = expanded === p.id ? null : p.id">{{ p.number }}</button>
-              </td>
-              <td>{{ p.round }}</td>
-              <td>{{ p.competitorPlayerId }}</td>
-              <td>{{ p.category.label }}</td>
-              <td>{{ p.severity }}</td>
-              <td>{{ p.penaltyType.label }}</td>
-              <td class="whitespace-pre-wrap">{{ p.notes }}</td>
-              <td>{{ p.judge.name }} ({{ p.judge.playerId }})</td>
-              <td>{{ time(p.recordedAt) }}</td>
-              <td>{{ p.state }}<template v-if="p.voidReason">: {{ p.voidReason }}</template></td>
-              <td>{{ p.cardState }}</td>
-              <td class="space-x-1 whitespace-nowrap">
-                <template v-if="canChange && p.state === 'active'">
-                  <UButton size="xs" variant="outline" @click="startEditing(p)">Edit</UButton>
-                  <UButton size="xs" color="error" variant="outline" @click="voiding = { penalty: p, reason: '' }">Void</UButton>
-                </template>
-                <UButton v-if="isOpen && ['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
-              </td>
+      <!-- Only the table scrolls sideways on a narrow screen; the region lets a keyboard scroll it too. -->
+      <div role="region" aria-label="Penalties" tabindex="0" class="overflow-x-auto">
+        <table class="w-full text-sm [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top [&_th]:px-2 [&_th]:py-1.5">
+          <thead>
+            <tr class="border-b border-default text-left whitespace-nowrap">
+              <th>#</th><th>Round</th><th>Competitor</th><th>Category</th><th>Severity</th><th>Penalty</th><th>Notes</th><th>Judge</th><th>Recorded</th><th>State</th><th>Card</th><th />
             </tr>
-            <tr v-if="expanded === p.id">
-              <td colspan="12">
-                <ol class="text-xs">
-                  <li v-for="r in p.revisions" :key="r.revision">Revision {{ r.revision }}: {{ r.action }} by {{ r.editedByName ?? 'an organizer' }} at {{ time(r.editedAt) }}</li>
-                </ol>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <template v-for="p in rows" :key="p.id">
+              <tr :data-penalty="p.number" class="border-b border-default" :class="{ 'text-muted': p.state === 'voided' }">
+                <td class="whitespace-nowrap">
+                  <button type="button" class="underline" :aria-expanded="expanded === p.id" @click="expanded = expanded === p.id ? null : p.id">{{ p.number }}</button>
+                </td>
+                <td class="whitespace-nowrap">{{ p.round }}</td>
+                <td class="whitespace-nowrap">{{ p.competitorPlayerId }}</td>
+                <td>{{ p.category.label }}</td>
+                <td class="whitespace-nowrap">{{ p.severity }}</td>
+                <td>{{ p.penaltyType.label }}</td>
+                <td class="min-w-64 max-w-128 whitespace-pre-wrap wrap-anywhere">{{ p.notes }}</td>
+                <td>{{ p.judge.name }} ({{ p.judge.playerId }})</td>
+                <td class="whitespace-nowrap">{{ time(p.recordedAt) }}</td>
+                <td>
+                  {{ p.state === 'voided' ? 'Voided' : 'Active' }}
+                  <div v-if="p.voidReason" class="wrap-anywhere">Reason: {{ p.voidReason }}</div>
+                </td>
+                <td class="whitespace-nowrap">{{ cardStateLabel(p.cardState) }}</td>
+                <td class="space-x-1 whitespace-nowrap">
+                  <template v-if="canChange && p.state === 'active'">
+                    <UButton size="xs" variant="outline" @click="startEditing(p)">Edit</UButton>
+                    <UButton size="xs" color="error" variant="outline" @click="voiding = { penalty: p, reason: '' }">Void</UButton>
+                  </template>
+                  <UButton v-if="isOpen && ['pending', 'failed', 'missing', 'none'].includes(p.cardState)" size="xs" variant="ghost" @click="repost(p)">Repost card</UButton>
+                </td>
+              </tr>
+              <tr v-if="expanded === p.id" class="border-b border-default">
+                <td colspan="12" class="bg-muted">
+                  <ol class="ps-6 text-xs">
+                    <li v-for="r in p.revisions" :key="r.revision">Revision {{ r.revision }}: {{ r.action }} by {{ r.editedByName ?? 'an organizer' }} at {{ time(r.editedAt) }}</li>
+                  </ol>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
       <p v-if="!rows.length" class="text-sm">No penalties yet.</p>
 
       <form v-if="editing" class="grid max-w-xl grid-cols-[max-content_1fr] gap-2 text-sm" @submit.prevent="saveEdit">

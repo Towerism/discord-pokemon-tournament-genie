@@ -13,6 +13,8 @@ interface BotStatus {
 }
 
 const { loggedIn, user, clear } = useUserSession();
+// A page with a wide table opts in with definePageMeta({ wide: true }); every other page keeps the narrow column.
+const route = useRoute();
 const { data: me } = useMe();
 const isOrganizer = computed(() => me.value?.isOrganizer === true);
 // The bot's state and the alarms are for organizers.
@@ -82,7 +84,7 @@ async function logout() {
     <div v-if="status && status.extraGuilds.length" role="alert" class="px-4 py-2 bg-warning/10 text-sm">
       The bot is also in other servers ({{ status.extraGuilds.map((g) => g.name).join(', ') }}). Genie ignores them; remove it there.
     </div>
-    <main class="mx-auto max-w-3xl p-4">
+    <main class="mx-auto p-4" :class="route.meta.wide ? 'max-w-7xl' : 'max-w-3xl'">
       <slot />
     </main>
   </div>
