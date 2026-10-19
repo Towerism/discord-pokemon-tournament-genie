@@ -102,7 +102,8 @@ interface TextBox {
   left: number;
   right: number;
   top: number;
-  lines: number;
+  /** More than one line when the text is taller than one and a half of the element's line height. */
+  multiline: boolean;
 }
 const textBox = (el: Element): TextBox => {
   const range = document.createRange();
@@ -112,7 +113,7 @@ const textBox = (el: Element): TextBox => {
     left: Math.min(...rects.map((r) => r.left)),
     right: Math.max(...rects.map((r) => r.right)),
     top: Math.min(...rects.map((r) => r.top)),
-    lines: new Set(rects.map((r) => Math.round(r.top))).size,
+    multiline: Math.max(...rects.map((r) => r.bottom)) - Math.min(...rects.map((r) => r.top)) > 1.5 * parseFloat(getComputedStyle(el).lineHeight),
   };
 };
 
@@ -177,15 +178,15 @@ test('the penalties table is readable on a desktop and on a phone', async ({ pag
   expect(round!.left - number!.right).toBeGreaterThanOrEqual(12);
   expect(Math.abs(round!.top - number!.top)).toBeLessThanOrEqual(4);
   expect(Math.abs(notes!.top - number!.top)).toBeLessThanOrEqual(4);
-  expect(notes!.lines).toBeGreaterThan(1);
-  for (const short of [number, round, competitor, severity, recorded, card]) expect(short!.lines).toBe(1);
+  expect(notes!.multiline).toBe(true);
+  for (const [name, short] of Object.entries({ number, round, competitor, severity, recorded, card })) expect(short!.multiline, `${name} wraps`).toBe(false);
   const buttonTops = await first.getByRole('button', { name: /^(Edit|Void)$/ }).evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().top));
   expect(new Set(buttonTops).size).toBe(1);
 
   // A note with no spaces wraps inside its cell instead of widening the table.
   const unbroken = await page.locator('[data-penalty="3"] td').nth(6).evaluate((td, box) => new Function('return ' + box)()(td) as TextBox, textBox.toString());
   expect(unbroken.right - unbroken.left).toBeLessThanOrEqual(512);
-  expect(unbroken.lines).toBeGreaterThan(1);
+  expect(unbroken.multiline).toBe(true);
 
   // State and card in words; a voided row is muted, not struck through.
   await expect(first).toContainText('Active');
