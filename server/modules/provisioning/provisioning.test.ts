@@ -177,6 +177,15 @@ describe('opening a day', () => {
     await expect(w.provisioning.open(second.day.id)).rejects.toMatchObject({ data: { problems: [{ code: 'channel_limit', needed: 7, available: 6 }] } });
   });
 
+  it('opens a day for a bot invited before Pin Messages was in the invite', async () => {
+    w.close();
+    w = provisioningWorld({ botPermissions: ALL_PERMISSIONS & ~P.PinMessages });
+    const { day } = octoberDay();
+    const { jobId } = await w.provisioning.open(day.id);
+    expect(w.days.plan(day.id).day.state).toBe('open');
+    expect(w.jobs.get(jobId)!.state).toBe('queued');
+  });
+
   it('refuses to open a day twice', async () => {
     const { day } = octoberDay();
     await openAndRun(day.id);
@@ -467,17 +476,63 @@ describe('removals racing a sync', () => {
     expect(row.hash).toBe(overwritesHash(floor.overwrites));
   });
 
+  const intro = () => [...w.discord.messages.values()].filter((m) => m.channelId === w.channel('day-staff').id);
+  const warnings = (jobId: number) => w.jobs.events(jobId).filter((e) => e.level === 'warn').map((e) => e.message);
+  const PIN_REFUSED = "Couldn't pin the intro: the bot needs the Pin Messages permission. Add it to Genie's role; the next sync pins it.";
+
   it('warns, never fails, when the intro can’t be pinned, and pins it on the next sync', async () => {
     const { day } = octoberDay();
     w.discord.failOn((call) => (call.method === 'pinMessage' ? 'unavailable' : null));
     const job = await openAndRun(day.id);
     w.discord.failOn(null);
     expect(job.state).toBe('succeeded');
-    expect(w.jobs.events(job.id).some((e) => e.level === 'warn' && e.message.startsWith("Couldn't post or pin the intro"))).toBe(true);
+    expect(warnings(job.id)).toContain("Couldn't pin the intro; the next sync tries again.");
     expect(w.days.plan(day.id).sync.inSync).toBe(true);
     await sync(day.id);
-    expect([...w.discord.messages.values()].find((m) => m.channelId === w.channel('day-staff').id)!.pinned).toBe(true);
-    expect([...w.discord.messages.values()].filter((m) => m.channelId === w.channel('day-staff').id)).toHaveLength(1);
+    expect(intro()[0]!.pinned).toBe(true);
+    expect(intro()).toHaveLength(1);
+  });
+
+  it('says to add Pin Messages when the bot lacks it, then pins the same intro once it has it', async () => {
+    w.close();
+    w = provisioningWorld({ botPermissions: ALL_PERMISSIONS & ~P.PinMessages });
+    const { day } = octoberDay();
+    const job = await openAndRun(day.id);
+    expect(job.state).toBe('succeeded');
+    expect(w.days.plan(day.id).sync.inSync).toBe(true);
+    expect(intro()).toHaveLength(1);
+    expect(intro()[0]!.pinned).toBe(false);
+    expect(warnings(job.id)).toContain(PIN_REFUSED);
+
+    w.discord.guilds.get(IDS.guild)!.roles.find((r) => r.managed)!.permissions |= P.PinMessages;
+    const fixed = await sync(day.id);
+    expect(intro()).toHaveLength(1);
+    expect(intro()[0]!.pinned).toBe(true);
+    expect(warnings(fixed.id)).toEqual([]);
+    const later = await sync(day.id);
+    expect(warnings(later.id)).toEqual([]);
+  });
+
+  it('names the intro or the panel when posting it fails, and never fails the sync', async () => {
+    const { day } = octoberDay();
+    const named = (name: string) => (call: { method: string; target: string }) => (call.method === 'postMessage' && w.discord.channels.get(call.target)?.name === name ? 'unavailable' : null);
+    w.discord.failOn(named('day-staff'));
+    const job = await openAndRun(day.id);
+    w.discord.failOn(null);
+    expect(job.state).toBe('succeeded');
+    expect(warnings(job.id)).toContain("Couldn't post the intro; the next sync tries again.");
+    expect(intro()).toEqual([]);
+    await sync(day.id);
+    expect(intro()).toHaveLength(1);
+
+    w.close();
+    w = provisioningWorld();
+    const other = octoberDay();
+    w.discord.failOn(named('head-judges'));
+    const panelJob = await openAndRun(other.day.id);
+    w.discord.failOn(null);
+    expect(panelJob.state).toBe('succeeded');
+    expect(warnings(panelJob.id)).toEqual(["Couldn't post the panel; the next sync tries again."]);
   });
 });
 

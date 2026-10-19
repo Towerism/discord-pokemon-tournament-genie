@@ -18,7 +18,7 @@ import {
   safeDownloadName,
 } from '../../../shared/closeout';
 import { isLocked } from '../../../shared/discord/lock';
-import { missingPermissions } from '../../../shared/discord/permissions';
+import { missingDayPermissions } from '../../../shared/discord/permissions';
 import { can, effectivePermissions } from '../../../shared/discord/resolve';
 import { TOURNAMENT_ID } from '../../../shared/penalties';
 import type { Db } from '../../db/client';
@@ -707,7 +707,7 @@ export function createCloseoutService(opts: {
         throw err;
       }
       if (!guild) throw unreachable();
-      const missing = missingPermissions(guild.botPermissions);
+      const missing = missingDayPermissions(guild.botPermissions);
       if (missing.length) throw new ServiceError(422, 'close_preconditions_failed', 'The bot can’t lock the channels yet.', { problems: [{ code: 'missing_permissions', permissions: missing }] });
       const jobId = eventDays.markClosing(dayId, by, () => jobs.enqueue({ kind: 'lock', dayId }));
       logger.info('Day closing.', { dayId, jobId, by });

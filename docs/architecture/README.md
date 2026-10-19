@@ -1,6 +1,6 @@
 # Tournament Genie — System Architecture
 
-Status: **Accepted** (by the owner, 2026-10-13) · amended by ADR-0011 (accepted 2026-10-13) · amended by ADR-0012, ADR-0013, ADR-0014 (accepted 2026-10-14) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
+Status: **Accepted** (by the owner, 2026-10-13) · amended by ADR-0011 (accepted 2026-10-13) · amended by ADR-0012, ADR-0013, ADR-0014 (accepted 2026-10-14) · amended by ADR-0016 (accepted 2026-10-19) · Date: 2026-10-13 · Author: Martin Fracker, Jr.
 
 ## 1. Context
 
@@ -262,13 +262,16 @@ invited to the store's server. The setup wizard walks through it (§6.1).
 - **Intents.** `Guilds`, `GuildMembers` (privileged: the staff picker and resolving members), and
   `MessageContent` (privileged: transcripts of human messages). Both privileged intents are a toggle in
   the portal for a bot in fewer than 100 servers; the wizard checks them.
-- **Permissions** (the invite URL requests exactly these 13): View Channels, Manage Channels, Manage Roles
+- **Permissions** (the invite URL requests exactly these 14): View Channels, Manage Channels, Manage Roles
   (needed to write permission overwrites), Manage Threads (needed to list and read private threads for
   transcripts), Send Messages, Embed Links, Attach Files, Read Message History, Use Application Commands,
-  plus Send Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions. Not
-  Administrator. The last four are there because, without Administrator, Discord lets the bot allow or
-  deny only permissions it holds itself (spike S3), and the lock (§6.5) denies them
-  ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)).
+  plus Send Messages in Threads, Create Public Threads, Create Private Threads and Add Reactions, plus Pin
+  Messages. Not Administrator. Send Messages in Threads through Add Reactions are there because, without
+  Administrator, Discord lets the bot allow or deny only permissions it holds itself (spike S3), and the
+  lock (§6.5) denies them ([ADR-0012](adr/0012-genie-overwrite-without-manage-roles.md)). Pin Messages pins
+  the day intro (§6.3). Opening and closing a day don't require it, so a bot invited before it was added
+  still runs a day, with the intro unpinned and a warning on each sync
+  ([ADR-0016](adr/0016-invite-asks-for-pin-messages.md)).
 - **How Discord resolves permissions, and why it matters here.** A member's permissions in a channel are
   computed in this order, each step overriding the last:
   1. **guild base permissions**: the `@everyone` role's permissions combined with those of the member's
@@ -1119,3 +1122,4 @@ Answered by the owner on 2026-10-13:
 | [0013](adr/0013-https-origin-for-website-login.md) | Website login needs an HTTPS origin, through Caddy | Accepted (2026-10-14) |
 | [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Accepted (2026-10-14) |
 | [0015](adr/0015-streaming-staff-role.md) | A Streaming event role that isn't a judge, and a `streaming` blueprint audience | Accepted (2026-10-15) |
+| [0016](adr/0016-invite-asks-for-pin-messages.md) | The invite asks for Pin Messages; a day opens and closes without it | Accepted (2026-10-19) |

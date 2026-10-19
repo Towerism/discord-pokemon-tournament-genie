@@ -8,7 +8,7 @@ import { type AccessPlan, type Principal, accessPlan, canSee, isOrganizer } from
 import { type BlueprintInput, type DesiredContext, type DesiredDay, type PlanProblem, baseOverwrites, desiredChannels } from '../../../shared/blueprints';
 import { lockedOverwrites } from '../../../shared/discord/lock';
 import { type Overwrite, canonical, overwritesEqual } from '../../../shared/discord/overwrites';
-import { PERMISSION_BITS, type PermissionName, missingPermissions } from '../../../shared/discord/permissions';
+import { PERMISSION_BITS, type PermissionName, missingDayPermissions, missingPermissions } from '../../../shared/discord/permissions';
 import type { Db } from '../../db/client';
 import { type ChannelState, DiscordAuthError, type DiscordGateway, DiscordPermissionError, DiscordUnavailableError, type GuildInfo } from '../discord/port';
 import { ServiceError, notFound } from '../errors';
@@ -270,7 +270,9 @@ export function createProvisioningService(opts: {
     }
     const discord = naming(gateway());
     const row = store.present(dayId).find((r) => r.blueprintChannelKey === key && r.eventId === null)!;
+    const what = msg.pin ? 'intro' : 'panel';
     // Access has landed and been audited by now: a message problem warns, it never fails the sync.
+    let step: 'post' | 'pin' = 'post';
     try {
       let messageId = row.messageId;
       if (!messageId) {
@@ -278,6 +280,7 @@ export function createProvisioningService(opts: {
         store.update(row.id, { messageId, messagePinned: false }, clock.now());
       }
       if (msg.pin && !row.messagePinned) {
+        step = 'pin';
         await discord.pinMessage(row.discordChannelId, messageId);
         store.update(row.id, { messagePinned: true }, clock.now());
       }
@@ -286,7 +289,13 @@ export function createProvisioningService(opts: {
         // The message was deleted by hand: post a new one next time.
         store.update(row.id, { messageId: null, messagePinned: false }, clock.now());
       }
-      ctx.log('warn', `Couldn't post or pin the ${msg.pin ? 'intro' : 'panel'}; the next sync tries again.`, { error: String(err) });
+      // `naming()` wraps every port error, so a refusal arrives as the cause.
+      const refused = err instanceof Error && err.cause instanceof DiscordPermissionError;
+      const message =
+        step === 'pin' && refused
+          ? `Couldn't pin the ${what}: the bot needs the Pin Messages permission. Add it to Genie's role; the next sync pins it.`
+          : `Couldn't ${step} the ${what}; the next sync tries again.`;
+      ctx.log('warn', message, { error: String(err) });
     }
   }
 
@@ -324,7 +333,7 @@ export function createProvisioningService(opts: {
       const { guild, members, channelCount } = await liveGuild(b);
       const { desired } = desiredWith(dayId, b, guild, members);
       const problems: OpenProblem[] = [...desired.problems];
-      const missing = missingPermissions(guild.botPermissions);
+      const missing = missingDayPermissions(guild.botPermissions);
       if (missing.length) problems.push({ code: 'missing_permissions', permissions: missing });
       const needed = desired.channels.length + 1;
       if (channelCount + needed > GUILD_CHANNEL_LIMIT) problems.push({ code: 'channel_limit', needed, available: GUILD_CHANNEL_LIMIT - channelCount });

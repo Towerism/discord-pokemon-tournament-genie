@@ -114,7 +114,7 @@ export function caseGuild(c: PermissionCase): CaseGuild {
     everyone: bitsOf(c.guild.everyone),
     roles: c.guild.roles.map((r) => ({ key: r.key, permissions: bitsOf(r.permissions), position: r.position })),
     members: [c.subject, c.other],
-    // S3 recorded every effective case with `genie` holding exactly the 13 invite permissions.
+    // S3 recorded every effective case with `genie` holding exactly the 13 invite permissions of the time (Pin Messages came later, ADR-0016).
     genieRole: bitsOf([
       'AddReactions',
       'AttachFiles',

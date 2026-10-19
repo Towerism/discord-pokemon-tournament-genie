@@ -136,6 +136,11 @@ describe('computeChecks', () => {
     });
   });
 
+  it('names Pin Messages for a bot invited before it was in the invite', () => {
+    const input = ready({ guild: guild({ botPermissions: ALL & ~PERMISSION_BITS.PinMessages }) });
+    expect(check(input, 'permissions_present')).toEqual({ id: 'permissions_present', ok: false, detail: ['PinMessages'] });
+  });
+
   it('passes permissions for an Administrator bot, with a warning', () => {
     const result = computeChecks(ready({ guild: guild({ botPermissions: PERMISSION_BITS.Administrator }) }));
     expect(result.checks.every((c) => c.ok)).toBe(true);
