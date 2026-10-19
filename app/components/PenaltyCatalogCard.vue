@@ -99,25 +99,29 @@ function add(list: 'categories' | 'types') {
     </label>
 
     <form class="space-y-4" @submit.prevent="save">
-      <fieldset v-for="list in LISTS" :key="list.key" class="space-y-1">
+      <!-- min-w-0: a fieldset is as wide as its content by default, which would stop the table box from scrolling. -->
+      <fieldset v-for="list in LISTS" :key="list.key" class="min-w-0 space-y-1">
         <legend class="font-medium">{{ list.title }}</legend>
-        <table class="text-sm">
-          <thead>
-            <tr class="text-left"><th>Label</th><th>Games</th><th>Rank</th><th>Active</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, i) in catalog[list.key]" :key="row.id ?? `new-${i}`">
-              <td><input v-model="row.label" :aria-label="`${list.title} label ${i + 1}`" class="border border-accented rounded p-1" maxlength="100" required ></td>
-              <td>
-                <label v-for="g in GAMES" :key="g.value" class="mr-2 inline-flex items-center gap-1">
-                  <input type="checkbox" :checked="row.games.includes(g.value)" @change="toggle(row, g.value)" >{{ g.label }}
-                </label>
-              </td>
-              <td><input v-model.number="row.rank" type="number" min="0" max="999" class="w-16 border border-accented rounded p-1" :aria-label="`${list.title} rank ${i + 1}`" ></td>
-              <td><input v-model="row.active" type="checkbox" :aria-label="`${list.title} active ${i + 1}`" ></td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Only the table scrolls sideways on a narrow screen; the region lets a keyboard scroll it too. -->
+        <div role="region" :aria-label="`${list.title} table`" tabindex="0" class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>Label</th><th>Games</th><th>Rank</th><th>Active</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, i) in catalog[list.key]" :key="row.id ?? `new-${i}`">
+                <td><input v-model="row.label" :aria-label="`${list.title} label ${i + 1}`" class="border border-accented rounded p-1" maxlength="100" required ></td>
+                <td>
+                  <label v-for="g in GAMES" :key="g.value" class="mr-2 inline-flex items-center gap-1">
+                    <input type="checkbox" :checked="row.games.includes(g.value)" @change="toggle(row, g.value)" >{{ g.label }}
+                  </label>
+                </td>
+                <td><input v-model.number="row.rank" type="number" min="0" max="999" class="w-16 border border-accented rounded p-1" :aria-label="`${list.title} rank ${i + 1}`" ></td>
+                <td><input v-model="row.active" type="checkbox" :aria-label="`${list.title} active ${i + 1}`" ></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <UButton size="sm" variant="ghost" @click="add(list.key)">Add a row</UButton>
       </fieldset>
       <UAlert v-if="error" color="error" :title="error" />

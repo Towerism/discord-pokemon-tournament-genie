@@ -266,47 +266,50 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
         :event-name="(id: number) => eventName(id)"
         @applied="imported"
       />
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left"><th>Event</th><th>Channels</th><th>Game</th><th>Starts</th><th>Tournament ID</th><th>Organizer</th><th /></tr>
-        </thead>
-        <tbody>
-          <tr v-for="e in plan.events" :key="e.id">
-            <td>{{ e.name }}</td>
-            <td>{{ e.slug }}</td>
-            <td>
-              <template v-if="e.gameConfirmed">{{ e.game.toUpperCase() }}</template>
-              <span v-else class="flex items-center gap-1">
-                <UBadge color="warning" variant="soft">game not confirmed</UBadge>
-                <select
-                  v-if="editable"
-                  :aria-label="`Game of ${e.name}`"
-                  class="border border-accented rounded p-1"
-                  @change="setGame(e.id, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">Set the game…</option>
-                  <option value="tcg">TCG</option><option value="vgc">VGC</option><option value="go">GO</option><option value="other">Other</option>
-                </select>
-              </span>
-            </td>
-            <td>{{ e.startTime }}</td>
-            <td>
-              <form v-if="plan.can.closeout && closedDay" class="flex items-center gap-1" @submit.prevent="setTournamentId(e.id)">
-                <input
-                  v-model="tournamentIds[e.id]"
-                  :placeholder="e.tournamentId ?? '25-12-001050'"
-                  :aria-label="`Tournament ID of ${e.name}`"
-                  class="w-32 border border-accented rounded p-1"
-                >
-                <UButton type="submit" size="xs" variant="outline">Set</UButton>
-              </form>
-              <template v-else>{{ e.tournamentId ?? '—' }}</template>
-            </td>
-            <td>{{ e.attendance?.organizerName ?? (e.attendance ? e.attendance.organizerPlayerId : '—') }}</td>
-            <td><UButton v-if="editable && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- Only the table scrolls sideways on a narrow screen; the region lets a keyboard scroll it too. -->
+      <div role="region" aria-label="Events table" tabindex="0" class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr><th>Event</th><th>Channels</th><th>Game</th><th>Starts</th><th>Tournament ID</th><th>Organizer</th><th /></tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in plan.events" :key="e.id">
+              <td>{{ e.name }}</td>
+              <td>{{ e.slug }}</td>
+              <td>
+                <template v-if="e.gameConfirmed">{{ e.game.toUpperCase() }}</template>
+                <span v-else class="flex items-center gap-1">
+                  <UBadge color="warning" variant="soft">game not confirmed</UBadge>
+                  <select
+                    v-if="editable"
+                    :aria-label="`Game of ${e.name}`"
+                    class="border border-accented rounded p-1"
+                    @change="setGame(e.id, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">Set the game…</option>
+                    <option value="tcg">TCG</option><option value="vgc">VGC</option><option value="go">GO</option><option value="other">Other</option>
+                  </select>
+                </span>
+              </td>
+              <td>{{ e.startTime }}</td>
+              <td>
+                <form v-if="plan.can.closeout && closedDay" class="flex items-center gap-1" @submit.prevent="setTournamentId(e.id)">
+                  <input
+                    v-model="tournamentIds[e.id]"
+                    :placeholder="e.tournamentId ?? '25-12-001050'"
+                    :aria-label="`Tournament ID of ${e.name}`"
+                    class="w-32 border border-accented rounded p-1"
+                  >
+                  <UButton type="submit" size="xs" variant="outline">Set</UButton>
+                </form>
+                <template v-else>{{ e.tournamentId ?? '—' }}</template>
+              </td>
+              <td>{{ e.attendance?.organizerName ?? (e.attendance ? e.attendance.organizerPlayerId : '—') }}</td>
+              <td><UButton v-if="editable && plan.day.state === 'draft'" size="xs" variant="ghost" @click="removeEvent(e.id)">Remove</UButton></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <form v-if="editable" class="flex flex-wrap items-end gap-2" @submit.prevent="addEvent">
         <label class="text-sm">Event name <input v-model="newEvent.name" required maxlength="64" class="block border border-accented rounded p-1" ></label>
         <label class="text-sm">Game
@@ -322,28 +325,30 @@ const eventName = (id: number | null) => plan.value?.events.find((e) => e.id ===
 
     <section aria-labelledby="staff-heading" class="space-y-2">
       <h2 id="staff-heading" class="font-semibold">Staff</h2>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left"><th>Staff</th><th v-for="e in plan.events" :key="e.id">{{ e.name }}</th><th /></tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in roster" :key="r.staffMemberId">
-            <td>
-              {{ r.displayName }}
-              <span v-if="plan.staff.find((s) => s.staffMemberId === r.staffMemberId)?.linkState !== 'linked'" class="text-warning">
-                ({{ linkLabel(plan.staff.find((s) => s.staffMemberId === r.staffMemberId)?.linkState ?? 'unlinked') }})
-              </span>
-            </td>
-            <td v-for="e in plan.events" :key="e.id">
-              <select v-model="r.roles[e.id]" :disabled="!editable" :aria-label="`${r.displayName}'s role in ${e.name}`" class="border border-accented rounded p-1">
-                <option value="">—</option>
-                <option v-for="role in ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
-              </select>
-            </td>
-            <td><UButton v-if="editable" size="xs" variant="ghost" @click="removeStaffer(r.staffMemberId)">Remove</UButton></td>
-          </tr>
-        </tbody>
-      </table>
+      <div role="region" aria-label="Staff table" tabindex="0" class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr><th>Staff</th><th v-for="e in plan.events" :key="e.id">{{ e.name }}</th><th /></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in roster" :key="r.staffMemberId">
+              <td>
+                {{ r.displayName }}
+                <span v-if="plan.staff.find((s) => s.staffMemberId === r.staffMemberId)?.linkState !== 'linked'" class="text-warning">
+                  ({{ linkLabel(plan.staff.find((s) => s.staffMemberId === r.staffMemberId)?.linkState ?? 'unlinked') }})
+                </span>
+              </td>
+              <td v-for="e in plan.events" :key="e.id">
+                <select v-model="r.roles[e.id]" :disabled="!editable" :aria-label="`${r.displayName}'s role in ${e.name}`" class="border border-accented rounded p-1">
+                  <option value="">—</option>
+                  <option v-for="role in ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
+                </select>
+              </td>
+              <td><UButton v-if="editable" size="xs" variant="ghost" @click="removeStaffer(r.staffMemberId)">Remove</UButton></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div v-if="editable" class="flex flex-wrap items-end gap-2">
         <label class="text-sm">Add staff
           <select v-model="toAdd" class="block border border-accented rounded p-1" @change="addStaffer">

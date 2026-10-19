@@ -37,7 +37,7 @@ test('an organizer connects attendance and imports a day', async ({ page, reques
   await expect
     .poll(async () => ((await (await page.request.get(`/api/days/${dayId}`)).json()) as { events: unknown[] }).events.length, { timeout: 15_000 })
     .toBe(2);
-  const events = page.getByRole('region', { name: 'Events' });
+  const events = page.getByRole('region', { name: 'Events', exact: true });
   await expect(events.getByRole('row', { name: /Brock Cup/ })).toContainText('Brock Harrison');
   await expect(events.getByRole('row', { name: /Olive Cup/ })).toContainText('Olive Oak');
   await expect(page.getByText(/Refreshed from attendance/)).toBeVisible();
