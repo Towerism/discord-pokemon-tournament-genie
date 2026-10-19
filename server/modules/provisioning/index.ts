@@ -270,7 +270,9 @@ export function createProvisioningService(opts: {
     }
     const discord = naming(gateway());
     const row = store.present(dayId).find((r) => r.blueprintChannelKey === key && r.eventId === null)!;
+    const what = msg.pin ? 'intro' : 'panel';
     // Access has landed and been audited by now: a message problem warns, it never fails the sync.
+    let step: 'post' | 'pin' = 'post';
     try {
       let messageId = row.messageId;
       if (!messageId) {
@@ -278,6 +280,7 @@ export function createProvisioningService(opts: {
         store.update(row.id, { messageId, messagePinned: false }, clock.now());
       }
       if (msg.pin && !row.messagePinned) {
+        step = 'pin';
         await discord.pinMessage(row.discordChannelId, messageId);
         store.update(row.id, { messagePinned: true }, clock.now());
       }
@@ -286,7 +289,13 @@ export function createProvisioningService(opts: {
         // The message was deleted by hand: post a new one next time.
         store.update(row.id, { messageId: null, messagePinned: false }, clock.now());
       }
-      ctx.log('warn', `Couldn't post or pin the ${msg.pin ? 'intro' : 'panel'}; the next sync tries again.`, { error: String(err) });
+      // `naming()` wraps every port error, so a refusal arrives as the cause.
+      const refused = err instanceof Error && err.cause instanceof DiscordPermissionError;
+      const message =
+        step === 'pin' && refused
+          ? `Couldn't pin the ${what}: the bot needs the Pin Messages permission. Add it to Genie's role; the next sync pins it.`
+          : `Couldn't ${step} the ${what}; the next sync tries again.`;
+      ctx.log('warn', message, { error: String(err) });
     }
   }
 
