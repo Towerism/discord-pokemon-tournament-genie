@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { type APIResponse, type Page, expect, test } from '@playwright/test';
 import { IDS } from '../support/discord-world';
-import { ensureSetup, login } from './support';
+import { type TextBox, ensureSetup, login, textBox } from './support';
 
 // M4's critical journey: record penalties on the website, correct them, and download the CSV the head judge submits.
 
@@ -93,29 +93,6 @@ test('a head judge records penalties, corrects one, voids one, and downloads the
   await expect(page.locator('[data-penalty="1"]')).toContainText('Oak (0031415)');
   expect(await downloaded(page, 'Download CSV')).toContain('26-10-000777,4,0031415,0042,Game Play,Major,Warning,first');
 });
-
-/**
- * Where an element's rendered text sits, from the boxes of its text, so padding and wrapping show as they render.
- * Playwright can't pass a function into the page, so callers send its source and rebuild it there.
- */
-interface TextBox {
-  left: number;
-  right: number;
-  top: number;
-  /** More than one line when the text is taller than one and a half of the element's line height. */
-  multiline: boolean;
-}
-const textBox = (el: Element): TextBox => {
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  const rects = [...range.getClientRects()].filter((r) => r.width > 0);
-  return {
-    left: Math.min(...rects.map((r) => r.left)),
-    right: Math.max(...rects.map((r) => r.right)),
-    top: Math.min(...rects.map((r) => r.top)),
-    multiline: Math.max(...rects.map((r) => r.bottom)) - Math.min(...rects.map((r) => r.top)) > 1.5 * parseFloat(getComputedStyle(el).lineHeight),
-  };
-};
 
 test('the penalties table is readable on a desktop and on a phone', async ({ page, request }) => {
   await ensureSetup(page, request);

@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+// DOM types for textBox, which runs in the page.
 import { type APIRequestContext, type Page, expect } from '@playwright/test';
 import { BOT_TOKEN, CLIENT_SECRET, IDS } from '../support/discord-world';
 
@@ -23,3 +25,26 @@ export async function ensureSetup(page: Page, request: APIRequestContext) {
   expect((await api.post('/api/setup/roles', { data: { organizerRoleId: IDS.organizerRole, headJudgeRoleId: IDS.headJudgeRole } })).ok()).toBe(true);
   expect((await api.post('/api/setup/finish')).ok()).toBe(true);
 }
+
+/**
+ * Where an element's rendered text sits, from the boxes of its text, so padding and wrapping show as they render.
+ * Playwright can't pass a function into the page, so callers send its source and rebuild it there.
+ */
+export interface TextBox {
+  left: number;
+  right: number;
+  top: number;
+  /** More than one line when the text is taller than one and a half of the element's line height. */
+  multiline: boolean;
+}
+export const textBox = (el: Element): TextBox => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+  return {
+    left: Math.min(...rects.map((r) => r.left)),
+    right: Math.max(...rects.map((r) => r.right)),
+    top: Math.min(...rects.map((r) => r.top)),
+    multiline: Math.max(...rects.map((r) => r.bottom)) - Math.min(...rects.map((r) => r.top)) > 1.5 * parseFloat(getComputedStyle(el).lineHeight),
+  };
+};
