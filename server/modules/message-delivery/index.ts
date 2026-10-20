@@ -81,6 +81,10 @@ export function createMessageDeliveryService(opts: {
   let failures = 0;
   let starts: number[] = [];
   let lastSweep: number | null = null;
+  /** Bumped by each stop, so a loop a stop left behind can't keep running beside a new one. */
+  let generation = 0;
+  /** DM sends in flight. Discord can't be interrupted, so a stop doesn't wait for them; their results are dropped. */
+  let sending = 0;
 
   function setState(next: DeliveryState): void {
     if (next === state) return;
@@ -116,8 +120,10 @@ export function createMessageDeliveryService(opts: {
     batch.poll.abort(reason);
   }
 
-  async function loop(): Promise<void> {
-    while (!stopped) {
+  /** Runs until stopped. A loop a stop left behind (still waiting on Discord) ends as soon as it wakes. */
+  async function loop(gen: number): Promise<void> {
+    const live = () => !stopped && gen === generation;
+    while (live()) {
       let waitMs: number;
       try {
         waitMs = await cycle();
@@ -128,10 +134,8 @@ export function createMessageDeliveryService(opts: {
         failures = next.failures;
         setState(next.state);
         waitMs = next.waitMs;
-      } finally {
-        batch = null;
       }
-      if (!stopped) await sleep(waitMs, null, true);
+      if (live()) await sleep(waitMs, null, true);
     }
   }
 
@@ -153,6 +157,16 @@ export function createMessageDeliveryService(opts: {
 
     const current = { poll: new AbortController(), discard: new AbortController() };
     batch = current;
+    try {
+      return await pollAndDeliver(connection, current);
+    } finally {
+      // A loop a stop left behind must not clear the batch of the loop that replaced it.
+      if (batch === current) batch = null;
+    }
+  }
+
+  /** One poll and the messages it hands out, bound to the connection that polled. */
+  async function pollAndDeliver(connection: { baseUrl: string; token: string }, current: NonNullable<typeof batch>): Promise<number> {
     const key = connectionKey(connection.baseUrl);
     const channel = opts.messages(connection);
     const startedAt = clock.now();
@@ -203,10 +217,13 @@ export function createMessageDeliveryService(opts: {
       const decision = decide(message, recipient, clock.now());
       if ('send' in decision) {
         let outcome: Parameters<typeof toResult>[0];
+        sending += 1;
         try {
           outcome = await opts.gateway().sendDirectMessage(decision.send.userId, decision.send.content);
         } catch (error) {
           outcome = { error };
+        } finally {
+          sending -= 1;
         }
         result = toResult(outcome);
       } else {
@@ -252,19 +269,25 @@ export function createMessageDeliveryService(opts: {
         if (next === 'connected') wakeIdle?.();
         else stopBatch('bot');
       });
-      running = loop();
+      running = loop(generation);
     },
 
-    /** Aborts the poll and anything in hand, and resolves once the loop has ended. Nothing is written after it. */
+    /**
+     * Aborts the poll and anything in hand. Resolves once the loop has ended, or at once while a DM send is in flight:
+     * Discord can take 45 s to answer, and the bot's logout and the database's close wait behind this. Nothing is
+     * written or reported after it.
+     */
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
+      generation += 1;
       unsubscribe?.();
       unsubscribe = null;
       stopBatch('stop');
       wakeIdle?.();
-      await running;
+      const ending = running;
       running = null;
+      if (sending === 0) await ending;
     },
 
     status(): DeliveryStatus {
@@ -278,6 +301,9 @@ export function createMessageDeliveryService(opts: {
     connectionChanged(change: { before: { baseUrl: string } | null; after: { baseUrl: string } | null }): void {
       stopBatch('connection');
       if (change.before && !change.after) store.forget(connectionKey(change.before.baseUrl));
+      // The old token's or address's problem no longer applies; the next poll, made at once, says whether a new one does.
+      failures = 0;
+      if (change.after && PROBLEM_STATES.has(state)) setState('polling');
       wakeIdle?.();
     },
   };

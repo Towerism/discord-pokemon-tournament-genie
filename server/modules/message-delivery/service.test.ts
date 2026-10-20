@@ -426,6 +426,17 @@ describe('a connection change', () => {
     expect(service.status().state).toBe('off');
   });
 
+  it('drops an old problem as soon as the organizer saves the connection again', async () => {
+    httpA.nextPoll({ kind: 'status', status: 403, code: 'insufficient_scope' });
+    service.start();
+    await scheduler.nextTimer();
+    expect(service.status().state).toBe('missing_scope');
+    service.connectionChanged({ before: { baseUrl: httpA.url }, after: { baseUrl: httpA.url } });
+    expect(service.status().state).toBe('polling');
+    await httpA.pollWaiting();
+    expect(service.status().state).toBe('polling');
+  });
+
   it('keeps the records when only the token changes', async () => {
     await started();
     await handOut(httpA, wire(7));
@@ -459,11 +470,42 @@ describe('stopping and sweeping', () => {
     await started();
     httpA.deliver(wire(1));
     await sending;
-    const stopping = service.stop();
+    // stop() resolves while Discord still holds the send: shutdown never waits on Discord.
+    await service.stop();
     release();
-    await stopping;
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(discord.directMessages).toHaveLength(1);
     expect(rows()).toEqual([]);
     expect(httpA.results).toEqual([]);
+    expect(httpA.polls).toHaveLength(1);
+  });
+
+  it('runs one loop when started again while a stopped one still waits on Discord', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const send = gateway.sendDirectMessage.bind(gateway);
+    let first = true;
+    gateway = {
+      ...gateway,
+      sendDirectMessage: async (userId, content) => {
+        if (first) {
+          first = false;
+          await held;
+        }
+        return send(userId, content);
+      },
+    };
+    await started();
+    httpA.deliver(wire(1));
+    await expect.poll(() => first).toBe(false);
+    await service.stop();
+    service.start();
+    await httpA.pollWaiting();
+    release();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(httpA.polls).toHaveLength(2);
+    expect(httpA.waitingPolls()).toBe(1);
+    expect(rows()).toEqual([]);
   });
 
   it('deletes records older than 30 days at start, and again once a day has passed', async () => {
