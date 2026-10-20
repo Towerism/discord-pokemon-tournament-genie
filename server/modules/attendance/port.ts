@@ -38,6 +38,28 @@ export interface AttendanceSource {
   getDay(date: string): Promise<AttendanceDay>;
 }
 
+/**
+ * One message from attendance's Discord channel (attendance ADR-0015 §7). `malformed`: its `id` is usable but the
+ * rest isn't, so Genie reports it failed without sending it.
+ */
+export type PolledMessage =
+  | { kind: 'message'; id: number; playerId: string; text: string; link: { label: string; url: string } | null; expiresAt: number }
+  | { kind: 'malformed'; id: number };
+
+/** What Genie reports for a message. The first three are final in attendance; `failed` is retried there. */
+export type MessageResult = { status: 'delivered' | 'no_discord_user' | 'dm_refused' } | { status: 'failed'; reason: string };
+
+/** The other half of attendance's channel: hand out messages to send, take back what happened to each. */
+export interface AttendanceMessages {
+  /**
+   * The long poll: answers as soon as attendance has a message to hand out, or after `waitSeconds` with none.
+   * @throws AttendanceAuthError | AttendanceRateLimitedError | AttendanceRejectedError | AttendanceUnavailableError | AttendanceBadResponseError
+   */
+  poll(opts: { waitSeconds: number; limit: number; signal: AbortSignal }): Promise<PolledMessage[]>;
+  /** `not_found` for attendance's 404 `message_not_found`; otherwise throws as `poll` does. */
+  report(id: number, result: MessageResult, signal?: AbortSignal): Promise<'recorded' | 'not_found'>;
+}
+
 /** Network error, timeout, or a 5xx without an error code: worth retrying later. */
 export class AttendanceUnavailableError extends Error {
   override name = 'AttendanceUnavailableError';
@@ -56,7 +78,10 @@ export class AttendanceRateLimitedError extends Error {
 /** Attendance answered with a reason of its own (another 4xx, or a 5xx with a code such as `professor_unidentified`). */
 export class AttendanceRejectedError extends Error {
   override name = 'AttendanceRejectedError';
-  constructor(readonly upstreamCode: string | null, status: number) {
+  constructor(
+    readonly upstreamCode: string | null,
+    readonly status: number,
+  ) {
     super(`Attendance refused the read (${status}${upstreamCode ? `, ${upstreamCode}` : ''}).`);
   }
 }

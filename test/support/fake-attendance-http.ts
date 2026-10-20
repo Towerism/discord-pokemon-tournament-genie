@@ -25,10 +25,40 @@ export interface FakeAttendanceHttp {
   readonly requests: { path: string; authorization: boolean; tokenMatched: boolean }[];
   /** The next day reads misbehave this way, one per entry. */
   next(...modes: AttendanceHttpMode[]): void;
+
+  // The Discord message channel (attendance ADR-0015 §7).
+  /** Wire messages the next poll hands out, oldest first; a handed-out message leaves the queue. */
+  readonly queue: unknown[];
+  /** Queues messages and answers a waiting poll with them. */
+  deliver(...messages: unknown[]): void;
+  /** Answers a waiting poll with whatever is queued, possibly nothing (as attendance does when `wait` runs out). */
+  answerPolls(): void;
+  /** Resolves once a poll is waiting (at once if one already is). */
+  pollWaiting(): Promise<void>;
+  /** Polls held right now. */
+  waitingPolls(): number;
+  /** Every poll that arrived, with its query and whether the client gave up on it. */
+  readonly polls: { wait: string | null; limit: string | null; tokenMatched: boolean; aborted: boolean }[];
+  /** The next polls answer this way instead, one per entry. */
+  nextPoll(...answers: PollAnswer[]): void;
+  /** Every result attendance accepted (204), in order. */
+  readonly results: { id: number; body: unknown }[];
+  /** The next result posts answer this way instead of 204, one per entry. */
+  nextResult(...answers: { status: number; code?: string; retryAfter?: string }[]): void;
   close(): Promise<void>;
 }
 
+/** A one-shot answer to the next poll. */
+export type PollAnswer =
+  | { kind: 'status'; status: number; code?: string; retryAfter?: string }
+  | { kind: 'redirect' }
+  | { kind: 'oversize'; bytes: number }
+  | { kind: 'not_json' }
+  | { kind: 'body'; body: unknown };
+
 const DAY_PATH = /^\/api\/integrations\/v1\/days\/([^/]+)$/;
+const MESSAGES_PATH = '/api/integrations/v1/messages';
+const RESULT_PATH = /^\/api\/integrations\/v1\/messages\/([^/]+)\/result$/;
 
 /**
  * Attendance's `GET /api/integrations/v1/days/{date}` over HTTP (attendance #115), for the adapter's tests, the contract
@@ -37,7 +67,19 @@ const DAY_PATH = /^\/api\/integrations\/v1\/days\/([^/]+)$/;
  */
 export async function startFakeAttendanceHttp(opts: { token: string }): Promise<FakeAttendanceHttp> {
   const modes: AttendanceHttpMode[] = [];
+  const pollAnswers: PollAnswer[] = [];
+  const resultAnswers: { status: number; code?: string; retryAfter?: string }[] = [];
   const sockets = new Set<Socket>();
+  /** Held polls: each answers with up to `limit` queued messages. */
+  const waiting = new Set<{ res: ServerResponse; limit: number }>();
+  let onWaiting: Array<() => void> = [];
+
+  const answerWaiting = () => {
+    for (const poll of [...waiting]) {
+      waiting.delete(poll);
+      send(poll.res, 200, { messages: state.queue.splice(0, poll.limit) });
+    }
+  };
   const state: FakeAttendanceHttp = {
     url: '',
     token: opts.token,
@@ -46,6 +88,22 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
     requests: [],
     next: (...next) => {
       modes.push(...next);
+    },
+    queue: [],
+    deliver: (...messages) => {
+      state.queue.push(...messages);
+      answerWaiting();
+    },
+    answerPolls: answerWaiting,
+    pollWaiting: () => (waiting.size ? Promise.resolve() : new Promise((resolve) => onWaiting.push(resolve))),
+    waitingPolls: () => waiting.size,
+    polls: [],
+    nextPoll: (...answers) => {
+      pollAnswers.push(...answers);
+    },
+    results: [],
+    nextResult: (...answers) => {
+      resultAnswers.push(...answers);
     },
     close: () =>
       new Promise((resolve) => {
@@ -77,6 +135,20 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
       return send(res, 204, null);
     }
     if (path === '/elsewhere') return send(res, 200, { moved: true });
+
+    if (req.method === 'GET' && path === MESSAGES_PATH) return poll(req, res, auth);
+    const result = RESULT_PATH.exec(path);
+    if (req.method === 'POST' && result) {
+      if (auth !== `Bearer ${state.token}`) return send(res, 401, { statusCode: 401, message: 'A valid integration token is required.', data: { code: 'invalid_token' } });
+      const sent = JSON.parse(await body(req)) as unknown;
+      const injected = resultAnswers.shift();
+      if (injected) {
+        if (injected.retryAfter !== undefined) res.setHeader('Retry-After', injected.retryAfter);
+        return send(res, injected.status, { statusCode: injected.status, message: 'injected', ...(injected.code ? { data: { code: injected.code } } : {}) });
+      }
+      state.results.push({ id: Number(result[1]), body: sent });
+      return send(res, 204, null);
+    }
 
     const match = DAY_PATH.exec(path);
     if (req.method !== 'GET' || !match) return send(res, 404, { statusCode: 404, message: 'Not found', data: { code: 'not_found' } });
@@ -115,6 +187,43 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
     if (state.raw.has(date)) return send(res, 200, state.raw.get(date));
     const day = state.days.get(date) ?? { date, timeZone: 'America/Chicago', tournaments: [], professors: [] };
     return send(res, 200, toWire(day));
+  }
+
+  /** The long poll: answers at once with queued messages or an injected answer, else holds until a test answers it. */
+  function poll(req: IncomingMessage, res: ServerResponse, auth: string) {
+    const query = new URL(req.url ?? '/', 'http://fake').searchParams;
+    const record = { wait: query.get('wait'), limit: query.get('limit'), tokenMatched: auth === `Bearer ${state.token}`, aborted: false };
+    state.polls.push(record);
+    if (!record.tokenMatched) return send(res, 401, { statusCode: 401, message: 'A valid integration token is required.', data: { code: 'invalid_token' } });
+    const injected = pollAnswers.shift();
+    switch (injected?.kind) {
+      case 'status':
+        if (injected.retryAfter !== undefined) res.setHeader('Retry-After', injected.retryAfter);
+        return send(res, injected.status, { statusCode: injected.status, message: 'injected', ...(injected.code ? { data: { code: injected.code } } : {}) });
+      case 'redirect':
+        res.writeHead(302, { location: `${state.url}/elsewhere` });
+        return res.end();
+      case 'oversize':
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(`{"messages": [], "pad": "${'x'.repeat(injected.bytes)}"}`);
+      case 'not_json':
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end('{"messages": ');
+      case 'body':
+        return send(res, 200, injected.body);
+      case undefined:
+        break;
+    }
+    const limit = Number(record.limit ?? 20);
+    if (state.queue.length) return send(res, 200, { messages: state.queue.splice(0, limit) });
+    const held = { res, limit };
+    waiting.add(held);
+    res.on('close', () => {
+      if (waiting.delete(held)) record.aborted = true;
+    });
+    const resolveAll = onWaiting;
+    onWaiting = [];
+    for (const resolve of resolveAll) resolve();
   }
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
