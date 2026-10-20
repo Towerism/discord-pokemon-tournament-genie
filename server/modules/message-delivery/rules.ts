@@ -74,7 +74,10 @@ export function toResult(outcome: 'sent' | 'refused' | 'unknown_user' | { error:
 
 export type PollOutcome = { kind: 'answered'; startedAt: number; messages: number } | { kind: 'failed'; error: unknown };
 
-/** The state a poll leaves, and how long to wait before the next (FR-5's table). `failures` counts outages in a row. */
+/**
+ * The state a poll leaves, and how long to wait before the next (ADR-0017's limits): a refusal the organizer must fix
+ * waits 5 min, a 429 its `Retry-After`, an outage from 5 s doubling to 60 s. `failures` counts outages in a row.
+ */
 export function afterPoll(history: { failures: number }, outcome: PollOutcome, now: number): { state: DeliveryState; waitMs: number; failures: number } {
   if (outcome.kind === 'answered') {
     const took = now - outcome.startedAt;
