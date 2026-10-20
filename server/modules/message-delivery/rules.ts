@@ -2,6 +2,7 @@
  * The decisions behind delivering attendance's messages (issue #51, ADR-0017), as pure functions: whether a message is
  * sent and to whom, what Discord's answer means for attendance, and when to poll next.
  */
+import type { DeliveryState } from '../../../shared/delivery';
 import {
   AttendanceAuthError,
   AttendanceRateLimitedError,
@@ -24,17 +25,7 @@ export const REFUSED_RETRY_MS = 5 * 60_000;
 const OUTAGE_FIRST_MS = 5000;
 const OUTAGE_MAX_MS = 60_000;
 
-export type DeliveryState =
-  | 'off'
-  | 'waiting_for_bot'
-  | 'polling'
-  | 'token_refused'
-  | 'missing_scope'
-  | 'unsupported'
-  | 'rejected'
-  | 'token_unreadable'
-  | 'rate_limited'
-  | 'attendance_unreachable';
+export type { DeliveryState };
 
 /** What the DM says: the text, then the link (attendance ADR-0015 §7). */
 export function dmContent(text: string, link: { label: string; url: string } | null): string {
