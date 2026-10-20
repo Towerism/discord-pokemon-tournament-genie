@@ -636,6 +636,30 @@ export const job = sqliteTable(
   ],
 );
 
+export const DELIVERY_OUTCOMES = ['delivered', 'no_discord_user', 'dm_refused'] as const;
+
+/**
+ * Attendance messages Genie settled for good (owner: message-delivery, issue #51). Attendance hands a message out
+ * again until it takes a result, so a recorded one is reported again instead of sent twice. Keyed by the attendance
+ * that handed it out (a hash of its base URL), since another attendance numbers its messages from 1 too. No text,
+ * link, player ID or Discord user is kept.
+ */
+export const deliveredMessage = sqliteTable(
+  'delivered_message',
+  {
+    connectionKey: text('connection_key').notNull(),
+    messageId: integer('message_id').notNull(),
+    outcome: text('outcome', { enum: DELIVERY_OUTCOMES }).notNull(),
+    createdAt: integer('created_at').notNull(),
+    reportedAt: integer('reported_at'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.connectionKey, t.messageId] }),
+    index('delivered_message_created').on(t.createdAt),
+    check('delivered_message_outcome', sql`${t.outcome} in ('delivered', 'no_discord_user', 'dm_refused')`),
+  ],
+);
+
 export const jobEvent = sqliteTable(
   'job_event',
   {

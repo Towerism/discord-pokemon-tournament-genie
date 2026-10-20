@@ -45,6 +45,10 @@ export interface FakeAttendanceHttp {
   readonly results: { id: number; body: unknown }[];
   /** The next result posts answer this way instead of 204, one per entry. */
   nextResult(...answers: { status: number; code?: string; retryAfter?: string }[]): void;
+  /** Resolves once at least `count` results were accepted. */
+  resultsReached(count: number): Promise<void>;
+  /** Forgets the message channel's queue, polls, results and injected answers, between tests. */
+  resetMessages(): void;
   close(): Promise<void>;
 }
 
@@ -73,6 +77,7 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
   /** Held polls: each answers with up to `limit` queued messages. */
   const waiting = new Set<{ res: ServerResponse; limit: number }>();
   let onWaiting: Array<() => void> = [];
+  let resultWaiters: { count: number; resolve: () => void }[] = [];
 
   const answerWaiting = () => {
     for (const poll of [...waiting]) {
@@ -104,6 +109,20 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
     results: [],
     nextResult: (...answers) => {
       resultAnswers.push(...answers);
+    },
+    resultsReached: (count) =>
+      state.results.length >= count ? Promise.resolve() : new Promise((resolve) => resultWaiters.push({ count, resolve })),
+    resetMessages: () => {
+      // A poll held over from the last test would take the next test's messages.
+      for (const poll of waiting) poll.res.destroy();
+      waiting.clear();
+      onWaiting = [];
+      resultWaiters = [];
+      state.queue.length = 0;
+      state.polls.length = 0;
+      state.results.length = 0;
+      pollAnswers.length = 0;
+      resultAnswers.length = 0;
     },
     close: () =>
       new Promise((resolve) => {
@@ -147,7 +166,11 @@ export async function startFakeAttendanceHttp(opts: { token: string }): Promise<
         return send(res, injected.status, { statusCode: injected.status, message: 'injected', ...(injected.code ? { data: { code: injected.code } } : {}) });
       }
       state.results.push({ id: Number(result[1]), body: sent });
-      return send(res, 204, null);
+      send(res, 204, null);
+      const reached = resultWaiters.filter((w) => state.results.length >= w.count);
+      resultWaiters = resultWaiters.filter((w) => state.results.length < w.count);
+      for (const w of reached) w.resolve();
+      return;
     }
 
     const match = DAY_PATH.exec(path);
