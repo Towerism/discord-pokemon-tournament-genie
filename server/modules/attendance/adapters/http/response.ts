@@ -37,9 +37,13 @@ export async function readCapped(response: Response, maxBytes: number): Promise<
   return Buffer.concat(chunks).toString('utf8');
 }
 
+/** Attendance's own windows are 15 minutes; a longer wait is a bad header, and a timer past 2^31 ms fires at once. */
+const MAX_RETRY_AFTER_SECONDS = 3600;
+
 function retryAfter(header: string | null): number {
   const seconds = Number(header);
-  return header !== null && /^\d+$/.test(header.trim()) && Number.isSafeInteger(seconds) ? seconds : DEFAULT_RETRY_AFTER_SECONDS;
+  if (header === null || !/^\d+$/.test(header.trim()) || !Number.isSafeInteger(seconds)) return DEFAULT_RETRY_AFTER_SECONDS;
+  return Math.min(seconds, MAX_RETRY_AFTER_SECONDS);
 }
 
 /** h3's error body carries `data.code`; anything that isn't a plain code is dropped, never echoed. */

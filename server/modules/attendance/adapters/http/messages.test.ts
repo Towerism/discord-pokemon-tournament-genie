@@ -74,9 +74,16 @@ describe('polling attendance for messages', () => {
     ] as const) {
       await expect(poll()).rejects.toSatisfy((err) => err instanceof AttendanceRejectedError && err.status === status && err.upstreamCode === code);
     }
-    http.nextPoll({ kind: 'status', status: 429, retryAfter: '120' }, { kind: 'status', status: 429 }, { kind: 'status', status: 502 });
+    http.nextPoll(
+      { kind: 'status', status: 429, retryAfter: '120' },
+      { kind: 'status', status: 429 },
+      { kind: 'status', status: 429, retryAfter: '9999999999' },
+      { kind: 'status', status: 502 },
+    );
     await expect(poll()).rejects.toSatisfy((err) => err instanceof AttendanceRateLimitedError && err.retryAfterSeconds === 120);
     await expect(poll()).rejects.toSatisfy((err) => err instanceof AttendanceRateLimitedError && err.retryAfterSeconds === 60);
+    // A wait past an hour is capped: a timer past 2^31 ms would fire at once.
+    await expect(poll()).rejects.toSatisfy((err) => err instanceof AttendanceRateLimitedError && err.retryAfterSeconds === 3600);
     await expect(poll()).rejects.toBeInstanceOf(AttendanceUnavailableError);
   });
 
