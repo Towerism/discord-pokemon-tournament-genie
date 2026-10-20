@@ -85,4 +85,27 @@ describe('the attendance connection', () => {
     const other = createAttendanceConnectionService({ store: createSetupStore(database.db), vault: testVault(), clock, logger: silentLogger });
     expect(refusal(() => other.connection())).toBe('503 secrets_unreadable');
   });
+
+  it('tells the hook about every save and removal, after it is stored', () => {
+    const changes: unknown[] = [];
+    const watched = createAttendanceConnectionService({
+      store: createSetupStore(database.db),
+      vault,
+      clock,
+      logger: silentLogger,
+      onConnectionChanged: (change) => changes.push({ ...change, stored: watched.view().configured }),
+    });
+    watched.put({ baseUrl: 'http://attendance:3000/', token: TOKEN });
+    watched.put({ baseUrl: 'http://attendance:3000', token: OTHER });
+    watched.put({ baseUrl: 'http://other:3000', token: TOKEN });
+    expect(refusal(() => watched.put({ baseUrl: 'http://third:3000' }))).toBe('422 token_required');
+    watched.remove();
+    watched.remove();
+    expect(changes).toEqual([
+      { before: null, after: { baseUrl: 'http://attendance:3000' }, stored: true },
+      { before: { baseUrl: 'http://attendance:3000' }, after: { baseUrl: 'http://attendance:3000' }, stored: true },
+      { before: { baseUrl: 'http://attendance:3000' }, after: { baseUrl: 'http://other:3000' }, stored: true },
+      { before: { baseUrl: 'http://other:3000' }, after: null, stored: false },
+    ]);
+  });
 });
