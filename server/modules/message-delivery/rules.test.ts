@@ -52,6 +52,11 @@ describe('deciding what to do with a message', () => {
     expect(decide(message({ playerId: '12345678901' }), staff({ playerId: '12345678901' }), NOW)).toEqual({ report: { status: 'no_discord_user' } });
   });
 
+  it('reports no_discord_user, which attendance treats as final, before any retryable failure of the content', () => {
+    expect(decide(message({ link: { label: 'x', url: 'javascript:alert(1)' } }), null, NOW)).toEqual({ report: { status: 'no_discord_user' } });
+    expect(decide(message({ text: 'T'.repeat(2001), link: null }), null, NOW)).toEqual({ report: { status: 'no_discord_user' } });
+  });
+
   it('fails a malformed or expired message without sending it', () => {
     expect(decide({ kind: 'malformed', id: 7 }, staff(), NOW)).toEqual({ report: { status: 'failed', reason: 'bad_message' } });
     expect(decide(message({ expiresAt: NOW }), staff(), NOW)).toEqual({ report: { status: 'failed', reason: 'expired' } });

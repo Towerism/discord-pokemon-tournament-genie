@@ -41,10 +41,11 @@ export type Decision = { send: { userId: string; content: string } } | { report:
 export function decide(message: PolledMessage, recipient: StaffMember | null, now: number): Decision {
   if (message.kind === 'malformed') return failed('bad_message');
   if (message.expiresAt <= now) return failed('expired');
+  // No recipient is final for attendance, so it goes before the content checks, whose failures attendance retries.
+  if (!PLAYER_ID.test(message.playerId) || recipient?.linkState !== 'linked' || !recipient.discordUserId) return { report: { status: 'no_discord_user' } };
   if (message.link && !isWebUrl(message.link.url)) return failed('invalid_link');
   const content = dmContent(message.text, message.link);
   if (content.length > MAX_CONTENT) return failed('too_long');
-  if (!PLAYER_ID.test(message.playerId) || recipient?.linkState !== 'linked' || !recipient.discordUserId) return { report: { status: 'no_discord_user' } };
   return { send: { userId: recipient.discordUserId, content } };
 }
 
