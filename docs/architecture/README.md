@@ -103,6 +103,7 @@ flowchart LR
       PEN["penalties<br/>(records, catalog, CSV)"]
       CLOSE["closeout<br/>(lock, transcripts, exports, delete)"]
       IMP["attendance-import<br/>(day snapshot)"]
+      MSG["message-delivery<br/>(attendance's messages → DMs, ADR-0017)"]
       JOBS["jobs<br/>(runner, leases, timer)"]
     end
     ACC["shared/access<br/>canSee() (ADR-0010)"]
@@ -110,6 +111,7 @@ flowchart LR
     subgraph Ports
       DG[["DiscordGateway"]]
       AS[["AttendanceSource"]]
+      AM[["AttendanceMessages"]]
     end
     subgraph Adapters
       DJS["DiscordJsAdapter"]
@@ -121,7 +123,7 @@ flowchart LR
   DB[("SQLite (WAL)<br/>Drizzle")]
   FS[("/data/exports<br/>CSV + transcripts")]
   DISCORD["Discord API<br/>gateway + REST"]
-  ATT["attendance<br/>GET /api/integrations/v1/days/{date}"]
+  ATT["attendance<br/>GET /api/integrations/v1/days/{date}<br/>GET /api/integrations/v1/messages (long poll)<br/>POST …/messages/{id}/result"]
 
   SPA -- "HTTPS: JSON, session cookie" --> CADDY
   CADDY -- "Docker network" --> API
@@ -138,6 +140,9 @@ flowchart LR
   PEN --> DG
   DIR --> DG
   IMP --> AS --> AHTTP --> ATT
+  MSG --> AM --> AHTTP
+  MSG --> DG
+  MSG --> DIR
   DG --> DJS
   Modules --> DB
   CLOSE --> FS
@@ -206,10 +211,12 @@ server/
   bot/                        interaction router: slash commands, buttons, modals → module services
   modules/                    plain TS, no h3 / Nuxt / discord.js imports
     setup/  directory/  event-days/  provisioning/  penalties/  closeout/  attendance-import/
+    message-delivery/         attendance's Discord messages: the poll loop, its pure rules, delivered_message (ADR-0017)
     jobs/                     runner, per-day leases, job log, persisted timer (purge, retention sweep)
     discord/{port.ts, adapters/discordjs/, fake/}
-    attendance/{port.ts, adapters/http/}
+    attendance/{port.ts, adapters/http/}   the day read and the message channel (AttendanceSource, AttendanceMessages)
   plugins/                    bot.ts (log in, register commands), jobs.ts (start the runner and timer, boot recovery),
+                              messages.ts (start the message poller; it stops before the bot),
                               the kit's security-headers and request-log plugins
   db/                         schema, migrations, client
 shared/
@@ -320,6 +327,8 @@ interface DiscordGateway {
   // messages
   postMessage(channelId: Snowflake, msg: OutboundMessage): Promise<Snowflake>;
   editMessage(channelId: Snowflake, messageId: Snowflake, msg: OutboundMessage): Promise<void>;
+  // attendance's messages (ADR-0017): opens the user's DM channel; no mentions, link previews suppressed
+  sendDirectMessage(userId: Snowflake, content: string): Promise<'sent' | 'refused' | 'unknown_user'>;
   // close-out (M5): a thread's ID reads its history like a channel's
   readHistory(channelOrThreadId: Snowflake, before?: Snowflake): Promise<HistoryMessage[] | null>; // 100, newest first; null once gone
   getLatestMessageId(channelOrThreadId: Snowflake): Promise<Snowflake | null | 'gone'>; // purge's high-water check
@@ -426,6 +435,36 @@ See [ADR-0008](adr/0008-attendance-integration.md). In short:
   attendance's own day view already does (its ADR-0009, #75). Genie's adapter is built against a recorded contract fixture and
   an in-process fake, so the two can be built in parallel.
 
+#### Attendance's Discord messages
+
+See [ADR-0017](adr/0017-deliver-attendance-messages.md), the companion of attendance's ADR-0015 §7 (attendance
+v1.29.0, issue #51). Attendance sends professor invites and tournament-lease notices to a player ID; Genie turns each
+into a Discord direct message (DM) and reports what happened. Attendance never learns Discord IDs. In short:
+
+- **The wire.** `GET /api/integrations/v1/messages?wait=25&limit=20` is a long poll. It answers as soon as attendance
+  has a message to hand out, or after 25 s with none: `{ messages: [{ id, playerId, text, link: { label, url } | null,
+  expiresAt }] }`. `POST /api/integrations/v1/messages/{id}/result { status, reason? }` takes `delivered`,
+  `no_discord_user`, `dm_refused` (final) or `failed` (retried by attendance). The attendance connection's token
+  carries `messages:deliver` as well as `integrations:read`. Only `server/modules/attendance/adapters/http/` calls
+  these routes (`AttendanceMessages`).
+- **When Genie polls.** One loop in `message-delivery` keeps a poll open while setup is complete, a connection is
+  saved and the bot is connected (`BotRunner.isConnected()`, no Discord call). Attendance says "Genie isn't
+  connected" after 2 minutes without a poll, so a bot that can't send never looks available.
+- **Who gets a DM.** Only a staff member whose player ID matches and whose Discord link the organizer confirmed
+  (`linked`). A `/link` claim isn't enough: the message can carry a secret invite link. Anyone else is reported
+  `no_discord_user`.
+- **What the DM says.** The text, a blank line, then `label: url`, in one message, with no allowed mentions and link
+  previews suppressed. A link that isn't `http(s)`, content over 2,000 characters, an expired message and a malformed
+  one are reported `failed` and not sent. Discord's 50007 is `dm_refused`; 10013 and 50033 are `no_discord_user`.
+- **At least once, sent once.** A final outcome is recorded in `delivered_message`, keyed by a hash of the base URL
+  and the message ID, before it is reported. A message handed out again is reported from the record. Saving or
+  removing the connection drops the batch in hand, and removal forgets that connection's records.
+- **Limits.** A refusal to fix waits 5 min. An outage backs off from 5 s, doubling to 60 s, and 429 waits
+  `Retry-After`. An empty answer that came back at once is padded to 5 s. Genie starts at most 110 polls in any
+  15 minutes (attendance allows 120). No send starts 60 s after a poll answered.
+- **Settings** shows the delivery state as one sentence under the connection, with the fix for each problem
+  (`GET /api/settings/attendance` → `delivery`).
+
 ## 5. Domain model and data
 
 ### 5.1 Tenancy
@@ -474,6 +513,7 @@ erDiagram
 | `event_staff` | `event_id`, `staff_member_id`, `role` (`headjudge`/`judge`/`scorekeeper`/`administration`/`translator`/`streaming`), `imported` | play-tools/attendance's role codes, plus Genie's own `streaming`, which only an organizer sets ([ADR-0015](adr/0015-streaming-staff-role.md)): streaming staff aren't judges and see only `streaming` channels. Head judges of an event can edit/void its penalties. Only `imported` roles are ever proposed for removal by a refresh (§4.2). |
 | `attendance_connection` | `id` (= 1), `base_url`, `token_hint`, `updated_at` | Where attendance answers; the token itself is the sealed `attendance_token` (owner: `setup`). |
 | `attendance_snapshot` | `day_id` (PK), `snapshot_id`, `payload`, `plan_revision`, `day_state`, `fetched_at`, `fetched_by` | The day's latest pull, waiting to be accepted (owner: `attendance-import`, §4.2). |
+| `delivered_message` | `connection_key` + `message_id` (PK), `outcome` (`delivered`/`no_discord_user`/`dm_refused`), `created_at`, `reported_at?` | Attendance messages settled for good, so one handed out again is reported, not sent twice (owner: `message-delivery`, §4.2, [ADR-0017](adr/0017-deliver-attendance-messages.md)). `connection_key` is a SHA-256 of the base URL. No text, link, player ID or Discord user. Deleted after 30 days. |
 | `provisioned_channel` | `day_id`, `event_id?`, `blueprint_channel_key`, `discord_channel_id`, `applied_overwrites_hash`, `state` (`present`/`missing`/`deleted`), `locked_at?` | The **only** record of which Discord channels Genie owns. Written immediately after each create. `locked_at`: the close-out lock reached it, so a retried lock never writes it again (§6.5). |
 | `day_closeout` | `day_id`, `purge_refusal?`, `purge_refused_at?`, `last_failure?`, `alert_message_ids`, `transcripts_swept_at?`, `penalties_swept_at?` | Close-out's own state of a day (M5): the last refusal and failure for the alarms, Genie's own `#head-judges` alert posts (which the high-water check ignores), and what retention swept. |
 | `export_run` | `day_id`, `kind` (`export`/`reexport`/`attachments_retry`/`correction`), `job_id?`, `event_id?`, `state` (`running`/`succeeded`/`failed`), `content_intent?` | One export, re-export, attachment retry or correction (M5). Its files are current only once it `succeeded`; a run a stop cut short is failed at boot, and a failed run's files are deleted when the next run starts. |
@@ -887,7 +927,8 @@ logged (§4.1).
 | Unauthorized website use | Discord OAuth login; access requires membership in the bound guild **and** an organizer grant, or being a head judge on a day (that day's pages, scoped by `canSee()`). Sealed, httpOnly, `Secure`, SameSite=Lax cookies, `Secure` always ([ADR-0013](adr/0013-https-origin-for-website-login.md); S1's localhost row: Chrome treats `http://localhost` as a secure context, so `Secure` cookies work there too); the kit's `jsonOnly` middleware for CSRF; login rate-limited with the kit's `enforceRateLimit`; security headers from the kit's `securityHeadersPlugin`. Every login is written to `login_audit` with the grant that admitted it. |
 | The organizer role as a trust root | Anyone in the guild with Manage Roles can hand out the mapped organizer role, and with it every day channel and full website access. This is documented in Settings. Role-derived organizer logins are audited. The owner can turn on the **organizer allowlist**, which limits organizers to `owner ∪ (organizer role ∩ allowlist)`. An empty allowlist leaves only the owner, and Settings warns about that. |
 | Spoofed or replayed interactions | Gateway delivery only (no public endpoint). Every handler re-checks the caller against Genie's data. A replayed `/penalty` submission hits the idempotency key (§6.4). |
-| Attendance token theft | Stored in the vault; read-only scope on attendance's side; revocable there. |
+| Attendance token theft | Stored in the vault; revocable in attendance. Since attendance v1.29.0 the token is no longer read-only: with `messages:deliver` (ADR-0017), whoever holds it receives undelivered invite and reset links and can report false results, and a false `no_discord_user` revokes an invite. Such a link is still bound to its player ID where set, single use and short-lived. A separate token for messages is a possible later change (ADR-0017, option 2). An `http://` attendance address carries the links and the token in clear text on the LAN, which Genie accepts for a LAN install, as attendance itself does. |
+| Attendance as a message source | Genie trusts attendance as its owner's own app: a compromised or misconfigured attendance could DM any text. It would reach only staff the organizer linked, as plain bot text with no allowed mentions and no link previews, never in a guild channel. Revoking the token or removing the connection stops it (ADR-0017). |
 | Minors' data in penalties and transcripts | Penalties hold the competitor's player ID and the penalty facts, **no name**. Transcripts hold whatever staff typed. Exports are served `no-store`, downloads are audited, and a retention sweep deletes transcripts and penalty data after a configurable period (90 days for transcripts, 1 year for penalties). Logs redact message content, notes, tokens and secrets. |
 | CSV opened in a spreadsheet (formula injection, lost leading zeros) | The file is a submission artifact and is written verbatim (§6.6); the download page warns against editing it in Excel. Notes are entered only by authenticated staff. |
 | Losing penalties to an early delete | Purge requires a successful export with matching hashes; deletion is a separate, logged job. |
@@ -941,8 +982,8 @@ logged (§4.1).
   replicates only the database, never `secrets/`. Restore `secrets/` with `app.db`.
 - **Logs:** structured, through the kit's logger. Redaction is the kit's base key list (credentials such
   as token, secret, clientSecret, authorization, cookie) plus Genie's extras: `content`, `notes`,
-  `competitorPlayerId`, `voidReason`, `botToken`, `attendanceToken` and the env names of Genie's secrets
-  (`secretKeyNames`). Keys match by
+  `competitorPlayerId`, `voidReason`, `botToken`, `attendanceToken`, `text`, `link`, `linkUrl` (attendance's
+  messages, ADR-0017) and the env names of Genie's secrets (`secretKeyNames`). Keys match by
   name, so a secret logged under any other property name needs its own entry.
 
 ## 11. Testing strategy (outline)
@@ -992,8 +1033,12 @@ A case may only be added or changed together with a real-guild observation.
 | Attendance adapter | Contract, against a recorded fixture | Diff of a refresh; attendance down; a timezone mismatch is refused with both zones named; `game: null` → unconfirmed `other` |
 | Multi-organizer import | Contract, against a recorded fixture with two read professors and one unread | Every read professor's tournaments become events with their organizer. A tournament two professors list appears once. The warning names the unread professor. No connected professors → `422 no_connected_organizers` and an unchanged plan |
 | Refresh diff across organizers | Unit, property-based over random snapshot pairs and read/unread professor sets | Never proposes removing an event or its staff whose organizer is unread; proposes removal only for a read organizer's absent tournament |
+| Message delivery rules (ADR-0017) | Unit, pure, with a seeded property test | Who gets a DM (only a confirmed link), what fails unsent (expired, malformed, non-`http(s)` link, over 2,000 characters), how each Discord answer maps to a result, the poll-failure table, and that no two polls start closer than 5 s nor more than 110 in any 15 minutes |
+| Message delivery loop | Integration against the HTTP fake of attendance, the fake Discord and a real directory, on a fake clock and scheduler | DMs the fake Discord holds and results attendance received, in order: a message handed out again isn't sent twice; a connection change mid-batch sends nothing more to either attendance; a slow Discord stops sends 60 s after the poll; nothing is written after stop; logs hold no text, link, player ID or token |
+| Attendance message adapter | Contract, against a hand-written fixture validated by a copy of attendance's `MessagesV1` schema | Parses each message on its own (malformed, skipped); maps redirects, bad bodies, 401, 403, 404, 429 and 5xx to the port's errors |
+| DM through discord.js | Integration against the HTTP fake of Discord, plus a case on the test guild (`pnpm test:contract:discord`) | 50007, 10013 and 50033 answer `refused` or `unknown_user`; the body has no allowed mentions and suppressed embeds; no guild channel is touched |
 | Vault, Genie's configuration | Contract: the kit's `describeVaultContract` | Genie's vault seals and opens with its key and AADs; tampering, a wrong key or a wrong AAD throws the kit's `VaultError` |
-| Redaction, Genie's configuration | Contract: the kit's `describeRedactionContract` | mustHide: the bot token, OAuth client secret, attendance token, message content and notes, under the property names Genie logs them with. mustShow: ordinary fields such as `dayId`, `jobId`, `kind`, `guildId`, so redacting too much also fails |
+| Redaction, Genie's configuration | Contract: the kit's `describeRedactionContract` | mustHide: the bot token, OAuth client secret, attendance token, message content and notes, attendance messages' text and links, under the property names Genie logs them with. mustShow: ordinary fields such as `dayId`, `jobId`, `kind`, `guildId`, so redacting too much also fails |
 | Middleware and headers, Genie's configuration | Contract: the kit's `describeJsonOnly`, `describeBodySize`, `describeSecurityHeaders` | The kit's matrices pass for Genie's exempt paths and size limit. The transcript route carries its own sandbox CSP **and** keeps the kit's global headers (`X-Content-Type-Options: nosniff`, the frame and referrer headers) |
 | Unraid template | Contract: the kit's `checkUnraidTemplate` | No required field, secrets masked, image name matches CI |
 | E2E (Playwright) | E2E | Only the critical journeys: first-run setup (including the owner login inside the wizard) against a fake Discord; plan → open → close a day |
@@ -1123,3 +1168,4 @@ Answered by the owner on 2026-10-13:
 | [0014](adr/0014-penalty-form-selects-in-modal.md) | `/penalty` takes category, severity and penalty as selects in the modal | Accepted (2026-10-14) |
 | [0015](adr/0015-streaming-staff-role.md) | A Streaming event role that isn't a judge, and a `streaming` blueprint audience | Accepted (2026-10-15) |
 | [0016](adr/0016-invite-asks-for-pin-messages.md) | The invite asks for Pin Messages; a day opens and closes without it | Accepted (2026-10-19) |
+| [0017](adr/0017-deliver-attendance-messages.md) | Deliver attendance's messages as Discord direct messages through a long poll | Accepted (2026-10-20) |
