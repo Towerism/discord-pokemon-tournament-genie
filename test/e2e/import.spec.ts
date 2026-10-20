@@ -17,6 +17,9 @@ test('an organizer connects attendance and imports a day', async ({ page, reques
   await page.getByRole('button', { name: 'Save connection' }).click();
   await expect(page.getByText(/Connected to/)).toContainText(E2E_ATTENDANCE_TOKEN.slice(-4));
   await expect(page.getByLabel(/Integration token/)).toHaveValue('');
+  // Message delivery (ADR-0017): the e2e fake Discord has no gateway, so Genie waits for the bot and doesn't poll.
+  await expect(page.getByTestId('delivery-state')).toHaveText('Discord messages: waiting for the bot to connect.');
+  await expect(page.getByLabel(/Integration token/)).toHaveAccessibleDescription(/both scopes: Read the day, for imports, and Deliver messages/);
 
   await page.getByRole('link', { name: 'Days' }).click();
   await page.getByLabel('Date').fill('2026-10-14');
