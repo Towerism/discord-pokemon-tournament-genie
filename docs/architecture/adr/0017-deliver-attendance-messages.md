@@ -92,7 +92,9 @@ Option 1.
 - (−) Delivery is at least once. A DM can repeat when Genie crashes between sending and recording it, or when a send
   times out after Discord created the message (discord.js retries it, or Genie reports `failed` and sends again on the
   next hand-out). A repeated invite is harmless: the link is the same and single use.
-- (−) Restoring attendance from a backup at the same address brings back old message IDs, which Genie would answer
-  from its records without sending. After such a restore, the owner removes Genie's attendance connection and saves it
-  again, which clears those records.
+- (−) Restoring attendance from a backup at the same address brings back old message IDs, and reinstalling it there
+  numbers its messages from 1 again. For up to 30 days Genie would answer those IDs from its records, reporting
+  `delivered` without sending. After a restore or a reinstall, the owner removes Genie's attendance connection and saves
+  it again, which clears those records. Keying the records on an attendance instance ID, if attendance ever offers
+  one, would remove this step.
 - (−) Two Genie processes on one token can pass attendance's poll limit together. That setup isn't supported.
