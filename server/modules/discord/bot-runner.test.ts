@@ -128,6 +128,41 @@ describe('the bot runner', () => {
     await runner.stop();
     expect(scheduler.pending()).toBe(0);
   });
+
+  it('tells listeners each state change and answers isConnected without calling Discord', async () => {
+    const { discord, scheduler, runner } = setup();
+    const seen: string[] = [];
+    const unsubscribe = runner.onStateChange((state) => seen.push(state));
+    expect(runner.isConnected()).toBe(false);
+
+    await runner.start();
+    const calls = discord.restCalls;
+    expect(runner.isConnected()).toBe(true);
+    expect(discord.restCalls).toBe(calls);
+
+    discord.dropConnection('unavailable');
+    expect(runner.isConnected()).toBe(false);
+    await scheduler.fire();
+    expect(runner.isConnected()).toBe(true);
+    await runner.stop();
+    expect(runner.isConnected()).toBe(false);
+    expect(seen).toEqual(['connecting', 'connected', 'error', 'connecting', 'connected', 'stopped']);
+
+    unsubscribe();
+    await runner.start();
+    expect(seen).toHaveLength(6);
+  });
+
+  it('keeps notifying the other listeners when one throws', async () => {
+    const { runner } = setup();
+    const seen: string[] = [];
+    runner.onStateChange(() => {
+      throw new Error('a broken listener');
+    });
+    runner.onStateChange((state) => seen.push(state));
+    await runner.start();
+    expect(seen).toEqual(['connecting', 'connected']);
+  });
 });
 
 function fakeScheduler(): BotScheduler & { delays: number[]; fire(): Promise<void>; pending(): number } {
