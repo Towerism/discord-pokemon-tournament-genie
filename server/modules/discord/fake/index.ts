@@ -138,6 +138,10 @@ export interface FakeDiscord {
   readonly channels: Map<string, FakeChannel>;
   readonly threads: Map<string, FakeThread>;
   readonly messages: Map<string, FakeMessage>;
+  /** Every direct message the bot sent, in order. */
+  readonly directMessages: { userId: string; content: string }[];
+  /** User ID → how Discord answers a DM to them; without an entry, a user sharing a guild with the bot gets it. */
+  readonly dmBehaviour: Map<string, 'refused' | 'unknown_user'>;
   /** guild ID → the commands registered there. */
   readonly commands: Map<string, readonly CommandDefinition[]>;
   /** Every mutating call that reached the fake, applied or refused, in order. */
@@ -212,6 +216,8 @@ export function createFakeDiscord(): FakeDiscord {
   const channels = new Map<string, FakeChannel>();
   const threads = new Map<string, FakeThread>();
   const messages = new Map<string, FakeMessage>();
+  const directMessages: { userId: string; content: string }[] = [];
+  const dmBehaviour = new Map<string, 'refused' | 'unknown_user'>();
   const commands = new Map<string, readonly CommandDefinition[]>();
   const mutations: MutationRecord[] = [];
   const pendingFailures: WriteFailure[] = [];
@@ -232,6 +238,8 @@ export function createFakeDiscord(): FakeDiscord {
     channels,
     threads,
     messages,
+    directMessages,
+    dmBehaviour,
     commands,
     mutations,
     restCalls: 0,
@@ -565,6 +573,18 @@ export function createFakeDiscord(): FakeDiscord {
               pinned: false,
             });
             return id;
+          });
+        },
+        async sendDirectMessage(userId, content) {
+          return write('sendDirectMessage', userId, '', null, null, () => {
+            const behaviour = dmBehaviour.get(userId);
+            if (behaviour) return behaviour;
+            // Like Discord, the bot can DM only a user it shares a guild with.
+            const botId = appOf().botUserId;
+            const shared = [...guilds.values()].some((g) => g.members.has(botId) && g.members.has(userId));
+            if (!shared) return 'refused' as const;
+            directMessages.push({ userId, content });
+            return 'sent' as const;
           });
         },
         async editMessage(channelId, messageId, msg) {

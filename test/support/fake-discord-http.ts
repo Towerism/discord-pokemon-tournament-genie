@@ -13,6 +13,10 @@ export interface FakeDiscordHttp {
   failTokenExchange: boolean;
   /** Every request path, for asserting what Genie asked for. */
   requests: string[];
+  /** The body of every message posted in a DM channel, as sent. */
+  directMessageBodies: unknown[];
+  /** The next DM requests (opening the channel, then posting) answer these errors instead, one per entry. */
+  dmAnswers: { status: number; code: number }[];
   close(): Promise<void>;
 }
 
@@ -24,6 +28,8 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
   let nextUser: string | null = null;
   const codes = new Map<string, { userId: string; clientId: string; redirectUri: string }>();
   const accessTokens = new Map<string, string>();
+  /** DM channel ID → its user. */
+  const dmChannels = new Map<string, string>();
   let counter = 0;
 
   const state: FakeDiscordHttp = {
@@ -33,6 +39,8 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
     },
     failTokenExchange: false,
     requests: [],
+    directMessageBodies: [],
+    dmAnswers: [],
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 
@@ -213,7 +221,27 @@ export async function startFakeDiscordHttp(fake: FakeDiscord): Promise<FakeDisco
         });
       }
     }
+    // Direct messages: open the user's DM channel, then post in it.
+    if (req.method === 'POST' && path === '/api/users/@me/channels') {
+      const injected = state.dmAnswers.shift();
+      if (injected) return send(res, injected.status, { message: 'injected', code: injected.code });
+      const { recipient_id: userId } = JSON.parse(await body(req)) as { recipient_id: string };
+      const id = `7${userId}`;
+      dmChannels.set(id, userId);
+      return send(res, 200, { id, type: 1, recipients: [{ id: userId }] });
+    }
     m = /^\/api\/channels\/(\d+)\/messages$/.exec(path);
+    if (req.method === 'POST' && m && dmChannels.has(m[1]!)) {
+      const injected = state.dmAnswers.shift();
+      if (injected) return send(res, injected.status, { message: 'injected', code: injected.code });
+      const sent = JSON.parse(await body(req)) as { content: string };
+      state.directMessageBodies.push(sent);
+      const outcome = await gateway.sendDirectMessage(dmChannels.get(m[1]!)!, sent.content).catch((err: unknown) => err);
+      if (outcome === 'sent') return send(res, 200, { id: String(++counter), channel_id: m[1] });
+      if (outcome === 'refused') return send(res, 403, { message: 'Cannot send messages to this user', code: 50007 });
+      if (outcome === 'unknown_user') return send(res, 404, { message: 'Unknown User', code: 10013 });
+      return send(res, 503, { message: String(outcome) });
+    }
     if (req.method === 'POST' && m) {
       // Like Discord: a channel deleted by hand is 404 Unknown Channel, which discord.js doesn't retry.
       if (!fake.channels.has(m[1]!)) return send(res, 404, { message: 'Unknown Channel', code: 10003 });

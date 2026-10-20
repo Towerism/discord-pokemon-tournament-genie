@@ -157,6 +157,13 @@ export interface DiscordGateway {
   /** The bot's own message. `already_gone` when it no longer exists. */
   deleteMessage(channelId: Snowflake, messageId: Snowflake): Promise<'deleted' | 'already_gone'>;
   pinMessage(channelId: Snowflake, messageId: Snowflake): Promise<void>;
+  /**
+   * Opens the user's direct-message channel and posts `content` there, with no allowed mentions and link previews
+   * suppressed. Never a guild channel. `refused`: the user doesn't take DMs from the bot (Discord's 50007).
+   * `unknown_user`: Discord doesn't know the user (10013, or 50033 when opening the channel).
+   * @throws DiscordAuthError | DiscordUnavailableError | DiscordRequestError for any other refusal
+   */
+  sendDirectMessage(userId: Snowflake, content: string): Promise<'sent' | 'refused' | 'unknown_user'>;
 
   // Close-out (§6.5). A thread is a channel here: its ID reads its history.
   /** Up to 100 messages older than `before`, newest first; `[]` when none are left; `null` once the channel or thread is gone. */
