@@ -58,11 +58,25 @@ export function createBotRunner(opts: {
   let failures = 0;
   let cancelRetry: (() => void) | null = null;
   let generation = 0;
+  const listeners = new Set<(state: BotStatus['state']) => void>();
+
+  /** Tells each listener about a real change; a listener that throws can't stop the others or the runner. */
+  function setState(next: BotStatus['state']) {
+    if (next === state) return;
+    state = next;
+    for (const listener of listeners) {
+      try {
+        listener(next);
+      } catch (err) {
+        logger.warn('A bot state listener failed.', { err });
+      }
+    }
+  }
 
   async function attempt(gen: number): Promise<void> {
     if (gen !== generation) return; // a retry that fired after stop or restart
     cancelRetry = null;
-    state = 'connecting';
+    setState('connecting');
     error = undefined;
     let token: string;
     try {
@@ -81,7 +95,7 @@ export function createBotRunner(opts: {
       discord = next;
       const guild = guildId();
       if (guild) await next.bot.setGuildCommands(guild, commands);
-      state = 'connected';
+      setState('connected');
       failures = 0;
       logger.info('The bot is connected.', { guildId: guild });
     } catch (err) {
@@ -113,7 +127,7 @@ export function createBotRunner(opts: {
   }
 
   function fail(code: BotError, message: string, err?: unknown) {
-    state = 'error';
+    setState('error');
     error = code;
     logger.warn(message, { error: code, ...(err === undefined ? {} : { err }) });
   }
@@ -125,7 +139,7 @@ export function createBotRunner(opts: {
     cancelRetry = null;
     const current = discord;
     discord = null;
-    state = 'stopped';
+    setState('stopped');
     error = undefined;
     return current ? current.bot.disconnect() : Promise.resolve();
   }
@@ -134,7 +148,7 @@ export function createBotRunner(opts: {
     /** Starts (or restarts) the bot; resolves once the first attempt has settled. */
     async start(): Promise<void> {
       const previous = halt();
-      state = 'connecting';
+      setState('connecting');
       failures = 0;
       const gen = generation;
       await previous;
@@ -142,6 +156,15 @@ export function createBotRunner(opts: {
     },
     async stop(): Promise<void> {
       await halt();
+    },
+    /** Whether the gateway session is up, without asking Discord (the message poller reads it before each poll). */
+    isConnected(): boolean {
+      return state === 'connected';
+    },
+    /** Calls `listener` on every state change; answers a function that unsubscribes it. */
+    onStateChange(listener: (state: BotStatus['state']) => void): () => void {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
     },
     async status(): Promise<BotStatus> {
       const base: BotStatus = { state, missingPermissions: [], extraGuilds: [] };

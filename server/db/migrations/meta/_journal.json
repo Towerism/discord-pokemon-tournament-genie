@@ -43,6 +43,13 @@
       "when": 1792082173283,
       "tag": "0005_streaming_staff_role",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792474246907,
+      "tag": "0006_message_delivery",
+      "breakpoints": true
     }
   ]
 }

@@ -39,7 +39,7 @@ describe("Genie's vault", () => {
 
 describe("Genie's log redaction", () => {
   describeRedactionContract(redactor, {
-    mustHide: ['botToken', 'clientSecret', 'attendanceToken', 'content', 'notes', 'competitorPlayerId', 'voidReason', 'requestBody', 'filename', 'threadName', 'NUXT_VAULT_KEY', 'NUXT_SESSION_PASSWORD', 'vaultKey'],
-    mustShow: ['dayId', 'jobId', 'kind', 'guildId', 'tokenCount', 'userId', 'grant', 'penaltyId', 'eventId', 'reason', 'fileId', 'channelId', 'threadId'],
+    mustHide: ['botToken', 'clientSecret', 'attendanceToken', 'content', 'notes', 'competitorPlayerId', 'voidReason', 'requestBody', 'filename', 'threadName', 'NUXT_VAULT_KEY', 'NUXT_SESSION_PASSWORD', 'vaultKey', 'text', 'link', 'linkUrl'],
+    mustShow: ['dayId', 'jobId', 'kind', 'guildId', 'tokenCount', 'userId', 'grant', 'penaltyId', 'eventId', 'reason', 'fileId', 'channelId', 'threadId', 'messageId', 'status', 'state'],
   });
 });

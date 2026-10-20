@@ -1,0 +1,18 @@
+{
+  "messages": [
+    {
+      "id": 41,
+      "playerId": "1234567",
+      "text": "Olive Oak invited you to Cerulean League on play-tools attendance. The link works once and expires on 23 October.",
+      "link": { "label": "Accept the invite", "url": "https://attendance.example/invite/Zq3vR8cK1mN0pL5sT2wX9yB4" },
+      "expiresAt": "2026-10-23T15:04:05.000Z"
+    },
+    {
+      "id": 42,
+      "playerId": "0000222",
+      "text": "Olive Oak lent you Brock Cup (26-10-000002) until 26 October.",
+      "link": null,
+      "expiresAt": "2026-10-26T05:00:00.000Z"
+    }
+  ]
+}

@@ -185,3 +185,36 @@ describe('the fake bot session', () => {
     expect(await discord.dispatch({ ...base, kind: 'modal' })).toEqual(['Recorded #1 for LC.']);
   });
 });
+
+describe('the fake gateway’s direct messages', () => {
+  const ASH = '100000000000000001';
+
+  it('sends a DM to a member of a guild the bot is in, and posts nothing in a channel', async () => {
+    const { discord, gateway } = world();
+    expect(await gateway.sendDirectMessage(ASH, 'Your invite')).toBe('sent');
+    expect(discord.directMessages).toEqual([{ userId: ASH, content: 'Your invite' }]);
+    expect(discord.messages.size).toBe(0);
+  });
+
+  it('refuses a user who shares no guild with the bot, as Discord does', async () => {
+    const { discord, gateway } = world();
+    expect(await gateway.sendDirectMessage('100000000000000077', 'Your invite')).toBe('refused');
+    expect(discord.directMessages).toEqual([]);
+  });
+
+  it('answers what a test set for a user', async () => {
+    const { discord, gateway } = world();
+    discord.dmBehaviour.set(ASH, 'refused');
+    expect(await gateway.sendDirectMessage(ASH, 'x')).toBe('refused');
+    discord.dmBehaviour.set(ASH, 'unknown_user');
+    expect(await gateway.sendDirectMessage(ASH, 'x')).toBe('unknown_user');
+    expect(discord.directMessages).toEqual([]);
+  });
+
+  it('fails an injected unavailable send without sending', async () => {
+    const { discord, gateway } = world();
+    discord.failNext('unavailable');
+    await expect(gateway.sendDirectMessage(ASH, 'x')).rejects.toBeInstanceOf(DiscordUnavailableError);
+    expect(discord.directMessages).toEqual([]);
+  });
+});

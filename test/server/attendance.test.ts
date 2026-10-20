@@ -81,7 +81,10 @@ afterAll(async () => {
 
 describe('the attendance connection', () => {
   it('stores the address and a hint, never answers the token, and needs the token again for a new address', async () => {
-    expect(ok(await organizer.get('/api/settings/attendance'))).toEqual({ configured: false });
+    expect(ok(await organizer.get('/api/settings/attendance'))).toEqual({
+      configured: false,
+      delivery: { state: 'off', since: null, lastPollAt: null, lastResultAt: null },
+    });
     expect(code(await putConnection(organizer, { baseUrl: `${attendance.url}/` }))).toBe('token_required');
 
     const saved = ok(await putConnection(organizer, { baseUrl: `${attendance.url}/`, token: TOKEN }));
@@ -92,6 +95,15 @@ describe('the attendance connection', () => {
     const moved = await putConnection(organizer, { baseUrl: 'http://127.0.0.1:9' });
     expect([moved.status, code(moved)]).toEqual([422, 'token_required']);
     expect(ok(await organizer.get('/api/settings/attendance'))).toMatchObject({ baseUrl: attendance.url });
+  });
+
+  it('says whether Genie delivers attendance’s messages, without the token or any message', async () => {
+    ok(await putConnection(organizer, { baseUrl: attendance.url, token: TOKEN }));
+    // The built app's fake Discord has no gateway, so the bot never connects and Genie doesn't poll.
+    await expect.poll(async () => (ok(await organizer.get('/api/settings/attendance')) as { delivery: { state: string } }).delivery.state).toBe('waiting_for_bot');
+    const body = JSON.stringify(ok(await organizer.get('/api/settings/attendance')));
+    expect(body).not.toContain(TOKEN);
+    expect(attendance.polls).toHaveLength(0);
   });
 
   it('refuses the secret from an address that isn’t allowed', async () => {

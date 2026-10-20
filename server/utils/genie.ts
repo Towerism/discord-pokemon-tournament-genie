@@ -14,6 +14,8 @@ import { createCloseoutHandlers } from '../bot/closeout-handlers';
 import { BOT_COMMANDS, createBotHandlers } from '../bot/handlers';
 import { PENALTY_COMMANDS, createPenaltyHandlers } from '../bot/penalty-handlers';
 import { createAttendanceHttp } from '../modules/attendance/adapters/http';
+import { createAttendanceMessagesHttp } from '../modules/attendance/adapters/http/messages';
+import { createMessageDeliveryService, systemDelayScheduler } from '../modules/message-delivery';
 import { createAttendanceImportService } from '../modules/attendance-import';
 import { createCloseoutService } from '../modules/closeout';
 import { createAttachmentFetcher } from '../modules/closeout/adapters/cdn';
@@ -121,7 +123,29 @@ export const useEventDays = once((): EventDaysService =>
 );
 
 export const useAttendanceConnection = once(() =>
-  createAttendanceConnectionService({ store: useStore(), vault: useVault(), clock: systemClock, logger: useLogger('attendance') }),
+  createAttendanceConnectionService({
+    store: useStore(),
+    vault: useVault(),
+    clock: systemClock,
+    logger: useLogger('attendance'),
+    onConnectionChanged: (change) => useMessageDelivery().connectionChanged(change),
+  }),
+);
+
+/** Attendance's Discord messages, sent as DMs through the bot while it is connected (ADR-0017). */
+export const useMessageDelivery = once(() =>
+  createMessageDeliveryService({
+    db: useDatabase().db,
+    clock: systemClock,
+    logger: useLogger('message-delivery'),
+    scheduler: systemDelayScheduler,
+    directory: useDirectory(),
+    ready: () => useSetup().isComplete(),
+    connection: () => useAttendanceConnection().connection(),
+    messages: (connection) => createAttendanceMessagesHttp({ ...connection, maxBytes: 256 * 1024 }),
+    gateway: useGateway,
+    bot: { isConnected: () => useBot().isConnected(), onStateChange: (listener) => useBot().onStateChange(listener) },
+  }),
 );
 
 /** Attendance through the stored connection; the adapter is built per pull, so a saved connection applies at once. */

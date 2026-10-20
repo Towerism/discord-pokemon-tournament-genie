@@ -33,6 +33,9 @@ export default defineConfig({
         'shared/closeout/**': { branches: 95 },
         'server/modules/closeout/adapters/**': { branches: 95 },
         'server/modules/closeout/**': { branches: 90 },
+        // #51: whether an invite link is sent, to whom, and whether attendance's poll limit holds.
+        'server/modules/message-delivery/rules.ts': { branches: 95 },
+        'server/modules/message-delivery/**': { branches: 90 },
       },
     },
     projects: [

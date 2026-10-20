@@ -15,8 +15,15 @@ export function normalizeBaseUrl(raw: string): string {
  * never leaves this module in clear except to the attendance adapter. A new base URL needs the token typed again, so
  * the sealed token can't be pointed at another host.
  */
-export function createAttendanceConnectionService(opts: { store: SetupStore; vault: StringVault; clock: Clock; logger: Logger }) {
-  const { store, vault, clock, logger } = opts;
+export function createAttendanceConnectionService(opts: {
+  store: SetupStore;
+  vault: StringVault;
+  clock: Clock;
+  logger: Logger;
+  /** Called after every save and every removal of a stored connection (message delivery drops what it holds). */
+  onConnectionChanged?: (change: { before: { baseUrl: string } | null; after: { baseUrl: string } | null }) => void;
+}) {
+  const { store, vault, clock, logger, onConnectionChanged = () => {} } = opts;
   const AAD = aadFor('attendance_token');
 
   function view(): AttendanceConnectionView {
@@ -41,12 +48,15 @@ export function createAttendanceConnectionService(opts: { store: SetupStore; vau
       }
       const saved = view();
       logger.info('Attendance connection saved.', saved.configured ? { baseUrl: saved.baseUrl, tokenHint: saved.tokenHint } : {});
+      onConnectionChanged({ before: stored ? { baseUrl: stored.baseUrl } : null, after: { baseUrl } });
       return saved;
     },
 
     remove(): void {
+      const stored = store.attendanceConnection();
       store.removeAttendanceConnection();
       logger.info('Attendance connection removed.');
+      if (stored) onConnectionChanged({ before: { baseUrl: stored.baseUrl }, after: null });
     },
 
     /** The URL and the token in clear, for the adapter only; `null` when none is configured. */

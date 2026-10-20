@@ -67,6 +67,10 @@ const MISSING_ACCESS = 50001;
 const MISSING_PERMISSIONS = 50013;
 const UNKNOWN_CHANNEL = 10003;
 const UNKNOWN_MESSAGE = 10008;
+/** Direct messages: the user doesn't take DMs from the bot; Discord doesn't know the user. */
+const CANNOT_DM_USER = 50007;
+const UNKNOWN_USER = 10013;
+const INVALID_RECIPIENT = 50033;
 const MEMBER_PAGE = 1000;
 const HISTORY_PAGE = 100;
 /** Discord's message type for a reply. */
@@ -220,6 +224,19 @@ export function createDiscordJs(opts: { apiUrl: string; logger: Logger }): Creat
       async postMessage(channelId, msg) {
         const sent = await call<{ id: string }>(() => rest.post(Routes.channelMessages(channelId), { body: messageBody(msg), reason: 'Tournament Genie: post a message' }));
         return sent.id;
+      },
+      async sendDirectMessage(userId, content) {
+        try {
+          const channel = (await rest.post(Routes.userChannels(), { body: { recipient_id: userId } })) as { id: string };
+          await rest.post(Routes.channelMessages(channel.id), { body: { content, allowed_mentions: { parse: [] }, flags: MessageFlags.SuppressEmbeds } });
+          return 'sent';
+        } catch (err) {
+          // Read before translate(), which treats every 403 but 50013 as an outage and would hide a refused DM.
+          if (err instanceof DiscordAPIError && err.code === CANNOT_DM_USER) return 'refused';
+          if (err instanceof DiscordAPIError && (err.code === UNKNOWN_USER || err.code === INVALID_RECIPIENT)) return 'unknown_user';
+          if (err instanceof DiscordAPIError && err.status !== 401 && err.status < 500) throw new DiscordRequestError(err.status, err.code);
+          throw translate(err);
+        }
       },
       async editMessage(channelId, messageId, msg) {
         const edited = await orNull(() => rest.patch(Routes.channelMessage(channelId, messageId), { body: messageBody(msg) }), [UNKNOWN_MESSAGE, UNKNOWN_CHANNEL]);
